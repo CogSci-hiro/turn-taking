@@ -6,8 +6,6 @@
 # Keep logic here to avoid duplicating filesystem parsing in each rule file.
 #
 
-from __future__ import annotations
-
 import re
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
@@ -21,8 +19,6 @@ from snakemake.exceptions import WorkflowError
 # NOTE:
 # This stanza is harmless unless you run Snakemake with --use-conda.
 # It mirrors the style of your other project.
-conda:
-    CONDA_PY_ENV
 
 
 # =============================================================================
