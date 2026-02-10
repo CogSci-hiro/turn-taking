@@ -134,31 +134,27 @@ def _subjects_cfg() -> Dict:
 def include_subjects() -> Optional[Set[str]]:
     inc = _subjects_cfg().get("include")
     if inc:
-        return set(inc)
+        return {_norm_subject(x) for x in inc}
     return None
 
-
 def exclude_subjects() -> Set[str]:
-    return set(_subjects_cfg().get("exclude", []))
-
+    return {_norm_subject(x) for x in _subjects_cfg().get("exclude", [])}
 
 def tasks_cfg() -> Optional[Set[str]]:
     tasks = config.get("dataset", {}).get("tasks")
     if tasks:
-        return set(tasks)
+        return {_norm_task(t) for t in tasks}
     return None
-
 
 def runs_cfg() -> Optional[Set[int]]:
     runs = config.get("dataset", {}).get("runs")
     if runs:
-        return {int(r) for r in runs}
+        return {_norm_run(r) for r in runs}
     return None
-
 
 def invalid_subject_run() -> Set[Tuple[str, int]]:
     pairs = config.get("dataset", {}).get("invalid_subject_run", [])
-    return {(str(s), int(r)) for s, r in pairs}
+    return {(_norm_subject(s), _norm_run(r)) for s, r in pairs}
 
 
 def keep_epoch_file(p: Path) -> bool:
@@ -188,15 +184,53 @@ def keep_epoch_file(p: Path) -> bool:
 
 
 def epoch_inputs() -> List[str]:
-    """Return epoch files that actually exist after config-based filtering.
+    files_all = discover_epoch_files()
+    files_keep = [p for p in files_all if keep_epoch_file(p)]
 
-    This deliberately avoids generating a Cartesian product of subjects × runs.
-    """
-    files = [p for p in discover_epoch_files() if keep_epoch_file(p)]
-    if not files:
+    if not files_keep:
+        # show a small sample + the normalized filters
+        inc = include_subjects()
+        exc = exclude_subjects()
+        tasks = tasks_cfg()
+        runs = runs_cfg()
+        invalid = invalid_subject_run()
+
+        sample = "\n".join(str(p.name) for p in files_all[:10])
         raise WorkflowError(
-            "After applying config filters, no epoch files remain. "
-            "Check dataset.subjects.include/exclude, dataset.tasks, dataset.runs, "
-            "and dataset.invalid_subject_run."
+            "After applying config filters, no epoch files remain.\n\n"
+            f"Discovered: {len(files_all)} files\n"
+            f"Kept:       {len(files_keep)} files\n\n"
+            f"Normalized filters:\n"
+            f"  include_subjects={sorted(inc) if inc else None}\n"
+            f"  exclude_subjects={sorted(exc) if exc else []}\n"
+            f"  tasks={sorted(tasks) if tasks else None}\n"
+            f"  runs={sorted(runs) if runs else None}\n"
+            f"  invalid_subject_run(n)={len(invalid)}\n\n"
+            f"Sample discovered filenames:\n{sample}\n"
         )
-    return [str(p) for p in files]
+
+    return [str(p) for p in files_keep]
+
+
+def _norm_subject(s: str) -> str:
+    s = str(s).strip()
+    if s.startswith("sub-"):
+        return s
+    # allow "5", "05", "005"
+    if re.fullmatch(r"\d+",s):
+        return f"sub-{int(s):03d}"
+    return s  # fallback (leave as-is)
+
+
+def _norm_task(t: str) -> str:
+    t = str(t).strip()
+    if t.startswith("task-"):
+        return t.split("-", 1)[1]
+    return t
+
+
+def _norm_run(r) -> int:
+    r = str(r).strip()
+    if r.startswith("run-"):
+        r = r.split("-", 1)[1]
+    return int(r)
