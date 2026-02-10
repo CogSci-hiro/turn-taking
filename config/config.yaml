@@ -1,0 +1,9 @@
+epoch_dir: "/path/to/epochs"   # optional, defaults to out_dir/epochs
+epoch_task: "conversation"     # optional
+
+invalid_subject_run:
+  - ["sub-004", "1"]
+  - ["sub-004", "2"]
+  - ["sub-027", "8"]
+  - ["sub-028", "8"]
+  - ["sub-015", "3"]
