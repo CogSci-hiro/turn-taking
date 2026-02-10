@@ -1,6 +1,8 @@
 # src/turntaking/analysis/io/cluster.py
 
+import json
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 
@@ -12,36 +14,26 @@ def write_cluster_outputs(
     out_dir: Path,
     result: ClusterTestResult,
 ) -> None:
-    """
-    Write cluster test outputs deterministically.
-
-    Outputs
-    -------
-    - cluster_results.hdf5
-    - cluster_summary.csv
-    """
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # HDF5 payload
     hdf5_payload: dict[str, object] = {
-        "t-values": result.t_values,
-        "p-values": result.p_values,
-        "h0": result.h0,
+        "t-values": np.asarray(result.t_values, dtype=float),
+        "p-values": np.asarray(result.p_values, dtype=float),
+        "h0": np.asarray(result.h0, dtype=float),
     }
 
-    # clusters as indexed datasets
-    # clusters are tuples of index arrays (time_inds, space_inds) for spatio_temporal_cluster_1samp_test
+    # clusters: store index arrays as int
     for idx, cluster in enumerate(result.clusters):
         for dim_i, inds in enumerate(cluster):
             hdf5_payload[f"clusters/{dim_i}-{idx}"] = np.asarray(inds, dtype=int)
 
-    # metadata (store as small arrays / strings)
-    for k, v in result.metadata.items():
-        hdf5_payload[f"meta/{k}"] = np.array([v], dtype=object)
+    # ✅ Store metadata as a single JSON-encoded UTF-8 string (HDF5-friendly)
+    meta_json = json.dumps(result.metadata, sort_keys=True)
+    hdf5_payload["meta/json"] = np.bytes_(meta_json.encode("utf-8"))
 
     save_hdf5(out_dir / "cluster_results.hdf5", hdf5_payload)
 
-    # Summary CSV
+    # Summary CSV (human-readable)
     p = result.p_values
     summary = pd.DataFrame([{
         **result.metadata,
@@ -49,4 +41,4 @@ def write_cluster_outputs(
         "min_p": float(np.min(p)) if p.size else float("nan"),
         "n_p_lt_0_05": int(np.sum(p < 0.05)) if p.size else 0,
     }])
-    save_table(out_dir / "cluster_summary.csv", summary)
+    save_table(summary, out_dir / "cluster_summary.csv")
