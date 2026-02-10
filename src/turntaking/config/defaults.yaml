@@ -1,0 +1,8 @@
+paths:
+  raw_root: "/Volumes/work-4T/hyperscanning/raw"
+  derived_root: "/Volumes/work-4T/hyperscanning/derived/eeg"
+
+epoching:
+  tmin_s: -2.2
+  tmax_s: 0.5
+  event_name: "onset"
