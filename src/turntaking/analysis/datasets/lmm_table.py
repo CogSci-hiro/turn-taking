@@ -1,5 +1,6 @@
-"""
-Mixed-effects model table construction.
+"""turntaking.analysis.datasets.lmm_table
+
+Construct a tidy DataFrame for linear mixed-effects models.
 """
 
 from __future__ import annotations
@@ -17,7 +18,5 @@ def build_lmm_table(
     time_windows: dict,
     bands: dict,
 ) -> pd.DataFrame:
-    """
-    Build tidy dataframe for linear mixed-effects models.
-    """
+    """Build tidy dataframe for linear mixed-effects models."""
     raise NotImplementedError

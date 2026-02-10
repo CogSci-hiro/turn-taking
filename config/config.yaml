@@ -3,7 +3,7 @@
 # =============================================================================
 
 project:
-  workdir: "/Users/hiro/PycharmProjects/turn-taking-private/workflow"
+  workdir: "/Users/hiro/PycharmProjects/turn-taking-working/workflow"
   scripts_dir: "/Users/hiro/PycharmProjects/turn-taking-private/scripts"
 
 io:

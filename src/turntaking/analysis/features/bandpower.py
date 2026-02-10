@@ -1,7 +1,11 @@
-"""
+"""turntaking.analysis.features.bandpower
+
 Band-limited power features.
 """
 
+from __future__ import annotations
+
+from typing import Sequence
 
 import mne
 import numpy as np
@@ -22,7 +26,7 @@ def roi_time_window_mean_power(
     *,
     tmin: float,
     tmax: float,
-    roi_channels: list[str],
+    roi_channels: Sequence[str],
 ) -> np.ndarray:
     """Mean bandpower per epoch within ROI and time window."""
     raise NotImplementedError

@@ -1,4 +1,5 @@
-"""
+"""turntaking.analysis.decoding.run
+
 Decoding execution and scoring.
 """
 
@@ -14,7 +15,5 @@ def run_decoding(
     clf_cfg: dict,
     cv_cfg: dict,
 ) -> dict:
-    """
-    Run decoding and return scores and diagnostics.
-    """
+    """Run decoding and return scores and diagnostics."""
     raise NotImplementedError

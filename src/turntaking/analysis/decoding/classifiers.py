@@ -1,4 +1,5 @@
-"""
+"""turntaking.analysis.decoding.classifiers
+
 Classifier and estimator factories for decoding.
 """
 

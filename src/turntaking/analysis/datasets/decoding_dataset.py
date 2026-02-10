@@ -1,5 +1,6 @@
-"""
-Decoding dataset construction (X, y).
+"""turntaking.analysis.datasets.decoding_dataset
+
+Construct decoding arrays (X, y) plus trial-level metadata.
 """
 
 from __future__ import annotations
@@ -18,7 +19,5 @@ def build_decoding_dataset(
     selection_params: object,
     band: tuple[float, float] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, pd.DataFrame]:
-    """
-    Build decoding arrays and metadata.
-    """
+    """Build decoding arrays and metadata."""
     raise NotImplementedError
