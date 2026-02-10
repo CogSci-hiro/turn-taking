@@ -12,4 +12,5 @@ dependencies = [
   "mne",
   "numpy",
   "pandas",
+  "pyarrow >= 14.0"
 ]
