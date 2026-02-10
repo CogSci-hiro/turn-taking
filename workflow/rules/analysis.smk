@@ -19,7 +19,7 @@ TFR_OUT = [
 
 MIXED_OUT = [
     str(OUT / "mixed" / "manifest.json"),
-    str(OUT / "mixed" / "lmm_results.csv"),
+    str(OUT / "mixed" / "lmm_table.csv"),
 ]
 
 DECODING_OUT = [
@@ -97,4 +97,23 @@ rule decoding:
         r"""
         set -euo pipefail
         python "{params.entrypoint}" analyze decoding --config "{input.config}"
+        """
+
+
+rule mixed:
+    input:
+        epochs=epoch_inputs(),
+        config=str(Path(workflow.basedir) / "config.yaml"),
+    output:
+        MIXED_OUT
+    threads:
+        light_threads()
+    resources:
+        mem_mb=light_mem_mb()
+    params:
+        entrypoint=str(entrypoint())
+    shell:
+        r"""
+        set -euo pipefail
+        python "{params.entrypoint}" analyze mixed --config "{input.config}"
         """

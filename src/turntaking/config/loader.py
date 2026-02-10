@@ -1,18 +1,11 @@
 
 from pathlib import Path
-from typing import Any, Dict
-
 import yaml
+from turntaking.config.analysis_schema import TurntakingConfig
 
-from turntaking.config.schema import ProjectConfig
+def load_config(path: Path) -> TurntakingConfig:
+    raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise ValueError("Config must be a YAML mapping.")
+    return TurntakingConfig.from_dict(raw)
 
-
-def load_config(path: Path) -> ProjectConfig:
-    """
-    Load a YAML config file into a typed ProjectConfig.
-    """
-    raw: Dict[str, Any]
-    with path.open("r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f)
-
-    return ProjectConfig.from_dict(raw)

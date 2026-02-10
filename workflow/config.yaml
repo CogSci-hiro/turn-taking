@@ -1,5 +1,7 @@
-project:
+paths:
   workdir: "/Users/hiro/PycharmProjects/turn-taking-working"
+  epoch_dir: "/Volumes/work-4T/hyperscanning/derived/eeg/epochs"
+  out_dir: "/Volumes/work-4T/turn-taking-new"
 io:
   epoch_dir: "/Volumes/work-4T/hyperscanning/derived/eeg/epochs"
   epoch_pattern: "{subject}_task-{task}_run-{run}_epochs-epo.fif"
