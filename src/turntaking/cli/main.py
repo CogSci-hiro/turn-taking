@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Dict, Sequence
 
 from turntaking.cli.types import CliCommand
-from turntaking.config import load_project_config
+from turntaking.config.loader import load_config
 
 # Analysis command handlers (thin; no scientific logic here either)
 from turntaking.cli.commands.analysis import erp_generate as cmd_erp_generate
@@ -56,7 +56,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     if not hasattr(args, "config"):
         raise RuntimeError("Internal error: subcommand args missing --config.")
 
-    cfg = load_project_config(Path(args.config))
+    cfg = load_config(Path(args.config))
 
     command_name = str(args.command)
     module = _COMMANDS.get(command_name)
