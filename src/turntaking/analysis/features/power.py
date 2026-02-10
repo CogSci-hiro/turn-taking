@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 import mne
 import numpy as np

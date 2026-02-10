@@ -13,7 +13,6 @@
 #
 # =============================================================================
 
-from __future__ import annotations
 
 import argparse
 from pathlib import Path
@@ -23,11 +22,11 @@ from turntaking.cli.types import CliCommand
 from turntaking.config.loader import load_config
 
 # Analysis command handlers (thin; no scientific logic here either)
-from turntaking.cli.commands.analysis import erp_generate as cmd_erp_generate
+from turntaking.cli.commands.analysis import erp_generate as cmd_erp
 
 
 _COMMANDS: Dict[str, CliCommand] = {
-    "erp-generate": cmd_erp_generate,
+    "erp": cmd_erp,
 }
 
 
