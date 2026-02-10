@@ -1,40 +1,41 @@
-
+import argparse
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Sequence
 
-import typer
-from rich.console import Console
+from turntaking.config import load_project_config
+from turntaking.cli.types import CliCommand
 
-from turntaking.config.loader import load_config
-from turntaking.preprocessing.pipeline import run_preprocessing_to_epochs
+from turntaking.cli.commands.analysis import (
+    erp_generate as cmd_erp_generate,
+    tfr_generate as cmd_tfr_generate,
+    lmm_table as cmd_lmm_table,
+    decode_prepare as cmd_decode_prepare,
+    decode_run as cmd_decode_run,
+)
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
-console = Console()
+_COMMANDS: Dict[str, CliCommand] = {
+    "erp-generate": cmd_erp_generate,
+    "tfr-generate": cmd_tfr_generate,
+    "lmm-table": cmd_lmm_table,
+    "decode-prepare": cmd_decode_prepare,
+    "decode-run": cmd_decode_run,
+}
 
+def build_arg_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="turntaking", description="Turn-taking analysis CLI")
+    subparsers = parser.add_subparsers(dest="command", required=True, metavar="<command>")
+    for name, module in _COMMANDS.items():
+        module.add_subparser(subparsers)
+    return parser
 
-@app.command()
-def preprocess(
-    config: Path = typer.Option(..., "--config", "-c", exists=True, readable=True),
-    subject: Optional[str] = typer.Option(None, "--subject", help="e.g., sub-005"),
-    run: Optional[str] = typer.Option(None, "--run", help="e.g., run-1"),
-    overwrite: bool = typer.Option(False, "--overwrite"),
-) -> None:
-    """
-    Run preprocessing up to Epochs and save outputs.
+def main(argv: Sequence[str] | None = None) -> None:
+    parser = build_arg_parser()
+    args = parser.parse_args(argv)
 
-    Intended to be the stable, reproducible entrypoint.
-    """
-    cfg = load_config(config)
-    console.print(f"[bold]Config:[/bold] {config}")
-    console.print(f"[bold]Subject/run:[/bold] {subject} / {run}")
-
-    run_preprocessing_to_epochs(
-        cfg=cfg,
-        subject=subject,
-        run=run,
-        overwrite=overwrite,
-    )
+    cfg = load_project_config(Path(args.config))
+    module = _COMMANDS[str(args.command)]
+    module.run(args, cfg)
 
 
 if __name__ == "__main__":
-    app()
+    main()
