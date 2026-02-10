@@ -12,6 +12,8 @@ def stats_erp_out_dir() -> Path:
 def stats_tfr_out_dir() -> Path:
     return out_dir() / "stats" / "tfr"
 
+def stats_decoding_out_dir() -> Path:
+    return out_dir() / "stats" / "decoding"
 
 def heavy_mem_mb() -> int:
     return int(config.get("execution", {}).get("mem_mb_heavy", 10_000))
@@ -28,6 +30,12 @@ TFR_OUT = [
     str(out_dir() / "tfr" / "manifest.json"),
     str(out_dir() / "tfr" / "grand_average-tfr.h5"),
     str(out_dir() / "tfr" / "stats.csv"),
+]
+
+DECODING_OUT = [
+    str(out_dir() / "decoding" / "manifest.json"),
+    str(out_dir() / "decoding" / "scores.csv"),
+    str(out_dir() / "decoding" / "confusion_matrix.csv"),
 ]
 
 
@@ -75,5 +83,27 @@ rule test_tfr:
         mkdir -p "$(dirname "{output.log}")"
 
         # Narrow this once you have TFR-specific tests
+        python -m pytest -q tests > "{output.log}"
+        """
+
+
+rule test_decoding:
+    """
+    Run decoding-related tests and store pytest log as a tracked artifact.
+    """
+    input:
+        decoding_outputs=DECODING_OUT,
+        config=str(Path(workflow.basedir) / "config.yaml"),
+    output:
+        log=str(stats_decoding_out_dir() / "pytest.log"),
+    threads: 1
+    resources:
+        mem_mb=heavy_mem_mb()
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p "$(dirname "{output.log}")"
+
+        # Narrow to decoding tests when available
         python -m pytest -q tests > "{output.log}"
         """

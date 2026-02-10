@@ -79,3 +79,22 @@ rule tfr:
         set -euo pipefail
         python "{params.entrypoint}" analyze tfr --config "{input.config}"
         """
+
+
+rule decoding:
+    input:
+        epochs=epoch_inputs(),
+        config=str(Path(workflow.basedir) / "config.yaml"),
+    output:
+        DECODING_OUT
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
+    params:
+        entrypoint=str(entrypoint())
+    shell:
+        r"""
+        set -euo pipefail
+        python "{params.entrypoint}" analyze decoding --config "{input.config}"
+        """
