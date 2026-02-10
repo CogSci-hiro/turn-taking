@@ -4,66 +4,86 @@ from pathlib import Path
 import re
 from typing import List, Tuple
 
-from snakemake.io import expand  # noqa: F401
-
-configfile: "workflow/config.yaml"
+from snakemake.io import expand
 
 # =============================================================================
-# Paths
+# Config
 # =============================================================================
+# The workflow expects an analysis-only config.yaml next to this Snakefile.
+configfile: "config.yaml"
 
-WORKDIR = Path(config["workdir"])
+# =============================================================================
+# Paths (authoritative)
+# =============================================================================
+WORKDIR = Path(config["project"]["workdir"])
 if not WORKDIR.exists():
-    raise FileNotFoundError(f"'workdir' does not exist: {WORKDIR}")
+    raise FileNotFoundError(f"project.workdir does not exist: {WORKDIR}")
 
 workdir: str(WORKDIR)
 
 PROJECT_ROOT = WORKDIR.parent
-SCRIPT_DIR = PROJECT_ROOT / "scripts"
 
-IN_DIR = Path(config["in_dir"])
-OUT_DIR = Path(config["out_dir"])
+# Single Python entry point (dispatcher)
+# Adjust if your package is installed and you prefer: `python -m turntaking.cli.main`
+ENTRYPOINT = PROJECT_ROOT / "src" / "turntaking" / "cli" / "main.py"
+if not ENTRYPOINT.exists():
+    raise FileNotFoundError(f"Could not find CLI entrypoint at: {ENTRYPOINT}")
 
-EPOCH_DIR = Path(config.get("epoch_dir", OUT_DIR / "epochs"))
-EPOCH_TASK = config.get("epoch_task", "conversation")
+EPOCH_DIR = Path(config["io"]["epoch_dir"])
+OUT_DIR = Path(config["io"]["out_dir"])
+EPOCH_PATTERN = config["io"]["epoch_pattern"]
 
 if not EPOCH_DIR.exists():
     raise FileNotFoundError(
-        f"Epoch directory does not exist: {EPOCH_DIR}. "
-        "Run preprocessing first or set 'epoch_dir' in config."
+        f"io.epoch_dir does not exist: {EPOCH_DIR}. "
+        "Preprocessing must be run before analysis."
     )
 
 # =============================================================================
-# Design constants
+# Dataset discovery
 # =============================================================================
-
-CONVERSATION_RUNS: List[int] = list(range(1, 9))
-BANDS: List[str] = ["alpha", "beta"]
-
-contrast_cfg = config["erp"]["contrast"]
-CONTRASTS: List[str] = ["duration", "latency"] if contrast_cfg == "both" else [contrast_cfg]
-
-# =============================================================================
-# Subjects / runs
-# =============================================================================
+subjects_cfg = config["dataset"]["subjects"]
+SUBJECT_MODE = subjects_cfg.get("mode", "auto")
 
 def list_subjects() -> List[str]:
-    exclude = set(config["subjects"]["exclude"])
-    subjects: List[str] = []
+    if SUBJECT_MODE == "auto":
+        bids_root = Path(subjects_cfg["bids_root"])
+        if not bids_root.exists():
+            raise FileNotFoundError(f"dataset.subjects.bids_root does not exist: {bids_root}")
 
-    for sub_dir in IN_DIR.iterdir():
-        if not sub_dir.is_dir():
-            continue
-        if not re.fullmatch(r"sub-\d+", sub_dir.name):
-            continue
-        if sub_dir.name in exclude:
-            continue
-        subjects.append(sub_dir.name)
+        exclude = set(subjects_cfg.get("exclude", []))
+        include = subjects_cfg.get("include", []) or None
 
-    return sorted(subjects)
+        subs: List[str] = []
+        for p in bids_root.iterdir():
+            if not p.is_dir():
+                continue
+            if not re.fullmatch(r"sub-\d+", p.name):
+                continue
+            if p.name in exclude:
+                continue
+            subs.append(p.name)
+
+        subs = sorted(subs)
+        if include is not None and len(include) > 0:
+            include_set = set(include)
+            subs = [s for s in subs if s in include_set]
+        return subs
+
+    if SUBJECT_MODE == "list":
+        subs = subjects_cfg.get("include", [])
+        if not subs:
+            raise ValueError("dataset.subjects.mode == 'list' requires dataset.subjects.include to be non-empty.")
+        return list(subs)
+
+    raise ValueError(f"Unknown dataset.subjects.mode: {SUBJECT_MODE!r} (expected 'auto' or 'list').")
+
+SUBJECTS = list_subjects()
+TASKS: List[str] = list(config["dataset"]["tasks"])
+RUNS: List[int] = [int(r) for r in config["dataset"]["runs"]]
 
 INVALID_SUBJECT_RUN: set[Tuple[str, int]] = {
-    (str(x[0]), int(x[1])) for x in config.get("invalid_subject_run", [])
+    (str(x[0]), int(x[1])) for x in config["dataset"].get("invalid_subject_run", [])
 }
 
 def valid_subject_runs(subjects: List[str], runs: List[int]) -> List[Tuple[str, int]]:
@@ -75,28 +95,122 @@ def valid_subject_runs(subjects: List[str], runs: List[int]) -> List[Tuple[str, 
             out.append((subject, run))
     return out
 
-SUBJECTS = list_subjects()
-VALID_SR = valid_subject_runs(SUBJECTS, CONVERSATION_RUNS)
+VALID_SR = valid_subject_runs(SUBJECTS, RUNS)
+VALID_SUBJECTS = sorted(set([s for s, _ in VALID_SR]))
+VALID_RUNS = sorted(set([r for _, r in VALID_SR]))
 
-VALID_SUBJECTS = [s for s, _ in VALID_SR]
-VALID_RUNS = [r for _, r in VALID_SR]
+# =============================================================================
+# Analysis plan
+# =============================================================================
+CONTRASTS: List[str] = list(config["analysis"]["contrasts"])
+BANDS: List[str] = list(config["analysis"]["bands"])
 
 def epoch_inputs() -> List[str]:
-    """
-    Epoch files are assumed to already exist (generated by the Python preprocessing pipeline).
-    """
+    """Return expected epoch files (external immutable inputs)."""
     return expand(
-        str(EPOCH_DIR / "{subject}_{task}_run-{run}_epo.fif"),
+        str(EPOCH_DIR / EPOCH_PATTERN),
         subject=VALID_SUBJECTS,
-        run=VALID_RUNS,
-        task=[EPOCH_TASK],
+        task=TASKS,
+        run=[str(r) for r in VALID_RUNS],
     )
 
 # =============================================================================
-# Includes
+# Output sentinels
 # =============================================================================
+# We treat each analysis "done" when its sentinel exists.
+# The CLI entrypoint is responsible for writing real outputs under io.out_dir.
+ERP_SENTINEL = OUT_DIR / "erp" / "_DONE"
+TFR_SENTINEL = OUT_DIR / "tfr" / "_DONE"
+MIXED_SENTINEL = OUT_DIR / "mixed" / "_DONE"
+DECODING_SENTINEL = OUT_DIR / "decoding" / "_DONE"
 
-include: "workflow/rules/analysis.smk"
-include: "workflow/rules/stats.smk"
-include: "workflow/rules/viz.smk"
-include: "workflow/rules/targets.smk"
+ALL_SENTINELS = [ERP_SENTINEL, TFR_SENTINEL, MIXED_SENTINEL, DECODING_SENTINEL]
+
+# =============================================================================
+# Targets
+# =============================================================================
+rule all:
+    input:
+        ALL_SENTINELS
+
+# =============================================================================
+# Analyses (delegated to the Python dispatcher)
+# =============================================================================
+# IMPORTANT:
+# - This Snakefile no longer calls per-analysis scripts directly.
+# - It delegates all work to the project's CLI dispatcher (main.py),
+#   which should validate config, discover inputs, and write outputs.
+#
+# Expected CLI commands (example; must exist in your dispatcher):
+#   python src/turntaking/cli/main.py analyze erp --config workflow/config.yaml
+#   python src/turntaking/cli/main.py analyze tfr --config workflow/config.yaml
+#   python src/turntaking/cli/main.py analyze mixed --config workflow/config.yaml
+#   python src/turntaking/cli/main.py analyze decoding --config workflow/config.yaml
+
+rule erp_all:
+    input:
+        epoch_inputs()
+    output:
+        ERP_SENTINEL
+    threads:
+        int(config["execution"].get("threads_heavy", 10))
+    resources:
+        mem_mb=int(config["execution"].get("mem_mb_heavy", 10000))
+    shell:
+        r"""
+        set -euo pipefail
+        python "{ENTRYPOINT}" analyze erp --config "{workflow.basedir}/config.yaml"
+        mkdir -p "{OUT_DIR}/erp"
+        touch "{output}"
+        """
+
+rule tfr_all:
+    input:
+        epoch_inputs()
+    output:
+        TFR_SENTINEL
+    threads:
+        int(config["execution"].get("threads_heavy", 10))
+    resources:
+        mem_mb=int(config["execution"].get("mem_mb_heavy", 10000))
+    shell:
+        r"""
+        set -euo pipefail
+        python "{ENTRYPOINT}" analyze tfr --config "{workflow.basedir}/config.yaml"
+        mkdir -p "{OUT_DIR}/tfr"
+        touch "{output}"
+        """
+
+rule mixed_all:
+    input:
+        epoch_inputs()
+    output:
+        MIXED_SENTINEL
+    threads:
+        int(config["execution"].get("threads_light", 1))
+    resources:
+        mem_mb=int(config["execution"].get("mem_mb_light", 1000))
+    shell:
+        r"""
+        set -euo pipefail
+        python "{ENTRYPOINT}" analyze mixed --config "{workflow.basedir}/config.yaml"
+        mkdir -p "{OUT_DIR}/mixed"
+        touch "{output}"
+        """
+
+rule decoding_all:
+    input:
+        epoch_inputs()
+    output:
+        DECODING_SENTINEL
+    threads:
+        int(config["execution"].get("threads_heavy", 10))
+    resources:
+        mem_mb=int(config["execution"].get("mem_mb_heavy", 10000))
+    shell:
+        r"""
+        set -euo pipefail
+        python "{ENTRYPOINT}" analyze decoding --config "{workflow.basedir}/config.yaml"
+        mkdir -p "{OUT_DIR}/decoding"
+        touch "{output}"
+        """

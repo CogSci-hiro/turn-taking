@@ -1,76 +1,75 @@
-# =============================================================================
-# Turntaking analysis config (analysis-only; preprocessing happens elsewhere)
-# =============================================================================
-
 project:
-  workdir: "/Users/hiro/PycharmProjects/turn-taking-working/workflow"
-  scripts_dir: "/Users/hiro/PycharmProjects/turn-taking-private/scripts"
-
+  workdir: /Users/hiro/PycharmProjects/turn-taking-working/workflow
 io:
-  # Where preprocessing saved epochs
-  epoch_dir: "/Volumes/work-4T/turn-taking-tmp/epochs"
-
-  # Epoch filename pattern (so we don’t hard-code it in Snakefile)
-  # Available wildcards: {subject}, {run}, {task}
-  epoch_pattern: "{subject}_{task}_run-{run}_epo.fif"
-
-  # Where all analysis outputs go
-  out_dir: "/Volumes/work-4T/turn-taking-tmp"
-
+  epoch_dir: /Volumes/work-4T/turn-taking-tmp/epochs
+  epoch_pattern: '{subject}_{task}_run-{run}_epo.fif'
+  out_dir: /Volumes/work-4T/turn-taking-tmp
 dataset:
-  # Subject discovery: either "auto" (scan BIDS root) or explicit list
   subjects:
-    mode: "auto"
-    bids_root: "/Volumes/work-4T/hyperscanning-bids"
+    mode: auto
+    bids_root: /Volumes/work-4T/hyperscanning-bids
     exclude:
-      - "sub-001"
-      - "sub-002"
-      - "sub-003"
-      - "sub-032"
-    include: []  # optional override if you want to force a subset
-
-  # Runs/tasks that exist in the epoch_dir naming scheme
-  tasks: ["conversation"]
-  runs: [1, 2, 3, 4, 5, 6, 7, 8]
-
-  # Known missing (subject, run) pairs
+    - sub-001
+    - sub-002
+    - sub-003
+    - sub-032
+    include: []
+  tasks:
+  - conversation
+  runs:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
   invalid_subject_run:
-    - ["sub-004", "1"]
-    - ["sub-004", "2"]
-    - ["sub-027", "8"]
-    - ["sub-028", "8"]
-    - ["sub-015", "3"]
-
+  - - sub-004
+    - '1'
+  - - sub-004
+    - '2'
+  - - sub-027
+    - '8'
+  - - sub-028
+    - '8'
+  - - sub-015
+    - '3'
 constraints:
-  # Turn-taking event constraints that downstream scripts use
   min_latency: -1.0
   max_latency: 1.0
   min_response_duration: 0.01
-
 analysis:
-  contrasts: ["duration", "latency"]   # explicit list; no "both"
-  bands: ["alpha", "beta"]
-
+  contrasts:
+  - duration
+  - latency
+  bands:
+  - alpha
+  - beta
   erp:
     left_margin: 0.2
     right_margin: 0.5
     sfreq: 512
     n_permutations: 1000
     threshold: null
-
   tfr:
     left_margin: 0.2
     right_margin: 0.5
-    method: "hilbert"
+    method: hilbert
     sfreq: 512
     n_permutations: 1000
     threshold: null
-
   mixed:
-    tw1: [-1.3, -0.7]
-    tw2: [-0.7, 0.0]
-    baseline: [-2.0, 0.5]
-
+    tw1:
+    - -1.3
+    - -0.7
+    tw2:
+    - -0.7
+    - 0.0
+    baseline:
+    - -2.0
+    - 0.5
   decoding:
     sfreq: 64
     n_splits: 10
@@ -78,9 +77,7 @@ analysis:
     threshold: null
     left_margin: 0.2
     right_margin: 0.5
-
 execution:
-  # These are just defaults; Snakemake CLI can override them
   threads_light: 1
   threads_heavy: 10
   mem_mb_light: 1000
