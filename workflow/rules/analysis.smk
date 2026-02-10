@@ -1,45 +1,39 @@
-# =============================================================================
-#                               Analysis rules
-# =============================================================================
-#
-# Each rule delegates work to the single Python dispatcher:
-#   python src/turntaking/cli/main.py analyze <analysis> --config workflow/config.yaml
-#
-# Completion is tracked using sentinel files:
-#   io.out_dir/<analysis>/_DONE
-#
+# rules/analysis.smk
 
 conda:
     CONDA_PY_ENV
 
+OUT = out_dir()
 
-ERP_SENTINEL = sentinel_path("erp")
-TFR_SENTINEL = sentinel_path("tfr")
-MIXED_SENTINEL = sentinel_path("mixed")
-DECODING_SENTINEL = sentinel_path("decoding")
+ERP_OUT = [
+    str(OUT / "erp" / "manifest.json"),
+    str(OUT / "erp" / "grand_average-ave.fif"),
+    str(OUT / "erp" / "stats.csv"),
+]
 
+TFR_OUT = [
+    str(OUT / "tfr" / "manifest.json"),
+    str(OUT / "tfr" / "grand_average-tfr.h5"),
+    str(OUT / "tfr" / "stats.csv"),
+]
 
-def _heavy_threads() -> int:
-    return int(config.get("execution", {}).get("threads_heavy", 10))
+MIXED_OUT = [
+    str(OUT / "mixed" / "manifest.json"),
+    str(OUT / "mixed" / "lmm_results.csv"),
+]
 
+DECODING_OUT = [
+    str(OUT / "decoding" / "manifest.json"),
+    str(OUT / "decoding" / "scores.csv"),
+    str(OUT / "decoding" / "confusion_matrix.csv"),
+]
 
-def _light_threads() -> int:
-    return int(config.get("execution", {}).get("threads_light", 1))
-
-
-def _heavy_mem() -> int:
-    return int(config.get("execution", {}).get("mem_mb_heavy", 10000))
-
-
-def _light_mem() -> int:
-    return int(config.get("execution", {}).get("mem_mb_light", 1000))
-
-
-rule erp_all:
+rule erp_group:
     input:
-        epoch_inputs()
+        epochs=epoch_inputs(),
+        config=str(Path(workflow.basedir) / "config.yaml")
     output:
-        ERP_SENTINEL
+        ERP_OUT
     threads:
         _heavy_threads()
     resources:
@@ -47,71 +41,8 @@ rule erp_all:
     shell:
         r"""
         set -euo pipefail
-        python "{entrypoint()}" analyze erp --config "{workflow.basedir}/config.yaml"
-        mkdir -p "{out_dir()}/erp"
-        touch "{output}"
+        python "{entrypoint()}" analyze erp --config "{input.config}"
         """
 
 
-rule tfr_all:
-    input:
-        epoch_inputs()
-    output:
-        TFR_SENTINEL
-    threads:
-        _heavy_threads()
-    resources:
-        mem_mb=_heavy_mem()
-    shell:
-        r"""
-        set -euo pipefail
-        python "{entrypoint()}" analyze tfr --config "{workflow.basedir}/config.yaml"
-        mkdir -p "{out_dir()}/tfr"
-        touch "{output}"
-        """
-
-
-rule mixed_all:
-    input:
-        epoch_inputs()
-    output:
-        MIXED_SENTINEL
-    threads:
-        _light_threads()
-    resources:
-        mem_mb=_light_mem()
-    shell:
-        r"""
-        set -euo pipefail
-        python "{entrypoint()}" analyze mixed --config "{workflow.basedir}/config.yaml"
-        mkdir -p "{out_dir()}/mixed"
-        touch "{output}"
-        """
-
-
-rule decoding_all:
-    input:
-        epoch_inputs()
-    output:
-        DECODING_SENTINEL
-    threads:
-        _heavy_threads()
-    resources:
-        mem_mb=_heavy_mem()
-    shell:
-        r"""
-        set -euo pipefail
-        python "{entrypoint()}" analyze decoding --config "{workflow.basedir}/config.yaml"
-        mkdir -p "{out_dir()}/decoding"
-        touch "{output}"
-        """
-
-
-# Convenience: remove sentinels for clean reruns
-rule clean_analysis:
-    message:
-        "Removing analysis sentinel files (forces re-run)."
-    shell:
-        r"""
-        rm -f "{ERP_SENTINEL}" "{TFR_SENTINEL}" "{MIXED_SENTINEL}" "{DECODING_SENTINEL}"
-        """
+# same for tfr_group, mixed_group, decoding_group
