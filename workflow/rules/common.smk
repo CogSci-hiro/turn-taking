@@ -69,46 +69,22 @@ def _glob_from_pattern(pattern: str) -> str:
     return re.sub(r"\{[^}]+\}", "*", pattern)
 
 
+_FILENAME_RE = re.compile(
+    r"(?:\._)?"
+    r"(?P<subject>sub-\d+)_task-(?P<task>.+?)_run-(?P<run>\d+)_"
+)
+
 def extract_entities(path: Path) -> Dict[str, str]:
-    """Extract subject/task/run tokens from a file path or name.
+    m = _FILENAME_RE.search(path.name)
+    if not m:
+        raise WorkflowError(f"Could not parse subject/task/run from: {path.name}")
 
-    This relies only on tokens like 'sub-005', 'task-conversation', 'run-8'
-    appearing in the path parts or filename.
+    return {
+        "subject": m.group("subject"),
+        "task": m.group("task"),
+        "run": str(int(m.group("run"))),
+    }
 
-    Returns
-    -------
-    entities : dict
-        Keys: 'subject' (e.g., 'sub-005'), 'task' (e.g., 'conversation'),
-        'run' (int-like string, no leading zeros).
-    """
-    parts = list(path.parts)
-    fname = path.name
-
-    subject = next((p for p in parts if _SUBJECT_RE.fullmatch(p)), None)
-    if subject is None:
-        m = _SUBJECT_RE.search(fname)
-        subject = m.group(0) if m else None
-
-    task_tok = next((p for p in parts if _TASK_RE.fullmatch(p)), None)
-    if task_tok is None:
-        m = _TASK_RE.search(fname)
-        task_tok = m.group(0) if m else None
-
-    run_tok = next((p for p in parts if _RUN_RE.fullmatch(p)), None)
-    if run_tok is None:
-        m = _RUN_RE.search(fname)
-        run_tok = m.group(0) if m else None
-
-    if subject is None or task_tok is None or run_tok is None:
-        raise WorkflowError(
-            "Could not extract subject/task/run from epoch path. "
-            f"Got subject={subject}, task={task_tok}, run={run_tok} for: {path}"
-        )
-
-    task = task_tok.split("-", 1)[1]
-    run_int = int(run_tok.split("-", 1)[1])
-
-    return {"subject": subject, "task": task, "run": str(run_int)}
 
 
 def discover_epoch_files() -> List[Path]:

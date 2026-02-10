@@ -28,20 +28,37 @@ DECODING_OUT = [
     str(OUT / "decoding" / "confusion_matrix.csv"),
 ]
 
+
+def heavy_threads() -> int:
+    return int(config.get("execution", {}).get("threads_heavy", 10))
+
+def light_threads() -> int:
+    return int(config.get("execution", {}).get("threads_light", 1))
+
+def heavy_mem_mb() -> int:
+    return int(config.get("execution", {}).get("mem_mb_heavy", 10000))
+
+def light_mem_mb() -> int:
+    return int(config.get("execution", {}).get("mem_mb_light", 1000))
+
+
+
 rule erp_group:
     input:
         epochs=epoch_inputs(),
         config=str(Path(workflow.basedir) / "config.yaml")
     output:
         ERP_OUT
+    params:
+        entrypoint=str(entrypoint())
     threads:
-        _heavy_threads()
+        heavy_threads()
     resources:
-        mem_mb=_heavy_mem()
+        mem_mb=heavy_mem_mb()
     shell:
         r"""
         set -euo pipefail
-        python "{entrypoint()}" analyze erp --config "{input.config}"
+        python "{params.entrypoint}" analyze erp --config "{input.config}"
         """
 
 
