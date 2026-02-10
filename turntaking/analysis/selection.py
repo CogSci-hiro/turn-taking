@@ -9,7 +9,6 @@ Assumes epochs.metadata contains at least:
 (Other columns may be present and are preserved.)
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Literal

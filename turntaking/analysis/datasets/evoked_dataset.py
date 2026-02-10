@@ -5,7 +5,6 @@ ERP / TFR group-level dataset construction.
 This module should build datasets from lists of epochs files.
 """
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path

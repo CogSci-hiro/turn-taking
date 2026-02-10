@@ -6,7 +6,6 @@ Keep this module as a thin wrapper:
 - call into turntaking.analysis.*
 """
 
-from __future__ import annotations
 
 
 def main() -> None:

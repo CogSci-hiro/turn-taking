@@ -8,7 +8,6 @@ This module should stay boring:
 - no analysis logic
 """
 
-from __future__ import annotations
 
 import re
 from dataclasses import dataclass
