@@ -6,8 +6,11 @@ conda:
     CONDA_PY_ENV
 
 
-def stats_out_dir() -> Path:
+def stats_erp_out_dir() -> Path:
     return out_dir() / "stats" / "erp"
+
+def stats_tfr_out_dir() -> Path:
+    return out_dir() / "stats" / "tfr"
 
 
 def heavy_mem_mb() -> int:
@@ -21,6 +24,12 @@ ERP_OUT = [
     str(out_dir() / "erp" / "stats.csv"),
 ]
 
+TFR_OUT = [
+    str(out_dir() / "tfr" / "manifest.json"),
+    str(out_dir() / "tfr" / "grand_average-tfr.h5"),
+    str(out_dir() / "tfr" / "stats.csv"),
+]
+
 
 rule test_erp:
     """
@@ -30,7 +39,7 @@ rule test_erp:
         erp_outputs=ERP_OUT,
         config=str(Path(workflow.basedir) / "config.yaml"),
     output:
-        log=str(stats_out_dir() / "pytest.log"),
+        log=str(stats_erp_out_dir() / "pytest.log"),
     threads: 1
     resources:
         mem_mb=heavy_mem_mb()
@@ -43,5 +52,28 @@ rule test_erp:
 
         # Recommended: narrow to ERP-specific tests once you have them,
         # e.g. `python -m pytest -q tests/test_erp.py`
+        python -m pytest -q tests > "{output.log}"
+        """
+
+
+
+rule test_tfr:
+    """
+    Run TFR-related tests and store the pytest log as a tracked artifact.
+    """
+    input:
+        tfr_outputs=TFR_OUT,
+        config=str(Path(workflow.basedir) / "config.yaml"),
+    output:
+        log=str(stats_tfr_out_dir() / "pytest.log"),
+    threads: 1
+    resources:
+        mem_mb=heavy_mem_mb()
+    shell:
+        r"""
+        set -euo pipefail
+        mkdir -p "$(dirname "{output.log}")"
+
+        # Narrow this once you have TFR-specific tests
         python -m pytest -q tests > "{output.log}"
         """

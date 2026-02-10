@@ -58,8 +58,24 @@ rule erp:
     shell:
         r"""
         set -euo pipefail
-        python "{params.entrypoint}" erp-generate --config "{input.config}"
+        python "{params.entrypoint}" erp --config "{input.config}"
         """
 
 
-# same for tfr_group, mixed_group, decoding_group
+rule tfr:
+    input:
+        epochs=epoch_inputs(),
+        config=str(Path(workflow.basedir) / "config.yaml"),
+    output:
+        TFR_OUT
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
+    params:
+        entrypoint=str(entrypoint())
+    shell:
+        r"""
+        set -euo pipefail
+        python "{params.entrypoint}" analyze tfr --config "{input.config}"
+        """
