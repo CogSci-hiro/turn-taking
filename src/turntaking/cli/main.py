@@ -21,13 +21,9 @@ from typing import Dict, Sequence
 from turntaking.cli.types import CliCommand
 from turntaking.config.loader import load_config
 
-# Analysis command handlers (thin; no scientific logic here either)
-from turntaking.cli.commands.analysis import erp_generate as cmd_erp_generate
+import turntaking.cli.commands.erp as cmd_erp
 
-
-_COMMANDS: Dict[str, CliCommand] = {
-    "erp-generate": cmd_erp_generate,
-}
+_COMMANDS = {"erp": cmd_erp}
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
