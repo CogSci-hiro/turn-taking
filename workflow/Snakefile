@@ -1,6 +1,6 @@
 from pathlib import Path
 import re
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from snakemake.io import expand
 
@@ -50,7 +50,9 @@ def list_subjects() -> List[str]:
             raise FileNotFoundError(f"dataset.subjects.bids_root does not exist: {bids_root}")
 
         exclude = set(subjects_cfg.get("exclude", []))
-        include = subjects_cfg.get("include", []) or None
+        include_subjects = subjects_cfg.get("include")  # Optional[List[str]]
+        if include_subjects is not None and not include_subjects:
+            include_subjects = None
 
         subs: List[str] = []
         for p in bids_root.iterdir():
@@ -63,8 +65,8 @@ def list_subjects() -> List[str]:
             subs.append(p.name)
 
         subs = sorted(subs)
-        if include is not None and len(include) > 0:
-            include_set = set(include)
+        if include_subjects is not None and len(include_subjects) > 0:
+            include_set = set(include_subjects)
             subs = [s for s in subs if s in include_set]
         return subs
 
