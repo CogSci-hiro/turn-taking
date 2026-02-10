@@ -18,12 +18,12 @@ import argparse
 from pathlib import Path
 from typing import Dict, Sequence
 
-from turntaking.cli.types import CliCommand
 from turntaking.config.loader import load_config
 
 import turntaking.cli.commands.erp as cmd_erp
+import turntaking.cli.commands.cluster as cmd_cluster
 
-_COMMANDS = {"erp": cmd_erp}
+_COMMANDS = {"erp": cmd_erp, "cluster": cmd_cluster}
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

@@ -63,17 +63,39 @@ DECODING_OUT = [
 
 rule test_erp:
     input:
-        erp_outputs=ERP_OUT,
+        erp_outputs=ERP_OUT,  # or just the specific per-contrast inputs
         config=str(Path(workflow.basedir) / "config.yaml"),
     output:
-        log=str(stats_erp_out_dir() / "pytest.log"),
+        hdf5=str(stats_erp_out_dir() / "{contrast}" / "cluster_results.hdf5"),
+        summary=str(stats_erp_out_dir() / "{contrast}" / "cluster_summary.csv"),
+    params:
+        entrypoint=str(entrypoint()),
     shell:
         r"""
         set -euo pipefail
-        mkdir -p "$(dirname "{output.log}")"
-        python -m pytest -q tests > "{output.log}"
+        python "{params.entrypoint}" cluster --config "{input.config}" --kind erp --contrast "{wildcards.contrast}"
         """
 
+
+ERP_CLUSTER_OUT = [
+    *expand(
+        str(stats_erp_out_dir() / "{contrast}" / "cluster_results.hdf5"),
+        contrast=erp_contrasts(),
+    ),
+    *expand(
+        str(stats_erp_out_dir() / "{contrast}" / "cluster_summary.csv"),
+        contrast=erp_contrasts(),
+    ),
+]
+
+
+rule test_erp_all:
+    """
+    Run ERP cluster tests for all configured contrasts.
+    Wildcard-free target rule.
+    """
+    input:
+        ERP_CLUSTER_OUT
 
 
 rule test_tfr:
