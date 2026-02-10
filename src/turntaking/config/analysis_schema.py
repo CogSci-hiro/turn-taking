@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 
 def _require_mapping(d: Any, where: str) -> dict[str, Any]:
@@ -15,11 +15,6 @@ def _require_key(d: dict[str, Any], key: str, where: str) -> Any:
     if key not in d:
         raise KeyError(f"Missing required key '{key}' at {where}.")
     return d[key]
-
-
-@dataclass(frozen=True)
-class ProjectSection:
-    workdir: Path
 
 
 @dataclass(frozen=True)
@@ -107,7 +102,6 @@ class ExecutionSection:
 
 @dataclass(frozen=True)
 class TurntakingConfig:
-    project: ProjectSection
     io: IoSection
     dataset: DatasetSection
     constraints: ConstraintsSection
@@ -117,12 +111,6 @@ class TurntakingConfig:
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "TurntakingConfig":
         d = _require_mapping(d, "root")
-
-        # ----------------------------- project -----------------------------
-        project_d = _require_mapping(_require_key(d, "project", "root"), "project")
-        project = ProjectSection(
-            workdir=Path(_require_key(project_d, "workdir", "project")),
-        )
 
         # -------------------------------- io ------------------------------
         io_d = _require_mapping(_require_key(d, "io", "root"), "io")
@@ -240,7 +228,6 @@ class TurntakingConfig:
         )
 
         return TurntakingConfig(
-            project=project,
             io=io,
             dataset=dataset,
             constraints=constraints,

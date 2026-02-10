@@ -29,6 +29,7 @@ from pathlib import Path
 WORKFLOW_DIR = Path(workflow.basedir)
 CONFIG_PATH = str(WORKFLOW_DIR / "config.yaml")
 configfile: CONFIG_PATH
+print(CONFIG_PATH)
 
 # In Snakefile (global): enforce common wildcard formats
 wildcard_constraints:
