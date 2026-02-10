@@ -39,11 +39,7 @@ wildcard_constraints:
 # Optional per-rule conda env (activated only if you run with --use-conda)
 CONDA_PY_ENV = str(WORKFLOW_DIR / "envs" / "python.yaml")
 
-# Shared helpers (paths, discovery, filtering)
 include: str(WORKFLOW_DIR / "rules" / "common.smk")
-
-# Analysis rules (ERP/TFR/etc.), delegated to dispatcher
 include: str(WORKFLOW_DIR / "rules" / "analysis.smk")
-
-# Final targets ("rule all")
+include: str(WORKFLOW_DIR / "rules" / "stats.smk")
 include: str(WORKFLOW_DIR / "rules" / "targets.smk")
