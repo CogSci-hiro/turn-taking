@@ -58,7 +58,7 @@ rule erp:
     shell:
         r"""
         set -euo pipefail
-        python "{params.entrypoint}" analyze erp --config "{input.config}"
+        python "{params.entrypoint}" erp-generate --config "{input.config}"
         """
 
 
