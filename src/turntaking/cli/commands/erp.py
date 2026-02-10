@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from turntaking.analysis.datasets.evoked_dataset import build_evoked_dataset
-from turntaking.analysis.io import save_evokeds, save_table
+from turntaking.analysis.io.erp import write_erp_outputs
 from turntaking.analysis.selection import SelectionParams
 
 
@@ -187,6 +187,15 @@ def run(args: argparse.Namespace, cfg: Any) -> None:
             selection_params=selection_params,
         )
 
-        save_evokeds({"grand_diff": result.difference}, out_dir=out_dir)
-        save_table(result.metadata, out_dir / "metadata.parquet")
-        save_table(result.n_trials, out_dir / "n_trials.csv")
+        write_erp_outputs(
+            out_dir,
+            contrast=contrast,
+            evokeds_cond_1=result.evokeds_cond_1,
+            evokeds_cond_2=result.evokeds_cond_2,
+            evokeds_difference=result.evokeds_difference,
+            evoked_data=result.evoked_data,
+            n_trials=result.n_trials,
+            results=result.results,
+            offsets=result.offsets,
+            overwrite=True,
+        )

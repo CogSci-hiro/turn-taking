@@ -5,12 +5,6 @@ conda:
 
 OUT = out_dir()
 
-ERP_OUT = [
-    str(OUT / "erp" / "manifest.json"),
-    str(OUT / "erp" / "grand_average-ave.fif"),
-    str(OUT / "erp" / "stats.csv"),
-]
-
 TFR_OUT = [
     str(OUT / "tfr" / "manifest.json"),
     str(OUT / "tfr" / "grand_average-tfr.h5"),
@@ -42,23 +36,26 @@ def light_mem_mb() -> int:
     return int(config.get("execution", {}).get("mem_mb_light", 1000))
 
 
+CONTRASTS = config["analysis"]["contrasts"]
+ERP_ROOT = config["io"]["out_dir"] + "/erp"
+
+
 
 rule erp:
     input:
-        epochs=epoch_inputs(),
-        config=str(Path(workflow.basedir) / "config.yaml")
+        config="workflow/config.yaml"   # or your actual config input
     output:
-        ERP_OUT
-    params:
-        entrypoint=str(entrypoint())
-    threads:
-        heavy_threads()
-    resources:
-        mem_mb=heavy_mem_mb()
+        expand(ERP_ROOT + "/{contrast}/difference_ave.fif", contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/cond_1_ave.fif", contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/cond_2_ave.fif", contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/evoked-data.npy", contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/n_trials.csv", contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/results.hdf5", contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/offsets.csv", contrast=CONTRASTS),
     shell:
         r"""
         set -euo pipefail
-        python "{params.entrypoint}" erp --config "{input.config}"
+        python -m turntaking.cli.main erp --config "{input.config}"
         """
 
 
