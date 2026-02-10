@@ -1,4 +1,1 @@
-"""turntaking.analysis.features
-
-Feature extraction primitives (ERP, bandpower, ROI summaries).
-"""
+"""Feature extraction primitives (ERP, power, ROI)."""

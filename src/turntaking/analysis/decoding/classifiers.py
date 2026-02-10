@@ -1,10 +1,2 @@
-"""turntaking.analysis.decoding.classifiers
-
-Classifier and estimator factories for decoding.
-"""
-
-
-
-def make_generalizing_estimator(cfg: dict):
-    """Create an MNE GeneralizingEstimator from config."""
+def make_generalizing_estimator(*args, **kwargs):
     raise NotImplementedError

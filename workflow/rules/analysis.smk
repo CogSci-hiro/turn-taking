@@ -43,7 +43,7 @@ def light_mem_mb() -> int:
 
 
 
-rule erp_all:
+rule erp:
     input:
         epochs=epoch_inputs(),
         config=str(Path(workflow.basedir) / "config.yaml")
