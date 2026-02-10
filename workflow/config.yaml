@@ -2,7 +2,7 @@ project:
   workdir: "/Users/hiro/PycharmProjects/turn-taking-working"
 io:
   epoch_dir: "/Volumes/work-4T/hyperscanning/derived/eeg/epochs"
-  epoch_pattern: '{subject}_{task}_run-{run}_epo.fif'
+  epoch_pattern: "{subject}_task-{task}_run-{run}_epochs-epo.fif"
   out_dir: "/Volumes/work-4T/turn-taking-new"
 dataset:
   subjects:
