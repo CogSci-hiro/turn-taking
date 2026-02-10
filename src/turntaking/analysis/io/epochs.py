@@ -21,7 +21,7 @@ def parse_epochs_filepath(path: Path) -> EpochFileInfo:
     match = _EPOCHS_RE.match(str(path))
     if match is None:
         raise ValueError(f"Could not parse subject/run from epochs path: {path}")
-    subject = match.group("subject").replace("sub-", "")
+    subject = match.group("subject")
     run = int(match.group("run"))
     return EpochFileInfo(subject=subject, run=run)
 

@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 import mne
+import numpy as np
 
 Contrast = Literal["latency", "duration"]
 
@@ -48,33 +49,26 @@ def split_epochs_median(
     epochs: mne.BaseEpochs,
     contrast: Contrast,
 ) -> tuple[mne.BaseEpochs, mne.BaseEpochs, dict[str, str]]:
-    """Median split epochs into two conditions.
-
-    Returns
-    -------
-    cond_1, cond_2
-        For latency: (fast, slow). For duration: (long, short).
-    labels
-        Mapping {"cond_1": name1, "cond_2": name2} for output labeling.
-
-    Usage example
-    -------------
-        cond1, cond2, labels = split_epochs_median(epochs, contrast="latency")
-    """
     if epochs.metadata is None:
         raise ValueError("epochs.metadata is required for splitting.")
 
     md = epochs.metadata
+
     if contrast == "latency":
-        median = float(md["latency"].median())
-        cond_1 = epochs[f"latency < {median}"]
-        cond_2 = epochs[f"latency > {median}"]
+        values = md["latency"].astype(float).to_numpy()
+        median = float(np.median(values))
+        mask_1 = values < median
+        mask_2 = values > median
         labels = {"cond_1": "fast", "cond_2": "slow"}
     else:
-        median = float(md["self_duration"].median())
-        cond_1 = epochs[f"self_duration > {median}"]
-        cond_2 = epochs[f"self_duration < {median}"]
+        values = md["self_duration"].astype(float).to_numpy()
+        median = float(np.median(values))
+        mask_1 = values > median   # long
+        mask_2 = values < median   # short
         labels = {"cond_1": "long", "cond_2": "short"}
+
+    cond_1 = epochs[mask_1]
+    cond_2 = epochs[mask_2]
 
     mne.epochs.equalize_epoch_counts([cond_1, cond_2])
     return cond_1, cond_2, labels
