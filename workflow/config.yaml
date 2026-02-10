@@ -1,21 +1,20 @@
 project:
-  workdir: /Users/hiro/PycharmProjects/turn-taking-working/workflow
+  workdir: "/Users/hiro/PycharmProjects/turn-taking-working"
 io:
-  epoch_dir: /Volumes/work-4T/turn-taking-tmp/epochs
+  epoch_dir: "/Volumes/work-4T/hyperscanning/derived/eeg/epochs"
   epoch_pattern: '{subject}_{task}_run-{run}_epo.fif'
-  out_dir: /Volumes/work-4T/turn-taking-tmp
+  out_dir: "/Volumes/work-4T/turn-taking-new"
 dataset:
   subjects:
-    mode: auto
-    bids_root: /Volumes/work-4T/hyperscanning-bids
+    mode: "from_epochs"
     exclude:
-    - sub-001
-    - sub-002
-    - sub-003
-    - sub-032
+    - "sub-001"
+    - "sub-002"
+    - "sub-003"
+    - "sub-032"
     include: []
   tasks:
-  - conversation
+  - "conversation"
   runs:
   - 1
   - 2
@@ -26,15 +25,15 @@ dataset:
   - 7
   - 8
   invalid_subject_run:
-  - - sub-004
+  - - "sub-004"
     - '1'
-  - - sub-004
+  - - "sub-004"
     - '2'
-  - - sub-027
+  - - "sub-027"
     - '8'
-  - - sub-028
+  - - "sub-028"
     - '8'
-  - - sub-015
+  - - "sub-015"
     - '3'
 constraints:
   min_latency: -1.0
@@ -42,11 +41,11 @@ constraints:
   min_response_duration: 0.01
 analysis:
   contrasts:
-  - duration
-  - latency
+  - "duration"
+  - "latency"
   bands:
-  - alpha
-  - beta
+  - "alpha"
+  - "beta"
   erp:
     left_margin: 0.2
     right_margin: 0.5
@@ -56,7 +55,7 @@ analysis:
   tfr:
     left_margin: 0.2
     right_margin: 0.5
-    method: hilbert
+    method: "hilbert"
     sfreq: 512
     n_permutations: 1000
     threshold: null

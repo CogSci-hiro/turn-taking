@@ -1,28 +1,27 @@
+from __future__ import annotations
+
 from pathlib import Path
 import re
-from typing import List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from snakemake.io import expand
 
 # =============================================================================
 # Config
 # =============================================================================
-# The workflow expects an analysis-only config.yaml next to this Snakefile.
-configfile: "config.yaml"
+configfile: f"{workflow.basedir}/config.yaml"
 
 # =============================================================================
-# Paths (authoritative)
+# Paths
 # =============================================================================
 WORKDIR = Path(config["project"]["workdir"])
 if not WORKDIR.exists():
     raise FileNotFoundError(f"project.workdir does not exist: {WORKDIR}")
-
 workdir: str(WORKDIR)
 
-PROJECT_ROOT = WORKDIR.parent
+PROJECT_ROOT = WORKDIR
 
 # Single Python entry point (dispatcher)
-# Adjust if your package is installed and you prefer: `python -m turntaking.cli.main`
 ENTRYPOINT = PROJECT_ROOT / "src" / "turntaking" / "cli" / "main.py"
 if not ENTRYPOINT.exists():
     raise FileNotFoundError(f"Could not find CLI entrypoint at: {ENTRYPOINT}")
@@ -37,52 +36,102 @@ if not EPOCH_DIR.exists():
         "Preprocessing must be run before analysis."
     )
 
+# Optional annotations (only used if present in config; does not block workflow)
+ANNOTATION_DIR = None
+if "annotation_dir" in config.get("io", {}):
+    ANNOTATION_DIR = Path(config["io"]["annotation_dir"])
+
 # =============================================================================
-# Dataset discovery
+# Dataset discovery (from epoch files only; no BIDS dependency)
 # =============================================================================
+SUBJECT_RE = re.compile(r"sub-\d+")
+TASK_RE = re.compile(r"task-[A-Za-z0-9]+")
+RUN_RE = re.compile(r"run-\d+")
+
+def _extract_entities(path: Path) -> Dict[str, str]:
+    """Extract subject/task/run from an epoch file path based on BIDS-like tokens.
+
+    Notes
+    -----
+    This relies only on filename/path tokens (e.g., 'sub-001', 'task-conv', 'run-01'),
+    not on a BIDS root directory.
+
+    Returns
+    -------
+    entities : dict
+        Keys: 'subject', 'task', 'run' (run without leading zeros as string)
+    """
+    parts = list(path.parts)
+    fname = path.name
+
+    subject = next((p for p in parts if SUBJECT_RE.fullmatch(p)), None)
+    if subject is None:
+        m = SUBJECT_RE.search(fname)
+        subject = m.group(0) if m else None
+
+    task = next((p for p in parts if TASK_RE.fullmatch(p)), None)
+    if task is None:
+        m = TASK_RE.search(fname)
+        task = m.group(0) if m else None
+
+    run = next((p for p in parts if RUN_RE.fullmatch(p)), None)
+    if run is None:
+        m = RUN_RE.search(fname)
+        run = m.group(0) if m else None
+
+    if subject is None or task is None or run is None:
+        raise ValueError(
+            "Could not extract subject/task/run from epoch path. "
+            f"Got subject={subject}, task={task}, run={run} for: {path}"
+        )
+
+    run_int = int(run.split("-")[1])  # handles run-01, run-1, etc.
+    return {"subject": subject, "task": task, "run": str(run_int)}
+
+def discover_epoch_entities() -> Tuple[List[str], List[str], List[int], List[Path]]:
+    """Discover available subjects/tasks/runs by globbing epoch files."""
+    # Convert the epoch_pattern (with {wildcards}) into a glob pattern
+    # Example: "sub-{subject}/task-{task}/sub-{subject}_task-{task}_run-{run}-epo.fif"
+    glob_pat = EPOCH_PATTERN
+    glob_pat = re.sub(r"\{[^}]+\}", "*", glob_pat)
+    candidates = sorted(EPOCH_DIR.glob(glob_pat))
+
+    if not candidates:
+        raise FileNotFoundError(
+            "No epoch files found. "
+            f"epoch_dir={EPOCH_DIR}, epoch_pattern={EPOCH_PATTERN}, glob={glob_pat}"
+        )
+
+    subjects: Set[str] = set()
+    tasks: Set[str] = set()
+    runs: Set[int] = set()
+
+    for p in candidates:
+        ent = _extract_entities(p)
+        subjects.add(ent["subject"])
+        tasks.add(ent["task"].split("-")[1])  # store task name only
+        runs.add(int(ent["run"]))
+
+    return sorted(subjects), sorted(tasks), sorted(runs), candidates
+
+discovered_subjects, discovered_tasks, discovered_runs, EPOCH_FILES = discover_epoch_entities()
+
+# Respect config filters (include/exclude) *after* discovery
 subjects_cfg = config["dataset"]["subjects"]
-SUBJECT_MODE = subjects_cfg.get("mode", "auto")
+include_subjects = subjects_cfg.get("include")  # Optional[List[str]]
+exclude_subjects = set(subjects_cfg.get("exclude", []))
 
-def list_subjects() -> List[str]:
-    if SUBJECT_MODE == "auto":
-        bids_root = Path(subjects_cfg["bids_root"])
-        if not bids_root.exists():
-            raise FileNotFoundError(f"dataset.subjects.bids_root does not exist: {bids_root}")
+if include_subjects:
+    include_set = set(include_subjects)
+    SUBJECTS = [s for s in discovered_subjects if s in include_set and s not in exclude_subjects]
+else:
+    SUBJECTS = [s for s in discovered_subjects if s not in exclude_subjects]
 
-        exclude = set(subjects_cfg.get("exclude", []))
-        include_subjects = subjects_cfg.get("include")  # Optional[List[str]]
-        if include_subjects is not None and not include_subjects:
-            include_subjects = None
+# Tasks / runs can be constrained by config, but default to discovered availability
+TASKS = list(config["dataset"].get("tasks", discovered_tasks)) or discovered_tasks
+RUNS = [int(r) for r in config["dataset"].get("runs", discovered_runs)] or discovered_runs
 
-        subs: List[str] = []
-        for p in bids_root.iterdir():
-            if not p.is_dir():
-                continue
-            if not re.fullmatch(r"sub-\d+", p.name):
-                continue
-            if p.name in exclude:
-                continue
-            subs.append(p.name)
-
-        subs = sorted(subs)
-        if include_subjects is not None and len(include_subjects) > 0:
-            include_set = set(include_subjects)
-            subs = [s for s in subs if s in include_set]
-        return subs
-
-    if SUBJECT_MODE == "list":
-        subs = subjects_cfg.get("include", [])
-        if not subs:
-            raise ValueError("dataset.subjects.mode == 'list' requires dataset.subjects.include to be non-empty.")
-        return list(subs)
-
-    raise ValueError(f"Unknown dataset.subjects.mode: {SUBJECT_MODE!r} (expected 'auto' or 'list').")
-
-SUBJECTS = list_subjects()
-TASKS: List[str] = list(config["dataset"]["tasks"])
-RUNS: List[int] = [int(r) for r in config["dataset"]["runs"]]
-
-INVALID_SUBJECT_RUN: set[Tuple[str, int]] = {
+INVALID_SUBJECT_RUN: Set[Tuple[str, int]] = {
     (str(x[0]), int(x[1])) for x in config["dataset"].get("invalid_subject_run", [])
 }
 
@@ -96,17 +145,13 @@ def valid_subject_runs(subjects: List[str], runs: List[int]) -> List[Tuple[str, 
     return out
 
 VALID_SR = valid_subject_runs(SUBJECTS, RUNS)
-VALID_SUBJECTS = sorted(set([s for s, _ in VALID_SR]))
-VALID_RUNS = sorted(set([r for _, r in VALID_SR]))
+VALID_SUBJECTS = sorted({s for s, _ in VALID_SR})
+VALID_RUNS = sorted({r for _, r in VALID_SR})
 
 # =============================================================================
-# Analysis plan
+# Inputs
 # =============================================================================
-CONTRASTS: List[str] = list(config["analysis"]["contrasts"])
-BANDS: List[str] = list(config["analysis"]["bands"])
-
 def epoch_inputs() -> List[str]:
-    """Return expected epoch files (external immutable inputs)."""
     return expand(
         str(EPOCH_DIR / EPOCH_PATTERN),
         subject=VALID_SUBJECTS,
@@ -115,15 +160,12 @@ def epoch_inputs() -> List[str]:
     )
 
 # =============================================================================
-# Output sentinels
+# Outputs (sentinels)
 # =============================================================================
-# We treat each analysis "done" when its sentinel exists.
-# The CLI entrypoint is responsible for writing real outputs under io.out_dir.
 ERP_SENTINEL = OUT_DIR / "erp" / "_DONE"
 TFR_SENTINEL = OUT_DIR / "tfr" / "_DONE"
 MIXED_SENTINEL = OUT_DIR / "mixed" / "_DONE"
 DECODING_SENTINEL = OUT_DIR / "decoding" / "_DONE"
-
 ALL_SENTINELS = [ERP_SENTINEL, TFR_SENTINEL, MIXED_SENTINEL, DECODING_SENTINEL]
 
 # =============================================================================
@@ -134,19 +176,8 @@ rule all:
         ALL_SENTINELS
 
 # =============================================================================
-# Analyses (delegated to the Python dispatcher)
+# Delegation to dispatcher (main.py)
 # =============================================================================
-# IMPORTANT:
-# - This Snakefile no longer calls per-analysis scripts directly.
-# - It delegates all work to the project's CLI dispatcher (main.py),
-#   which should validate config, discover inputs, and write outputs.
-#
-# Expected CLI commands (example; must exist in your dispatcher):
-#   python src/turntaking/cli/main.py analyze erp --config workflow/config.yaml
-#   python src/turntaking/cli/main.py analyze tfr --config workflow/config.yaml
-#   python src/turntaking/cli/main.py analyze mixed --config workflow/config.yaml
-#   python src/turntaking/cli/main.py analyze decoding --config workflow/config.yaml
-
 rule erp_all:
     input:
         epoch_inputs()
