@@ -1,38 +1,100 @@
+# workflow/rules/viz.smk
+from pathlib import Path
 
-# =============================================================================
-#                               VISUALIZATION
-# =============================================================================
-
-HEAVY_MEM_MB = 10_000
+conda:
+    CONDA_PY_ENV
 
 
-rule plot_erps:
+def heavy_threads() -> int:
+    return int(config.get("execution", {}).get("threads_heavy", 10))
+
+
+def heavy_mem_mb() -> int:
+    return int(config.get("execution", {}).get("mem_mb_heavy", 10_000))
+
+
+FIG_MAIN = [
+    str(out_dir() / "figures" / "main" / "fig1_behavior.png"),
+    str(out_dir() / "figures" / "main" / "fig2_erp_timecourse.png"),
+    str(out_dir() / "figures" / "main" / "fig3_erp_topomaps.png"),
+    str(out_dir() / "figures" / "main" / "fig4_tfr_topomaps.png"),
+    str(out_dir() / "figures" / "main" / "fig5_decoding.png"),
+]
+
+FIG_SUPP = [
+    str(out_dir() / "figures" / "supp" / "figS1_response_duration_hist.png"),
+    str(out_dir() / "figures" / "supp" / "figS2_previous_speech_duration_hist.png"),
+    str(out_dir() / "figures" / "supp" / "figS3_long_joint.png"),
+    str(out_dir() / "figures" / "supp" / "figS3_short_joint.png"),
+    str(out_dir() / "figures" / "supp" / "figS3_fast_joint.png"),
+    str(out_dir() / "figures" / "supp" / "figS3_slow_joint.png"),
+    str(out_dir() / "figures" / "supp" / "figS4_erp_timecourse_with_hist.png"),
+]
+
+
+# These should match whatever your analysis rules produce (Option B contracts)
+ERP_OUT = [
+    str(out_dir() / "erp" / "manifest.json"),
+    str(out_dir() / "erp" / "grand_average-ave.fif"),
+    str(out_dir() / "erp" / "stats.csv"),
+]
+TFR_OUT = [
+    str(out_dir() / "tfr" / "manifest.json"),
+    str(out_dir() / "tfr" / "grand_average-tfr.h5"),
+    str(out_dir() / "tfr" / "stats.csv"),
+]
+DECODING_OUT = [
+    str(out_dir() / "decoding" / "manifest.json"),
+    str(out_dir() / "decoding" / "scores.csv"),
+    str(out_dir() / "decoding" / "confusion_matrix.csv"),
+]
+
+
+rule figures_main:
+    """
+    Build all main manuscript figures (Fig 1–5).
+    """
     input:
-        results=expand(str(OUT_DIR / "stats" / "erp" / "{contrast}" / "results.hdf5"), contrast=CONTRASTS)
+        epochs=epoch_inputs(),
+        erp=ERP_OUT,
+        tfr=TFR_OUT,
+        decoding=DECODING_OUT,
+        config=str(Path(workflow.basedir) / "config.yaml"),
     output:
-        plots=expand(str(OUT_DIR / "plots" / "erp" / "{contrast}" / "time_courses.png"), contrast=CONTRASTS)
-    threads: 1
+        FIG_MAIN
+    threads:
+        heavy_threads()
     resources:
-        mem_mb=HEAVY_MEM_MB
-    script:
-        SCRIPT_DIR / "visualization" / "plot_erp.py"
+        mem_mb=heavy_mem_mb()
+    params:
+        entrypoint=str(entrypoint())
+    shell:
+        r"""
+        set -euo pipefail
+        python "{params.entrypoint}" viz main --config "{input.config}"
+        """
 
 
-rule plot_tfrs:
+rule figures_supp:
+    """
+    Build all supplementary figures (S1–S4).
+    """
     input:
-        results=expand(
-            str(OUT_DIR / "stats" / "tfr" / "{contrast}" / "{band}" / "results.hdf5"),
-            contrast=CONTRASTS,
-            band=BANDS,
-        )
+        epochs=epoch_inputs(),
+        erp=ERP_OUT,
+        tfr=TFR_OUT,
+        decoding=DECODING_OUT,
+        config=str(Path(workflow.basedir) / "config.yaml"),
     output:
-        plots=expand(
-            str(OUT_DIR / "plots" / "tfr" / "{contrast}" / "{band}" / "topomap-alpha-0.1.png"),
-            contrast=CONTRASTS,
-            band=BANDS,
-        )
-    threads: 1
+        FIG_SUPP
+    threads:
+        heavy_threads()
     resources:
-        mem_mb=HEAVY_MEM_MB
-    script:
-        SCRIPT_DIR / "visualization" / "plot_tfr.py"
+        mem_mb=heavy_mem_mb()
+    params:
+        entrypoint=str(entrypoint())
+    shell:
+        r"""
+        set -euo pipefail
+        python "{params.entrypoint}" viz supp --config "{input.config}"
+        """
