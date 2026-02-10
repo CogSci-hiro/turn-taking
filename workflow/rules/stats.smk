@@ -21,12 +21,32 @@ def heavy_mem_mb() -> int:
 
 T1_LMM = str(out_dir() / "tables" / "table_T1_lmm_results.csv")
 
-# IMPORTANT: Keep this list in sync with analysis.smk ERP outputs
-ERP_OUT = [
-    str(out_dir() / "erp" / "manifest.json"),
-    str(out_dir() / "erp" / "grand_average-ave.fif"),
-    str(out_dir() / "erp" / "stats.csv"),
-]
+
+def erp_contrasts() -> list[str]:
+    return list(config.get("analysis", {}).get("contrasts", []))
+
+def erp_outputs_for_contrast(contrast: str) -> list[str]:
+    base = out_dir() / "erp" / contrast
+    if contrast == "duration":
+        cond1 = "long_ave.fif"
+        cond2 = "short_ave.fif"
+    elif contrast == "latency":
+        cond1 = "fast_ave.fif"
+        cond2 = "slow_ave.fif"
+    else:
+        raise ValueError(f"Unknown ERP contrast: {contrast}")
+
+    return [
+        str(base / "difference_ave.fif"),
+        str(base / "evoked-data.npy"),
+        str(base / cond1),
+        str(base / cond2),
+        str(base / "n_trials.csv"),
+        str(base / "results.hdf5"),
+        str(base / "offsets.csv"),
+    ]
+
+ERP_OUT = [p for c in erp_contrasts() for p in erp_outputs_for_contrast(c)]
 
 TFR_OUT = [
     str(out_dir() / "tfr" / "manifest.json"),
@@ -42,26 +62,15 @@ DECODING_OUT = [
 
 
 rule test_erp:
-    """
-    Run ERP unit/integration tests and store the log as an output artifact.
-    """
     input:
         erp_outputs=ERP_OUT,
         config=str(Path(workflow.basedir) / "config.yaml"),
     output:
         log=str(stats_erp_out_dir() / "pytest.log"),
-    threads: 1
-    resources:
-        mem_mb=heavy_mem_mb()
-    params:
-        entrypoint=str(entrypoint())
     shell:
         r"""
         set -euo pipefail
         mkdir -p "$(dirname "{output.log}")"
-
-        # Recommended: narrow to ERP-specific tests once you have them,
-        # e.g. `python -m pytest -q tests/test_erp.py`
         python -m pytest -q tests > "{output.log}"
         """
 
