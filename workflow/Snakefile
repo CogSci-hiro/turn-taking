@@ -1,247 +1,49 @@
-from __future__ import annotations
+# =============================================================================
+#                             turn-taking Snakemake entry
+# =============================================================================
+#
+# Design
+# ------
+# - Snakemake orchestrates dependencies.
+# - All scientific work is delegated to the single Python dispatcher (cli/main.py).
+# - We track completion with sentinel files under io.out_dir/<analysis>/_DONE.
+# - Dataset discovery is done *only* from io.epoch_dir + io.epoch_pattern.
+#
+# Layout assumed
+# --------------
+# <project_root>/
+#   workflow/
+#     Snakefile
+#     config.yaml
+#     envs/python.yaml        (optional, if you run with --use-conda)
+#     rules/
+#       common.smk
+#       analysis.smk
+#       targets.smk
+#   src/turntaking/cli/main.py
+#
 
 from pathlib import Path
-import re
-from typing import Dict, Iterable, List, Optional, Set, Tuple
 
-from snakemake.io import expand
+# Always resolve config relative to the Snakefile (robust to CWD / PyCharm)
+WORKFLOW_DIR = Path(workflow.basedir)
+CONFIG_PATH = str(WORKFLOW_DIR / "config.yaml")
+configfile: CONFIG_PATH
 
-# =============================================================================
-# Config
-# =============================================================================
-configfile: f"{workflow.basedir}/config.yaml"
+# In Snakefile (global): enforce common wildcard formats
+wildcard_constraints:
+    subject="sub-\d{3}",
+    task="[A-Za-z0-9_-]+",
+    run="\d+"
 
-# =============================================================================
-# Paths
-# =============================================================================
-WORKDIR = Path(config["project"]["workdir"])
-if not WORKDIR.exists():
-    raise FileNotFoundError(f"project.workdir does not exist: {WORKDIR}")
-workdir: str(WORKDIR)
+# Optional per-rule conda env (activated only if you run with --use-conda)
+CONDA_PY_ENV = str(WORKFLOW_DIR / "envs" / "python.yaml")
 
-PROJECT_ROOT = WORKDIR
+# Shared helpers (paths, discovery, filtering)
+include: str(WORKFLOW_DIR / "rules" / "common.smk")
 
-# Single Python entry point (dispatcher)
-ENTRYPOINT = PROJECT_ROOT / "src" / "turntaking" / "cli" / "main.py"
-if not ENTRYPOINT.exists():
-    raise FileNotFoundError(f"Could not find CLI entrypoint at: {ENTRYPOINT}")
+# Analysis rules (ERP/TFR/etc.), delegated to dispatcher
+include: str(WORKFLOW_DIR / "rules" / "analysis.smk")
 
-EPOCH_DIR = Path(config["io"]["epoch_dir"])
-OUT_DIR = Path(config["io"]["out_dir"])
-EPOCH_PATTERN = config["io"]["epoch_pattern"]
-
-if not EPOCH_DIR.exists():
-    raise FileNotFoundError(
-        f"io.epoch_dir does not exist: {EPOCH_DIR}. "
-        "Preprocessing must be run before analysis."
-    )
-
-# Optional annotations (only used if present in config; does not block workflow)
-ANNOTATION_DIR = None
-if "annotation_dir" in config.get("io", {}):
-    ANNOTATION_DIR = Path(config["io"]["annotation_dir"])
-
-# =============================================================================
-# Dataset discovery (from epoch files only; no BIDS dependency)
-# =============================================================================
-SUBJECT_RE = re.compile(r"sub-\d+")
-TASK_RE = re.compile(r"task-[A-Za-z0-9]+")
-RUN_RE = re.compile(r"run-\d+")
-
-def _extract_entities(path: Path) -> Dict[str, str]:
-    """Extract subject/task/run from an epoch file path based on BIDS-like tokens.
-
-    Notes
-    -----
-    This relies only on filename/path tokens (e.g., 'sub-001', 'task-conv', 'run-01'),
-    not on a BIDS root directory.
-
-    Returns
-    -------
-    entities : dict
-        Keys: 'subject', 'task', 'run' (run without leading zeros as string)
-    """
-    parts = list(path.parts)
-    fname = path.name
-
-    subject = next((p for p in parts if SUBJECT_RE.fullmatch(p)), None)
-    if subject is None:
-        m = SUBJECT_RE.search(fname)
-        subject = m.group(0) if m else None
-
-    task = next((p for p in parts if TASK_RE.fullmatch(p)), None)
-    if task is None:
-        m = TASK_RE.search(fname)
-        task = m.group(0) if m else None
-
-    run = next((p for p in parts if RUN_RE.fullmatch(p)), None)
-    if run is None:
-        m = RUN_RE.search(fname)
-        run = m.group(0) if m else None
-
-    if subject is None or task is None or run is None:
-        raise ValueError(
-            "Could not extract subject/task/run from epoch path. "
-            f"Got subject={subject}, task={task}, run={run} for: {path}"
-        )
-
-    run_int = int(run.split("-")[1])  # handles run-01, run-1, etc.
-    return {"subject": subject, "task": task, "run": str(run_int)}
-
-def discover_epoch_entities() -> Tuple[List[str], List[str], List[int], List[Path]]:
-    """Discover available subjects/tasks/runs by globbing epoch files."""
-    # Convert the epoch_pattern (with {wildcards}) into a glob pattern
-    # Example: "sub-{subject}/task-{task}/sub-{subject}_task-{task}_run-{run}-epo.fif"
-    glob_pat = EPOCH_PATTERN
-    glob_pat = re.sub(r"\{[^}]+\}", "*", glob_pat)
-    candidates = sorted(EPOCH_DIR.glob(glob_pat))
-
-    if not candidates:
-        raise FileNotFoundError(
-            "No epoch files found. "
-            f"epoch_dir={EPOCH_DIR}, epoch_pattern={EPOCH_PATTERN}, glob={glob_pat}"
-        )
-
-    subjects: Set[str] = set()
-    tasks: Set[str] = set()
-    runs: Set[int] = set()
-
-    for p in candidates:
-        ent = _extract_entities(p)
-        subjects.add(ent["subject"])
-        tasks.add(ent["task"].split("-")[1])  # store task name only
-        runs.add(int(ent["run"]))
-
-    return sorted(subjects), sorted(tasks), sorted(runs), candidates
-
-discovered_subjects, discovered_tasks, discovered_runs, EPOCH_FILES = discover_epoch_entities()
-
-# Respect config filters (include/exclude) *after* discovery
-subjects_cfg = config["dataset"]["subjects"]
-include_subjects = subjects_cfg.get("include")  # Optional[List[str]]
-exclude_subjects = set(subjects_cfg.get("exclude", []))
-
-if include_subjects:
-    include_set = set(include_subjects)
-    SUBJECTS = [s for s in discovered_subjects if s in include_set and s not in exclude_subjects]
-else:
-    SUBJECTS = [s for s in discovered_subjects if s not in exclude_subjects]
-
-# Tasks / runs can be constrained by config, but default to discovered availability
-TASKS = list(config["dataset"].get("tasks", discovered_tasks)) or discovered_tasks
-RUNS = [int(r) for r in config["dataset"].get("runs", discovered_runs)] or discovered_runs
-
-INVALID_SUBJECT_RUN: Set[Tuple[str, int]] = {
-    (str(x[0]), int(x[1])) for x in config["dataset"].get("invalid_subject_run", [])
-}
-
-def valid_subject_runs(subjects: List[str], runs: List[int]) -> List[Tuple[str, int]]:
-    out: List[Tuple[str, int]] = []
-    for subject in subjects:
-        for run in runs:
-            if (subject, run) in INVALID_SUBJECT_RUN:
-                continue
-            out.append((subject, run))
-    return out
-
-VALID_SR = valid_subject_runs(SUBJECTS, RUNS)
-VALID_SUBJECTS = sorted({s for s, _ in VALID_SR})
-VALID_RUNS = sorted({r for _, r in VALID_SR})
-
-# =============================================================================
-# Inputs
-# =============================================================================
-def epoch_inputs() -> List[str]:
-    return expand(
-        str(EPOCH_DIR / EPOCH_PATTERN),
-        subject=VALID_SUBJECTS,
-        task=TASKS,
-        run=[str(r) for r in VALID_RUNS],
-    )
-
-# =============================================================================
-# Outputs (sentinels)
-# =============================================================================
-ERP_SENTINEL = OUT_DIR / "erp" / "_DONE"
-TFR_SENTINEL = OUT_DIR / "tfr" / "_DONE"
-MIXED_SENTINEL = OUT_DIR / "mixed" / "_DONE"
-DECODING_SENTINEL = OUT_DIR / "decoding" / "_DONE"
-ALL_SENTINELS = [ERP_SENTINEL, TFR_SENTINEL, MIXED_SENTINEL, DECODING_SENTINEL]
-
-# =============================================================================
-# Targets
-# =============================================================================
-rule all:
-    input:
-        ALL_SENTINELS
-
-# =============================================================================
-# Delegation to dispatcher (main.py)
-# =============================================================================
-rule erp_all:
-    input:
-        epoch_inputs()
-    output:
-        ERP_SENTINEL
-    threads:
-        int(config["execution"].get("threads_heavy", 10))
-    resources:
-        mem_mb=int(config["execution"].get("mem_mb_heavy", 10000))
-    shell:
-        r"""
-        set -euo pipefail
-        python "{ENTRYPOINT}" analyze erp --config "{workflow.basedir}/config.yaml"
-        mkdir -p "{OUT_DIR}/erp"
-        touch "{output}"
-        """
-
-rule tfr_all:
-    input:
-        epoch_inputs()
-    output:
-        TFR_SENTINEL
-    threads:
-        int(config["execution"].get("threads_heavy", 10))
-    resources:
-        mem_mb=int(config["execution"].get("mem_mb_heavy", 10000))
-    shell:
-        r"""
-        set -euo pipefail
-        python "{ENTRYPOINT}" analyze tfr --config "{workflow.basedir}/config.yaml"
-        mkdir -p "{OUT_DIR}/tfr"
-        touch "{output}"
-        """
-
-rule mixed_all:
-    input:
-        epoch_inputs()
-    output:
-        MIXED_SENTINEL
-    threads:
-        int(config["execution"].get("threads_light", 1))
-    resources:
-        mem_mb=int(config["execution"].get("mem_mb_light", 1000))
-    shell:
-        r"""
-        set -euo pipefail
-        python "{ENTRYPOINT}" analyze mixed --config "{workflow.basedir}/config.yaml"
-        mkdir -p "{OUT_DIR}/mixed"
-        touch "{output}"
-        """
-
-rule decoding_all:
-    input:
-        epoch_inputs()
-    output:
-        DECODING_SENTINEL
-    threads:
-        int(config["execution"].get("threads_heavy", 10))
-    resources:
-        mem_mb=int(config["execution"].get("mem_mb_heavy", 10000))
-    shell:
-        r"""
-        set -euo pipefail
-        python "{ENTRYPOINT}" analyze decoding --config "{workflow.basedir}/config.yaml"
-        mkdir -p "{OUT_DIR}/decoding"
-        touch "{output}"
-        """
+# Final targets ("rule all")
+include: str(WORKFLOW_DIR / "rules" / "targets.smk")

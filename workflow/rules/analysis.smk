@@ -1,126 +1,117 @@
 # =============================================================================
-#                             ANALYSIS (DATA)
+#                               Analysis rules
 # =============================================================================
+#
+# Each rule delegates work to the single Python dispatcher:
+#   python src/turntaking/cli/main.py analyze <analysis> --config workflow/config.yaml
+#
+# Completion is tracked using sentinel files:
+#   io.out_dir/<analysis>/_DONE
+#
 
-LIGHT_MEM_MB = 1_000
-HEAVY_MEM_MB = 10_000
-
-# Epochs exist already; use helper from main Snakefile
-# - epoch_inputs()
-# - CONTRASTS, BANDS
-# - SUBJECTS
-# - SCRIPT_DIR, OUT_DIR
+conda:
+    CONDA_PY_ENV
 
 
-rule make_erp_data:
+ERP_SENTINEL = sentinel_path("erp")
+TFR_SENTINEL = sentinel_path("tfr")
+MIXED_SENTINEL = sentinel_path("mixed")
+DECODING_SENTINEL = sentinel_path("decoding")
+
+
+def _heavy_threads() -> int:
+    return int(config.get("execution", {}).get("threads_heavy", 10))
+
+
+def _light_threads() -> int:
+    return int(config.get("execution", {}).get("threads_light", 1))
+
+
+def _heavy_mem() -> int:
+    return int(config.get("execution", {}).get("mem_mb_heavy", 10000))
+
+
+def _light_mem() -> int:
+    return int(config.get("execution", {}).get("mem_mb_light", 1000))
+
+
+rule erp_all:
     input:
         epoch_inputs()
     output:
-        evoked=expand(str(OUT_DIR / "stats" / "erp" / "{contrast}" / "evoked-data.npy"), contrast=CONTRASTS),
-        diff=expand(str(OUT_DIR / "stats" / "erp" / "{contrast}" / "difference_ave.fif"), contrast=CONTRASTS),
-    params:
-        contrast=config["erp"]["contrast"],
-        min_latency=config["min_latency"],
-        max_latency=config["max_latency"],
-        min_response_duration=config["min_response_duration"],
-    threads: 1
+        ERP_SENTINEL
+    threads:
+        _heavy_threads()
     resources:
-        mem_mb=LIGHT_MEM_MB
-    script:
-        SCRIPT_DIR / "analysis" / "erp_data.py"
+        mem_mb=_heavy_mem()
+    shell:
+        r"""
+        set -euo pipefail
+        python "{entrypoint()}" analyze erp --config "{workflow.basedir}/config.yaml"
+        mkdir -p "{out_dir()}/erp"
+        touch "{output}"
+        """
 
 
-rule make_tfr_data:
+rule tfr_all:
     input:
         epoch_inputs()
     output:
-        evoked=expand(
-            str(OUT_DIR / "stats" / "tfr" / "{contrast}" / "{band}" / "evoked-data.npy"),
-            contrast=CONTRASTS,
-            band=BANDS,
-        ),
-        diff=expand(
-            str(OUT_DIR / "stats" / "tfr" / "{contrast}" / "{band}" / "difference_ave.fif"),
-            contrast=CONTRASTS,
-            band=BANDS,
-        ),
-    params:
-        contrast=config["tfr"]["contrast"],
-        method=config["tfr"]["method"],
-        min_latency=config["min_latency"],
-        max_latency=config["max_latency"],
-        min_response_duration=config["min_response_duration"],
-    threads: 10
+        TFR_SENTINEL
+    threads:
+        _heavy_threads()
     resources:
-        mem_mb=HEAVY_MEM_MB
-    script:
-        SCRIPT_DIR / "analysis" / "tfr_data.py"
+        mem_mb=_heavy_mem()
+    shell:
+        r"""
+        set -euo pipefail
+        python "{entrypoint()}" analyze tfr --config "{workflow.basedir}/config.yaml"
+        mkdir -p "{out_dir()}/tfr"
+        touch "{output}"
+        """
 
 
-rule make_mixed_effect_data:
+rule mixed_all:
     input:
         epoch_inputs()
     output:
-        summary=str(OUT_DIR / "stats" / "summary-data.csv")
-    params:
-        tw1_tmin=config["mixed"]["tw1_tmin"],
-        tw1_tmax=config["mixed"]["tw1_tmax"],
-        tw2_tmin=config["mixed"]["tw2_tmin"],
-        tw2_tmax=config["mixed"]["tw2_tmax"],
-        baseline_tmin=config["mixed"]["baseline_tmin"],
-        baseline_tmax=config["mixed"]["baseline_tmax"],
-        min_latency=config["min_latency"],
-        max_latency=config["max_latency"],
-        min_response_duration=config["min_response_duration"],
-    threads: 10
+        MIXED_SENTINEL
+    threads:
+        _light_threads()
     resources:
-        mem_mb=HEAVY_MEM_MB
-    script:
-        SCRIPT_DIR / "analysis" / "mixed_effect_data.py"
+        mem_mb=_light_mem()
+    shell:
+        r"""
+        set -euo pipefail
+        python "{entrypoint()}" analyze mixed --config "{workflow.basedir}/config.yaml"
+        mkdir -p "{out_dir()}/mixed"
+        touch "{output}"
+        """
 
 
-rule make_decoding_data:
+rule decoding_all:
     input:
         epoch_inputs()
     output:
-        targets=expand(
-            str(OUT_DIR / "stats" / "decoding" / "{mode}" / "{contrast}" / "{subject}-{kind}.npy"),
-            mode=["erp"],
-            contrast=CONTRASTS,
-            subject=SUBJECTS,
-            kind=["X", "y"],
-        )
-    params:
-        min_latency=config["min_latency"],
-        max_latency=config["max_latency"],
-        min_response_duration=config["min_response_duration"],
-        sfreq=config["decoding"]["sfreq"],
-    threads: 10
+        DECODING_SENTINEL
+    threads:
+        _heavy_threads()
     resources:
-        mem_mb=HEAVY_MEM_MB
-    script:
-        SCRIPT_DIR / "analysis" / "decoding_data.py"
+        mem_mb=_heavy_mem()
+    shell:
+        r"""
+        set -euo pipefail
+        python "{entrypoint()}" analyze decoding --config "{workflow.basedir}/config.yaml"
+        mkdir -p "{out_dir()}/decoding"
+        touch "{output}"
+        """
 
 
-rule make_decoding_score:
-    input:
-        targets=expand(
-            str(OUT_DIR / "stats" / "decoding" / "{mode}" / "{contrast}" / "{subject}-{kind}.npy"),
-            mode=["erp"],
-            contrast=CONTRASTS,
-            subject=SUBJECTS,
-            kind=["X", "y"],
-        )
-    output:
-        scores=expand(
-            str(OUT_DIR / "stats" / "decoding_scores" / "{mode}-{contrast}.npy"),
-            mode=["erp"],
-            contrast=CONTRASTS,
-        )
-    params:
-        n_splits=config["decoding"]["n_splits"]
-    threads: 10
-    resources:
-        mem_mb=HEAVY_MEM_MB
-    script:
-        SCRIPT_DIR / "analysis" / "decoding_score.py"
+# Convenience: remove sentinels for clean reruns
+rule clean_analysis:
+    message:
+        "Removing analysis sentinel files (forces re-run)."
+    shell:
+        r"""
+        rm -f "{ERP_SENTINEL}" "{TFR_SENTINEL}" "{MIXED_SENTINEL}" "{DECODING_SENTINEL}"
+        """

@@ -1,0 +1,14 @@
+
+name: turntaking-workflow
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - snakemake
+      - pyyaml
+      - numpy
+      - scipy
+      - mne
+      - pandas
