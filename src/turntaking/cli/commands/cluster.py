@@ -32,25 +32,26 @@ def _getattr_default(obj: Any, name: str, default: Any) -> Any:
 
 
 def _load_params(cfg: Any, args: Any) -> ClusterTestParams:
-    """
-    Read cluster-test params from TurntakingConfig (attribute-based),
-    then allow CLI flags to override if provided.
-    """
-    # Expect something like cfg.stats.cluster.{...}
-    stats = _getattr_default(cfg, "stats", None)
-    cluster = _getattr_default(stats, "cluster", None)
+    analysis = getattr(cfg, "analysis", None)
+
+    if args.kind == "erp":
+        section = getattr(analysis, "erp", None)
+    elif args.kind == "tfr":
+        section = getattr(analysis, "tfr", None)
+    else:
+        section = None
 
     params = ClusterTestParams(
-        n_permutations=int(_getattr_default(cluster, "n_permutations", 1024)),
-        threshold=_getattr_default(cluster, "threshold", None),
-        tail=int(_getattr_default(cluster, "tail", 0)),
-        alpha=float(_getattr_default(cluster, "alpha", 0.05)),
-        seed=int(_getattr_default(cluster, "seed", 0)),
-        n_jobs=int(_getattr_default(cluster, "n_jobs", 1)),
-        ch_type=str(_getattr_default(cluster, "ch_type", "eeg")),
+        n_permutations=int(getattr(section, "n_permutations", 1024)),
+        threshold=getattr(section, "threshold", None),
+        tail=int(getattr(section, "tail", 0)),          # optional, not in your YAML -> default ok
+        alpha=float(getattr(section, "alpha", 0.05)),   # optional
+        seed=int(getattr(section, "seed", 0)),          # optional
+        n_jobs=int(getattr(section, "n_jobs", 1)),      # optional
+        ch_type=str(getattr(section, "ch_type", "eeg")),# optional
     )
 
-    # Optional CLI overrides
+    # CLI overrides (keep if you added args)
     if getattr(args, "n_permutations", None) is not None:
         params = replace(params, n_permutations=int(args.n_permutations))
     if getattr(args, "threshold", None) is not None:
