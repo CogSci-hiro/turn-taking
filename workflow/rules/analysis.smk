@@ -37,6 +37,11 @@ def light_mem_mb() -> int:
 
 
 CONTRASTS = config["analysis"]["contrasts"]
+
+ERP_COND_NAMES = {
+    "duration": ("long", "short"),
+    "latency": ("fast", "slow"),
+}
 ERP_ROOT = config["io"]["out_dir"] + "/erp"
 
 
@@ -45,13 +50,17 @@ rule erp:
     input:
         config="workflow/config.yaml"   # or your actual config input
     output:
-        expand(ERP_ROOT + "/{contrast}/difference_ave.fif", contrast=CONTRASTS),
-        expand(ERP_ROOT + "/{contrast}/cond_1_ave.fif", contrast=CONTRASTS),
-        expand(ERP_ROOT + "/{contrast}/cond_2_ave.fif", contrast=CONTRASTS),
-        expand(ERP_ROOT + "/{contrast}/evoked-data.npy", contrast=CONTRASTS),
-        expand(ERP_ROOT + "/{contrast}/n_trials.csv", contrast=CONTRASTS),
-        expand(ERP_ROOT + "/{contrast}/results.hdf5", contrast=CONTRASTS),
-        expand(ERP_ROOT + "/{contrast}/offsets.csv", contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/difference_ave.fif",contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/evoked-data.npy",contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/n_trials.csv",contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/results.hdf5",contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/offsets.csv",contrast=CONTRASTS),
+
+        # Condition-specific filenames (2 per contrast)
+        ERP_ROOT + "/duration/long_ave.fif",
+        ERP_ROOT + "/duration/short_ave.fif",
+        ERP_ROOT + "/latency/fast_ave.fif",
+        ERP_ROOT + "/latency/slow_ave.fif"
     shell:
         r"""
         set -euo pipefail
