@@ -24,6 +24,29 @@ _BAND_LIMITS_HZ: dict[str, tuple[float, float]] = {
 
 
 def _band_limits_hz(band: str) -> tuple[float, float]:
+    """
+    Return frequency limits for a predefined frequency band.
+
+    Parameters
+    ----------
+    band : str
+        Name of the frequency band.
+
+    Returns
+    -------
+    tuple of float
+        (l_freq, h_freq) in Hz.
+
+    Raises
+    ------
+    ValueError
+        If the band is not defined in `_BAND_LIMITS_HZ`.
+
+    Notes
+    -----
+    This function enforces explicit band definitions to avoid silent
+    mismatches between analysis configuration and implementation.
+    """
     if band not in _BAND_LIMITS_HZ:
         raise ValueError(
             f"Unknown band={band!r}. Known: {sorted(_BAND_LIMITS_HZ.keys())}. "
@@ -37,6 +60,31 @@ def _compute_induced_envelope_epochs(
     *,
     band: str,
 ) -> np.ndarray:
+    """
+    Compute band-limited induced envelope per epoch using Hilbert transform.
+
+    Parameters
+    ----------
+    epochs : mne.BaseEpochs
+        Epoched data.
+    band : str
+        Frequency band name (must exist in `_BAND_LIMITS_HZ`).
+
+    Returns
+    -------
+    np.ndarray
+        Array of shape (n_epochs, n_channels, n_times)
+        containing the Hilbert envelope of the band-passed signal.
+
+    Notes
+    -----
+    Processing steps:
+        1. Band-pass filter (FIR, zero-phase).
+        2. Apply analytic Hilbert transform.
+        3. Extract amplitude envelope.
+
+    This returns *induced* activity (no phase locking across trials).
+    """
     l_freq, h_freq = _band_limits_hz(band)
 
     epochs = epochs.copy()
@@ -54,7 +102,7 @@ def _compute_induced_envelope_epochs(
     # Hilbert envelope
     epochs.apply_hilbert(envelope=True)
 
-    return epochs.get_data()  # (E,C,T)
+    return epochs.get_data()  # (E, C, T)
 
 
 def _induced_evoked_from_epochs(
@@ -64,10 +112,33 @@ def _induced_evoked_from_epochs(
     comment: str,
 ) -> mne.Evoked:
     """
-    Convert induced envelope (epoch-wise) into an ERP-like Evoked (channel x time).
+    Convert induced envelope data into an ERP-like Evoked object.
+
+    Parameters
+    ----------
+    epochs : mne.BaseEpochs
+        Epoched data.
+    band : str
+        Frequency band name.
+    comment : str
+        Label stored in the Evoked object.
+
+    Returns
+    -------
+    mne.Evoked
+        Evoked object with data shape (n_channels, n_times).
+
+    Notes
+    -----
+    The envelope is computed per epoch and then averaged:
+
+        mean_env(c, t) = mean_e envelope(e, c, t)
+
+    This preserves channel/time structure while discarding
+    phase-locked information.
     """
     env = _compute_induced_envelope_epochs(epochs, band=band)  # (E,C,T)
-    mean_env = env.mean(axis=0)  # (C,T)
+    mean_env = env.mean(axis=0)  # (C, T)
 
     evoked = mne.EvokedArray(
         mean_env,
@@ -79,6 +150,23 @@ def _induced_evoked_from_epochs(
 
 
 def _stable_sort_key(path: Path) -> tuple:
+    """
+    Construct a deterministic sort key for epoch file paths.
+
+    Parameters
+    ----------
+    path : Path
+        Path to epoch file.
+
+    Returns
+    -------
+    tuple
+        Sorting key based on (task, run, filename).
+
+    Notes
+    -----
+    Ensures consistent concatenation order across subjects.
+    """
     info = parse_epochs_filepath(path)
 
     run = getattr(info, "run", None)
@@ -96,10 +184,25 @@ def _stable_sort_key(path: Path) -> tuple:
 @dataclass(frozen=True)
 class EvokedDatasetResult:
     """
-    Outputs of per-contrast dataset construction.
+    Container for subject-level evoked dataset outputs.
 
-    For ERP: evoked_data is ERP averages.
-    For TFR: evoked_data is induced envelope averages (band-specific), still ERP-like.
+    Attributes
+    ----------
+    evokeds_cond_1 : list of mne.Evoked
+        Per-subject Evoked objects for condition 1.
+    evokeds_cond_2 : list of mne.Evoked
+        Per-subject Evoked objects for condition 2.
+    evokeds_difference : list of mne.Evoked
+        Per-subject difference wave (cond_1 - cond_2).
+    evoked_data : np.ndarray
+        Array of shape (n_subjects, 3, n_channels, n_times),
+        ordered as [cond_1, cond_2, diff].
+    n_trials : pd.DataFrame
+        Per-subject trial counts.
+    offsets : pd.DataFrame
+        Concatenated metadata table for selected epochs.
+    results : Mapping[str, Any]
+        Metadata dictionary describing the dataset.
     """
 
     evokeds_cond_1: list[mne.Evoked]
@@ -108,7 +211,6 @@ class EvokedDatasetResult:
 
     # (N,3,C,T) order [cond_1, cond_2, diff]
     evoked_data: np.ndarray
-
     n_trials: pd.DataFrame
     offsets: pd.DataFrame
 
@@ -122,19 +224,51 @@ def build_evoked_dataset(
     kind: Kind,
     contrast: Contrast,
     selection_params: SelectionParams,
-    # TFR-only (band-specific induced)
     band: str | None = None,
     sfreq: float | None = None,
 ) -> EvokedDatasetResult:
     """
-    Build dataset using OLD (subject-level) logic inside the NEW API.
+    Construct subject-level ERP or induced-TFR dataset.
 
-    ERP:
-      - averages are epochs.average()
+    Parameters
+    ----------
+    epoch_paths : list of Path
+        Paths to epoch files (possibly multiple runs per subject).
+    kind : {"erp", "tfr"}
+        Type of analysis.
+    contrast : Contrast
+        Contrast definition used for median split.
+    selection_params : SelectionParams
+        Epoch selection criteria.
+    band : str | None
+        Required if kind="tfr". Frequency band name.
+    sfreq : float | None
+        Optional resampling frequency.
 
-    TFR (induced, band-specific):
-      - averages are Hilbert envelope of bandpassed signal, wrapped as EvokedArray
-      - requires `band` (e.g., "alpha", "beta")
+    Returns
+    -------
+    EvokedDatasetResult
+        Structured container with evoked objects and stacked data.
+
+    Notes
+    -----
+    Processing steps per subject:
+        1. Load and concatenate epochs.
+        2. Optional resampling.
+        3. Apply selection.
+        4. Split via median (cond_1 vs cond_2).
+        5. Equalize trial counts.
+        6. Compute evoked averages.
+        7. Compute difference wave (cond_1 - cond_2).
+
+    Cross-subject invariants:
+        - Identical channel ordering.
+        - Identical time axis.
+        - Identical data shapes.
+
+    Data layout:
+        evoked_data shape = (N_subjects, 3, C, T)
+        order = [cond_1, cond_2, difference]
     """
     if len(epoch_paths) == 0:
         raise ValueError("No epoch files provided.")
@@ -185,7 +319,6 @@ def build_evoked_dataset(
         else:
             raise ValueError(f"Unknown kind={kind!r}")
 
-        # OLD convention: difference = cond_1 - cond_2
         evd = ev1.copy()
         evd.data = ev1.data - ev2.data
         evd.comment = f"{split_labels['cond_1']}-{split_labels['cond_2']}"
@@ -206,7 +339,7 @@ def build_evoked_dataset(
         evokeds_2.append(ev2)
         evokeds_diff.append(evd)
 
-        # Offsets table (kept for parity; you can drop it for TFR at write-time if you want)
+        # Offsets table (kept for parity)
         md1 = cond1.metadata.copy()
         md2 = cond2.metadata.copy()
         md1["condition"] = split_labels["cond_1"]
