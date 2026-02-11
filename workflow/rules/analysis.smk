@@ -37,13 +37,10 @@ def light_mem_mb() -> int:
 
 
 CONTRASTS = config["analysis"]["contrasts"]
+BANDS = config["analysis"]["bands"]
 
-ERP_COND_NAMES = {
-    "duration": ("long", "short"),
-    "latency": ("fast", "slow"),
-}
 ERP_ROOT = config["io"]["out_dir"] + "/erp"
-
+TFR_ROOT = config["io"]["out_dir"] + "/tfr"
 
 
 rule erp:
@@ -70,20 +67,27 @@ rule erp:
 
 rule tfr:
     input:
-        epochs=epoch_inputs(),
-        config=str(Path(workflow.basedir) / "config.yaml"),
+        config="workflow/config.yaml"
     output:
-        TFR_OUT
+        # Per contrast × band core files
+        expand(TFR_ROOT + "/{contrast}/{band}/difference_ave.fif", contrast=CONTRASTS, band=BANDS),
+        expand(TFR_ROOT + "/{contrast}/{band}/induced-data.npy", contrast=CONTRASTS, band=BANDS),
+        expand(TFR_ROOT + "/{contrast}/{band}/n_trials.csv", contrast=CONTRASTS, band=BANDS),
+        expand(TFR_ROOT + "/{contrast}/{band}/metadata.hdf5", contrast=CONTRASTS, band=BANDS),
+
+        # Condition-specific averages (2 per contrast × band)
+        expand(TFR_ROOT + "/duration/{band}/long_ave.fif", band=BANDS),
+        expand(TFR_ROOT + "/duration/{band}/short_ave.fif", band=BANDS),
+        expand(TFR_ROOT + "/latency/{band}/fast_ave.fif", band=BANDS),
+        expand(TFR_ROOT + "/latency/{band}/slow_ave.fif", band=BANDS),
     threads:
         heavy_threads()
     resources:
         mem_mb=heavy_mem_mb()
-    params:
-        entrypoint=str(entrypoint())
     shell:
         r"""
         set -euo pipefail
-        python "{params.entrypoint}" analyze tfr --config "{input.config}"
+        python -m turntaking.cli.main tfr --config "{input.config}"
         """
 
 
