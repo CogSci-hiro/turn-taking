@@ -42,6 +42,7 @@ BANDS = config["analysis"]["bands"]
 ERP_ROOT = config["io"]["out_dir"] + "/erp"
 TFR_ROOT = config["io"]["out_dir"] + "/tfr"
 DECODING_ROOT = config["io"]["out_dir"] + "/decoding/erp"
+MIXED_ROOT = config["io"]["out_dir"] + "/mixed_effect"
 
 
 rule erp:
@@ -117,20 +118,22 @@ rule decoding_all:
         expand(DECODING_ROOT + "/{contrast}/times.npy", contrast=CONTRASTS),
 
 
-rule mixed:
+rule mixed_effect:
     input:
-        epochs=epoch_inputs(),
-        config=str(Path(workflow.basedir) / "config.yaml"),
+        config="workflow/config.yaml"
     output:
-        MIXED_OUT
+        table=MIXED_ROOT + "/table.csv"
     threads:
         light_threads()
     resources:
         mem_mb=light_mem_mb()
-    params:
-        entrypoint=str(entrypoint())
     shell:
         r"""
         set -euo pipefail
-        python "{params.entrypoint}" analyze mixed --config "{input.config}"
+        python -m turntaking.cli.main mixed-effect --config "{input.config}"
         """
+
+
+rule mixed_effect_all:
+    input:
+        MIXED_ROOT + "/table.csv"

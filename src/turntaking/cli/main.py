@@ -24,8 +24,13 @@ import turntaking.cli.commands.erp as cmd_erp
 import turntaking.cli.commands.tfr as cmd_tfr
 import turntaking.cli.commands.cluster as cmd_cluster
 import turntaking.cli.commands.decoding as cmd_decoding
+import turntaking.cli.commands.mixed_effect as cmd_mixed_effect
 
-_COMMANDS = {"erp": cmd_erp, "tfr": cmd_tfr, "decoding": cmd_decoding, "cluster": cmd_cluster}
+_COMMANDS = {"erp": cmd_erp,
+             "tfr": cmd_tfr,
+             "decoding": cmd_decoding,
+             "cluster": cmd_cluster,
+             "mixed-effect": cmd_mixed_effect}
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
