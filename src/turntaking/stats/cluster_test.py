@@ -1,6 +1,5 @@
 # src/turntaking/stats/cluster_test.py
 
-from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any, Literal

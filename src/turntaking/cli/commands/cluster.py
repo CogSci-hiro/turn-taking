@@ -1,6 +1,5 @@
 # src/turntaking/cli/commands/cluster.py
 
-from __future__ import annotations
 
 import argparse
 from dataclasses import replace

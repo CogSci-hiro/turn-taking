@@ -5,7 +5,6 @@ They exist solely to keep the figure-producing functions in `viz.figures`
 small and readable while preserving identical outputs.
 """
 
-from __future__ import annotations
 
 from typing import List, Tuple
 

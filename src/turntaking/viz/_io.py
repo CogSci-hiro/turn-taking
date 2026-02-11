@@ -1,6 +1,5 @@
 """I/O helpers for saving / exporting standalone legend assets."""
 
-from __future__ import annotations
 
 from pathlib import Path
 

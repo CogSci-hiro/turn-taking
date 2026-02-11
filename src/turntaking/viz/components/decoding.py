@@ -1,6 +1,5 @@
 """Decoding visualization components (private helpers)."""
 
-from __future__ import annotations
 
 from matplotlib import pyplot as plt
 from matplotlib.image import AxesImage

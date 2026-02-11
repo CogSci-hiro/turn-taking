@@ -14,64 +14,106 @@ from turntaking.analysis.selection import Contrast, SelectionParams, select_epoc
 Kind = Literal["erp", "tfr"]
 
 
-@dataclass(frozen=True)
-class EvokedDatasetResult:
+# =============================================================================
+# Band definitions
+# =============================================================================
+_BAND_LIMITS_HZ: dict[str, tuple[float, float]] = {
+    "alpha": (8.0, 12.0),
+    "beta": (13.0, 30.0),
+}
+
+
+def _band_limits_hz(band: str) -> tuple[float, float]:
+    if band not in _BAND_LIMITS_HZ:
+        raise ValueError(
+            f"Unknown band={band!r}. Known: {sorted(_BAND_LIMITS_HZ.keys())}. "
+            "Add it to _BAND_LIMITS_HZ or wire config-based bands."
+        )
+    return _BAND_LIMITS_HZ[band]
+
+
+def _compute_induced_envelope_epochs(
+    epochs: mne.BaseEpochs,
+    *,
+    band: str,
+) -> np.ndarray:
+    l_freq, h_freq = _band_limits_hz(band)
+
+    epochs = epochs.copy()
+
+    # Bandpass
+    epochs.filter(
+        l_freq=l_freq,
+        h_freq=h_freq,
+        method="fir",
+        phase="zero",
+        fir_design="firwin",
+        verbose="ERROR",
+    )
+
+    # Hilbert envelope
+    epochs.apply_hilbert(envelope=True)
+
+    return epochs.get_data()  # (E,C,T)
+
+
+def _induced_evoked_from_epochs(
+    epochs: mne.BaseEpochs,
+    *,
+    band: str,
+    comment: str,
+) -> mne.Evoked:
     """
-    Outputs of per-contrast ERP dataset construction (per subject).
-
-    Notes
-    -----
-    This object is intentionally *write-ready*: it contains everything required
-    to create the Snakemake-tracked artifacts for a single contrast.
-
-    DataFrame formats
-    -----------------
-    n_trials
-        | subject  | n_cond_1 | n_cond_2 |
-        |----------|----------|----------|
-        | sub-004  | 120      | 118      |
-
-    offsets
-        Legacy table (copied from old script). Must include a 'condition' column:
-        | timestamp | self_duration | ... | condition |
-        |-----------|---------------|-----|-----------|
-        | ...       | ...           | ... | long      |
-
-    Usage example
-    -------------
-        result = build_evoked_dataset(...)
-        # result is then passed to write_erp_outputs(...)
+    Convert induced envelope (epoch-wise) into an ERP-like Evoked (channel x time).
     """
+    env = _compute_induced_envelope_epochs(epochs, band=band)  # (E,C,T)
+    mean_env = env.mean(axis=0)  # (C,T)
 
-    # Per-subject evokeds (these become *_ave.fif files)
-    evokeds_cond_1: list[mne.Evoked]
-    evokeds_cond_2: list[mne.Evoked]
-    evokeds_difference: list[mne.Evoked]
-
-    # NPY payload (saved verbatim; you define shape/semantics upstream)
-    evoked_data: np.ndarray
-
-    # Tables
-    n_trials: pd.DataFrame
-    offsets: pd.DataFrame
-
-    # HDF5 payload
-    results: Mapping[str, Any]
+    evoked = mne.EvokedArray(
+        mean_env,
+        info=epochs.info.copy(),
+        tmin=float(epochs.times[0]),
+        comment=comment,
+    )
+    return evoked
 
 
 def _stable_sort_key(path: Path) -> tuple:
     info = parse_epochs_filepath(path)
 
-    # We only rely on attributes that might exist; fall back to path name.
-    # run is often int-like; normalize to string for safety.
     run = getattr(info, "run", None)
     run_key = str(run) if run is not None else ""
 
-    # Optional fields if they exist (won't crash if they don't)
     task = getattr(info, "task", None)
     task_key = str(task) if task is not None else ""
 
-    return (task_key, run_key, path.name)
+    return task_key, run_key, path.name
+
+
+# =============================================================================
+# Dataset result (reused for ERP and induced-TFR)
+# =============================================================================
+@dataclass(frozen=True)
+class EvokedDatasetResult:
+    """
+    Outputs of per-contrast dataset construction.
+
+    For ERP: evoked_data is ERP averages.
+    For TFR: evoked_data is induced envelope averages (band-specific), still ERP-like.
+    """
+
+    evokeds_cond_1: list[mne.Evoked]
+    evokeds_cond_2: list[mne.Evoked]
+    evokeds_difference: list[mne.Evoked]
+
+    # (N,3,C,T) order [cond_1, cond_2, diff]
+    evoked_data: np.ndarray
+
+    n_trials: pd.DataFrame
+    offsets: pd.DataFrame
+
+    # Metadata payload (written as metadata.hdf5)
+    results: Mapping[str, Any]
 
 
 def build_evoked_dataset(
@@ -80,29 +122,30 @@ def build_evoked_dataset(
     kind: Kind,
     contrast: Contrast,
     selection_params: SelectionParams,
+    # TFR-only (band-specific induced)
+    band: str | None = None,
+    sfreq: float | None = None,
 ) -> EvokedDatasetResult:
     """
-    Build ERP evoked dataset using OLD (subject-level) logic inside the NEW API.
+    Build dataset using OLD (subject-level) logic inside the NEW API.
 
-    Old behavior restored:
-    - concatenate all runs per subject
-    - select on concatenated epochs
-    - median split once per subject
-    - equalize epoch counts between conditions
-    - difference = cond_1 - cond_2 (old combine_evoked weights [1, -1])
+    ERP:
+      - averages are epochs.average()
+
+    TFR (induced, band-specific):
+      - averages are Hilbert envelope of bandpassed signal, wrapped as EvokedArray
+      - requires `band` (e.g., "alpha", "beta")
     """
-    if kind != "erp":
-        raise NotImplementedError("Only kind='erp' is implemented in this vertical slice.")
     if len(epoch_paths) == 0:
         raise ValueError("No epoch files provided.")
+    if kind == "tfr" and band is None:
+        raise ValueError("kind='tfr' requires band=...")
 
-    # Group epoch files by subject
     paths_by_subject: dict[str, list[Path]] = defaultdict(list)
     for path in epoch_paths:
         info = parse_epochs_filepath(path)
         paths_by_subject[info.subject].append(path)
 
-    # Deterministic subject order (and deterministic run order within subject)
     subjects = sorted(paths_by_subject.keys())
     for subject in subjects:
         paths_by_subject[subject] = sorted(paths_by_subject[subject], key=_stable_sort_key)
@@ -119,58 +162,51 @@ def build_evoked_dataset(
     reference_times: np.ndarray | None = None
 
     for subject in subjects:
-        paths_by_subject[subject] = sorted(paths_by_subject[subject], key=_stable_sort_key)
+        epochs_list = [load_epochs(p) for p in paths_by_subject[subject]]
+        epochs = epochs_list[0] if len(epochs_list) == 1 else mne.concatenate_epochs(epochs_list)
 
-        # Load + concatenate runs for this subject
-        epochs_list: list[mne.BaseEpochs] = [load_epochs(p) for p in paths_by_subject[subject]]
-        if len(epochs_list) == 1:
-            epochs = epochs_list[0]
-        else:
-            # Keep everything consistent; if there are mismatched channel sets, MNE will complain.
-            epochs = mne.concatenate_epochs(epochs_list)
+        # Optional resample (useful for induced envelopes, and matches your config pattern)
+        if sfreq is not None:
+            epochs = epochs.copy().resample(float(sfreq))
 
-        # Select epochs (constraints) on concatenated subject epochs
         epochs_sel = select_epochs(epochs, selection_params)
-
-        # Split once per subject
         cond1, cond2, split_labels = split_epochs_median(epochs_sel, contrast=contrast)
-        labels = split_labels  # they should be identical across subjects for a given contrast
+        labels = split_labels
 
-        # Equalize counts like old logic
         mne.epochs.equalize_epoch_counts([cond1, cond2])
 
-        ev1 = cond1.average()
-        ev2 = cond2.average()
+        if kind == "erp":
+            ev1 = cond1.average()
+            ev2 = cond2.average()
+        elif kind == "tfr":
+            assert band is not None
+            ev1 = _induced_evoked_from_epochs(cond1, band=band, comment=split_labels["cond_1"])
+            ev2 = _induced_evoked_from_epochs(cond2, band=band, comment=split_labels["cond_2"])
+        else:
+            raise ValueError(f"Unknown kind={kind!r}")
 
         # OLD convention: difference = cond_1 - cond_2
         evd = ev1.copy()
         evd.data = ev1.data - ev2.data
         evd.comment = f"{split_labels['cond_1']}-{split_labels['cond_2']}"
 
-        # Cross-subject invariants (fail fast if violated)
+        # Cross-subject invariants
         if reference_ch_names is None:
             reference_ch_names = list(ev1.ch_names)
-        else:
-            if list(ev1.ch_names) != reference_ch_names:
-                raise ValueError(
-                    f"Channel order mismatch for subject={subject}. "
-                    "This would silently break group stacking; fix upstream."
-                )
+        elif list(ev1.ch_names) != reference_ch_names:
+            raise ValueError(f"Channel order mismatch for subject={subject}.")
 
         if reference_times is None:
             reference_times = ev1.times.copy()
         else:
             if ev1.times.shape != reference_times.shape or not np.allclose(ev1.times, reference_times, atol=0.0, rtol=0.0):
-                raise ValueError(
-                    f"Time axis mismatch for subject={subject}. "
-                    "This would silently break group stacking; fix upstream."
-                )
+                raise ValueError(f"Time axis mismatch for subject={subject}.")
 
         evokeds_1.append(ev1)
         evokeds_2.append(ev2)
         evokeds_diff.append(evd)
 
-        # offsets.csv (legacy): metadata + condition + subject
+        # Offsets table (kept for parity; you can drop it for TFR at write-time if you want)
         md1 = cond1.metadata.copy()
         md2 = cond2.metadata.copy()
         md1["condition"] = split_labels["cond_1"]
@@ -179,7 +215,6 @@ def build_evoked_dataset(
         md["subject"] = subject
         offsets_rows.append(md)
 
-        # n_trials.csv (subject-level)
         n_trials_rows.append(
             {
                 "subject": subject,
@@ -188,12 +223,10 @@ def build_evoked_dataset(
             }
         )
 
-    if labels is None:
-        raise RuntimeError("Internal error: labels were never set.")
-    if len(evokeds_1) == 0:
+    if labels is None or len(evokeds_1) == 0:
         raise ValueError("No evokeds computed (maybe selection removed all epochs).")
 
-    # NEW NPY payload shape kept: (n_subjects, 3, n_channels, n_times) order [cond_1, cond_2, diff]
+    # (N,3,C,T) order [cond_1, cond_2, diff]
     evoked_data = np.stack(
         [
             np.stack([ev.data for ev in evokeds_1], axis=0),
@@ -207,6 +240,7 @@ def build_evoked_dataset(
     n_trials = pd.DataFrame(n_trials_rows)
 
     results: dict[str, Any] = {
+        "kind": str(kind),
         "contrast": str(contrast),
         "cond_1": labels["cond_1"],
         "cond_2": labels["cond_2"],
@@ -214,9 +248,11 @@ def build_evoked_dataset(
         "n_subjects": int(len(subjects)),
         "times": evokeds_1[0].times,
         "ch_names": np.array(evokeds_1[0].ch_names, dtype=object),
-        "evoked_data_shape": np.array(evoked_data.shape, dtype=int),
+        "data_shape": np.array(evoked_data.shape, dtype=int),
         "difference_definition": f"{labels['cond_1']}-{labels['cond_2']}",
     }
+    if kind == "tfr":
+        results["band"] = str(band)
 
     return EvokedDatasetResult(
         evokeds_cond_1=evokeds_1,

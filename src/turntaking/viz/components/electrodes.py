@@ -4,7 +4,6 @@ The goal is to centralize shared plotting code (e.g., electrode time-courses)
 so that figure functions remain small and consistent.
 """
 
-from __future__ import annotations
 
 from typing import List
 
