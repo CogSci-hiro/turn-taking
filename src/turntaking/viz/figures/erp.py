@@ -297,8 +297,6 @@ def plot_latency_erp_with_histograms(fast_list: List[mne.Evoked], slow_list: Lis
     return fig
 
 
-
-
 def plot_joint_erps(long_list: List[mne.Evoked], short_list: List[mne.Evoked],
                     fast_list: List[mne.Evoked], slow_list: List[mne.Evoked],
                     times: List[float] =
