@@ -23,8 +23,9 @@ from turntaking.config.loader import load_config
 import turntaking.cli.commands.erp as cmd_erp
 import turntaking.cli.commands.tfr as cmd_tfr
 import turntaking.cli.commands.cluster as cmd_cluster
+import turntaking.cli.commands.decoding as cmd_decoding
 
-_COMMANDS = {"erp": cmd_erp, "tfr": cmd_tfr, "cluster": cmd_cluster}
+_COMMANDS = {"erp": cmd_erp, "tfr": cmd_tfr, "decoding": cmd_decoding, "cluster": cmd_cluster}
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
