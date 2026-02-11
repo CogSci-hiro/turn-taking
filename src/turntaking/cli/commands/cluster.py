@@ -1,5 +1,6 @@
 # src/turntaking/cli/commands/cluster.py
 
+from __future__ import annotations
 
 import argparse
 from dataclasses import replace
@@ -10,11 +11,7 @@ import mne
 import numpy as np
 
 from turntaking.analysis.io.cluster import write_cluster_outputs
-from turntaking.stats.cluster_test import (
-    ClusterTestParams,
-    run_cluster_1samp_erp,
-    run_cluster_1samp_tfr,
-)
+from turntaking.stats.cluster_test import ClusterTestParams, run_cluster_1samp_spatiotemporal
 from turntaking.stats.cropping import crop_time_margins_samples
 
 Kind = Literal["erp", "tfr"]
@@ -22,7 +19,7 @@ Kind = Literal["erp", "tfr"]
 
 # =============================================================================
 #                     ########################################
-#                     #            CLI REGISTRATION          #
+#                     #            CLI REGISTRATION           #
 #                     ########################################
 # =============================================================================
 def add_subparser(subparsers: argparse._SubParsersAction) -> None:
@@ -32,31 +29,22 @@ def add_subparser(subparsers: argparse._SubParsersAction) -> None:
     Usage example
     -------------
         python -m turntaking.cli.main cluster --config workflow/config.yaml --kind erp --contrast latency
+        python -m turntaking.cli.main cluster --config workflow/config.yaml --kind tfr --contrast latency --band alpha
     """
     p = subparsers.add_parser(
         "cluster",
         help="Run cluster permutation tests (ERP/TFR).",
     )
 
-    # Your CLI framework expects each command to accept --config.
-    p.add_argument(
-        "--config",
-        required=True,
-        help="Path to YAML config file.",
-    )
+    p.add_argument("--config", required=True, help="Path to YAML config file.")
+    p.add_argument("--kind", required=True, choices=["erp", "tfr"], help="Which analysis kind to test.")
+    p.add_argument("--contrast", required=True, help="Contrast name (e.g. latency, duration).")
 
+    # TFR-only selector (required by your Snakemake rule for TFR clusters)
     p.add_argument(
-        "--kind",
-        required=True,
-        choices=["erp", "tfr"],
-        help="Which analysis kind to test.",
-    )
-
-    # For ERP this is required (latency/duration). For TFR you can reuse or ignore later.
-    p.add_argument(
-        "--contrast",
-        required=True,
-        help="Contrast name (e.g. latency, duration).",
+        "--band",
+        default=None,
+        help="Band name (required when --kind tfr), e.g. alpha, beta.",
     )
 
     # Optional overrides (if omitted, values are read from config.yaml)
@@ -67,15 +55,10 @@ def add_subparser(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--seed", type=int, default=None)
     p.add_argument("--ch-type", choices=["eeg", "mag", "grad"], default=None)
 
-    # If you later want CLI cropping overrides, add:
-    # p.add_argument("--left-margin", type=float, default=None)
-    # p.add_argument("--right-margin", type=float, default=None)
-    # p.add_argument("--sfreq", type=float, default=None)
-
 
 # =============================================================================
 #                     ########################################
-#                     #              CONFIG READ             #
+#                     #              CONFIG READ              #
 #                     ########################################
 # =============================================================================
 def _load_params(cfg: Any, args: Any) -> ClusterTestParams:
@@ -92,55 +75,53 @@ def _load_params(cfg: Any, args: Any) -> ClusterTestParams:
       erp:
         n_permutations: 1000
         threshold: null
+        left_margin: 0.2
+        right_margin: 0.5
+        sfreq: 512
       tfr:
         n_permutations: 1000
         threshold: null
+        left_margin: 0.2
+        right_margin: 0.5
+        sfreq: 512
     """
     analysis = getattr(cfg, "analysis", None)
     if analysis is None:
         raise ValueError("Config missing 'analysis' section (cfg.analysis).")
 
-    if args.kind == "erp":
-        section = getattr(analysis, "erp", None)
-    elif args.kind == "tfr":
-        section = getattr(analysis, "tfr", None)
-    else:
-        raise ValueError(f"Invalid kind: {args.kind!r}")
-
+    section = getattr(analysis, args.kind, None)
     if section is None:
         raise ValueError(f"Config missing analysis.{args.kind} section.")
 
     params = ClusterTestParams(
         n_permutations=int(getattr(section, "n_permutations", 1024)),
         threshold=getattr(section, "threshold", None),
-        tail=int(getattr(section, "tail", 0)),          # optional (not in your YAML)
-        alpha=float(getattr(section, "alpha", 0.05)),   # optional
-        seed=int(getattr(section, "seed", 0)),          # optional
-        n_jobs=int(getattr(section, "n_jobs", 1)),      # optional
-        ch_type=str(getattr(section, "ch_type", "eeg")),# optional
+        tail=int(getattr(section, "tail", 0)),
+        alpha=float(getattr(section, "alpha", 0.05)),
+        seed=int(getattr(section, "seed", 0)),
+        n_jobs=int(getattr(section, "n_jobs", 1)),
+        ch_type=str(getattr(section, "ch_type", "eeg")),
     )
 
-    # CLI overrides (optional)
-    if getattr(args, "n_permutations", None) is not None:
+    # CLI overrides
+    if args.n_permutations is not None:
         params = replace(params, n_permutations=int(args.n_permutations))
-    if getattr(args, "threshold", None) is not None:
+    if args.threshold is not None:
         params = replace(params, threshold=float(args.threshold))
-    if getattr(args, "tail", None) is not None:
+    if args.tail is not None:
         params = replace(params, tail=int(args.tail))
-    if getattr(args, "n_jobs", None) is not None:
+    if args.n_jobs is not None:
         params = replace(params, n_jobs=int(args.n_jobs))
-    if getattr(args, "seed", None) is not None:
+    if args.seed is not None:
         params = replace(params, seed=int(args.seed))
-    if getattr(args, "ch_type", None) is not None:
+    if args.ch_type is not None:
         params = replace(params, ch_type=str(args.ch_type))
 
     return params
 
 
 def _load_crop_settings(cfg: Any, kind: Kind) -> tuple[float, float, float]:
-    """
-    Load (left_margin, right_margin, sfreq) from cfg.analysis.{kind}.
-    """
+    """Load (left_margin, right_margin, sfreq) from cfg.analysis.{kind}."""
     analysis = getattr(cfg, "analysis", None)
     if analysis is None:
         raise ValueError("Config missing 'analysis' section (cfg.analysis).")
@@ -152,97 +133,130 @@ def _load_crop_settings(cfg: Any, kind: Kind) -> tuple[float, float, float]:
     left_margin = float(getattr(section, "left_margin"))
     right_margin = float(getattr(section, "right_margin"))
     sfreq = float(getattr(section, "sfreq"))
-
     return left_margin, right_margin, sfreq
+
+
+def _load_out_root(cfg: Any) -> Path:
+    io_cfg = getattr(cfg, "io", None)
+    if io_cfg is None:
+        raise ValueError("Config missing 'io' section (cfg.io).")
+    return Path(getattr(io_cfg, "out_dir"))
+
+
+def _load_erp_X_and_info(
+    out_root: Path,
+    *,
+    contrast: str,
+) -> tuple[np.ndarray, mne.Info]:
+    evoked_data_path = out_root / "erp" / contrast / "evoked-data.npy"
+    diff_ave_path = out_root / "erp" / contrast / "difference_ave.fif"
+
+    arr = np.load(evoked_data_path)  # (N,3,C,T)
+    if arr.ndim != 4 or arr.shape[1] != 3:
+        raise ValueError(f"Unexpected ERP evoked-data.npy shape: {arr.shape} (expected (N,3,C,T)).")
+
+    diff = arr[:, 2, :, :]  # (N,C,T)
+    X = np.transpose(diff, (0, 2, 1)).astype(float)  # (N,T,C)
+
+    evoked = mne.read_evokeds(diff_ave_path, condition=0)
+    return X, evoked.info
+
+
+def _load_tfr_X_and_info(
+    out_root: Path,
+    *,
+    contrast: str,
+    band: str,
+) -> tuple[np.ndarray, mne.Info]:
+    induced_data_path = out_root / "tfr" / contrast / band / "induced-data.npy"
+    diff_ave_path = out_root / "tfr" / contrast / band / "difference_ave.fif"
+
+    arr = np.load(induced_data_path)  # (N,3,C,T)
+    if arr.ndim != 4 or arr.shape[1] != 3:
+        raise ValueError(f"Unexpected TFR induced-data.npy shape: {arr.shape} (expected (N,3,C,T)).")
+
+    diff = arr[:, 2, :, :]  # (N,C,T)
+    X = np.transpose(diff, (0, 2, 1)).astype(float)  # (N,T,C)
+
+    evoked = mne.read_evokeds(diff_ave_path, condition=0)
+    return X, evoked.info
 
 
 # =============================================================================
 #                     ########################################
-#                     #                 RUN                 #
+#                     #                 RUN                   #
 #                     ########################################
 # =============================================================================
 def run(args: Any, cfg: Any) -> None:
     """
     Run cluster permutation tests and write stats artifacts.
 
-    Notes
-    -----
-    ERP expects:
-      {out_dir}/erp/{contrast}/evoked-data.npy   shape (N,3,C,T)
+    ERP inputs:
+      {out_dir}/erp/{contrast}/evoked-data.npy         shape (N,3,C,T)
       {out_dir}/erp/{contrast}/difference_ave.fif
 
-    Outputs:
-      {out_dir}/stats/{kind}/{contrast}/cluster_results.hdf5
-      {out_dir}/stats/{kind}/{contrast}/cluster_summary.csv
+    TFR inputs:
+      {out_dir}/tfr/{contrast}/{band}/induced-data.npy shape (N,3,C,T)
+      {out_dir}/tfr/{contrast}/{band}/difference_ave.fif
 
-    Usage example
-    -------------
-        python -m turntaking.cli.main cluster --config workflow/config.yaml --kind erp --contrast latency
+    Outputs:
+      ERP: {out_dir}/stats/erp/{contrast}/cluster_results.hdf5
+           {out_dir}/stats/erp/{contrast}/cluster_summary.csv
+
+      TFR: {out_dir}/stats/tfr/{contrast}/{band}/cluster_results.hdf5
+           {out_dir}/stats/tfr/{contrast}/{band}/cluster_summary.csv
     """
     kind: Kind = args.kind
-    contrast: str = args.contrast
+    contrast: str = str(args.contrast)
+    band: str | None = getattr(args, "band", None)
 
-    # Root output directory comes from cfg.io.out_dir (TurntakingConfig attribute)
-    io_cfg = getattr(cfg, "io", None)
-    if io_cfg is None:
-        raise ValueError("Config missing 'io' section (cfg.io).")
+    if kind == "tfr" and not band:
+        raise ValueError("--band is required when --kind tfr")
 
-    out_root = Path(getattr(io_cfg, "out_dir"))
-    stats_out_dir = out_root / "stats" / kind / contrast
-
+    out_root = _load_out_root(cfg)
     params = _load_params(cfg, args)
     left_margin, right_margin, sfreq = _load_crop_settings(cfg, kind)
 
+    # Load X + info
+    if kind == "erp":
+        X, info = _load_erp_X_and_info(out_root, contrast=contrast)
+        stats_out_dir = out_root / "stats" / "erp" / contrast
+    else:
+        assert band is not None
+        X, info = _load_tfr_X_and_info(out_root, contrast=contrast, band=band)
+        stats_out_dir = out_root / "stats" / "tfr" / contrast / band
+
     print(
-        f"[cluster] kind={kind} contrast={contrast} "
-        f"n_permutations={params.n_permutations} threshold={params.threshold} "
+        f"[cluster] kind={kind} contrast={contrast}"
+        f"{'' if band is None else f' band={band}'} "
+        f"n_permutations={params.n_permutations} threshold={params.threshold} tail={params.tail} "
         f"left_margin={left_margin} right_margin={right_margin} sfreq={sfreq}"
     )
 
-    if kind == "erp":
-        evoked_data_path = out_root / "erp" / contrast / "evoked-data.npy"
-        diff_ave_path = out_root / "erp" / contrast / "difference_ave.fif"
+    # Crop margins (legacy-compatible)
+    X_cropped, start_idx, end_idx = crop_time_margins_samples(
+        X,
+        sfreq=sfreq,
+        left_margin=left_margin,
+        right_margin=right_margin,
+    )
 
-        arr = np.load(evoked_data_path)  # (N,3,C,T)
-        if arr.ndim != 4 or arr.shape[1] != 3:
-            raise ValueError(
-                f"Unexpected ERP evoked-data.npy shape: {arr.shape} "
-                "(expected (N,3,C,T))."
-            )
+    # Run cluster test (identical for ERP and band-averaged induced TFR)
+    result = run_cluster_1samp_spatiotemporal(
+        X_cropped,
+        info=info,
+        params=params,
+        kind=kind,
+    )
 
-        # Take diff slot and convert to (N,T,C)
-        diff = arr[:, 2, :, :]  # (N,C,T)
-        X = np.transpose(diff, (0, 2, 1)).astype(float)  # (N,T,C)
+    # Record crop metadata for reproducibility
+    result.metadata["crop_left_margin"] = float(left_margin)
+    result.metadata["crop_right_margin"] = float(right_margin)
+    result.metadata["crop_sfreq_used"] = float(sfreq)
+    result.metadata["crop_start_idx"] = int(start_idx)
+    result.metadata["crop_end_idx"] = int(end_idx)
 
-        # Crop margins (same behavior as legacy script)
-        X, start_idx, end_idx = crop_time_margins_samples(
-            X, sfreq=sfreq, left_margin=left_margin, right_margin=right_margin
-        )
+    if band is not None:
+        result.metadata["band"] = str(band)
 
-        # Reference evoked for channel adjacency (and for sanity)
-        evoked = mne.read_evokeds(diff_ave_path, condition=0)
-
-        result = run_cluster_1samp_erp(X, info=evoked.info, params=params)
-
-        # Record crop metadata (helps reproducibility/audit)
-        result.metadata["crop_left_margin"] = float(left_margin)
-        result.metadata["crop_right_margin"] = float(right_margin)
-        result.metadata["crop_sfreq_used"] = float(sfreq)
-        result.metadata["crop_start_idx"] = int(start_idx)
-        result.metadata["crop_end_idx"] = int(end_idx)
-
-        write_cluster_outputs(stats_out_dir, result)
-        return
-
-    if kind == "tfr":
-        # You said cropping is shared; this branch is the same idea:
-        # build X with shape (N,T,S) where S is "space-like" (e.g. channels×freq),
-        # crop with crop_time_margins_samples(), then call run_cluster_1samp_tfr().
-        #
-        # This needs your TFR artifact contract (where the per-subject arrays live and
-        # how to infer n_freqs / space shape). Wire once TFR outputs are finalized.
-        raise NotImplementedError(
-            "TFR cluster test not wired yet (needs a TFR dataset artifact contract)."
-        )
-
-    raise ValueError(f"Unknown kind: {kind!r}")
+    write_cluster_outputs(stats_out_dir, result)
