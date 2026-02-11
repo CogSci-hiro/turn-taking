@@ -50,6 +50,9 @@ DECODING_OUT = [
 ]
 
 
+FIG_ROOT = config["io"]["out_dir"] + "/figures"
+
+
 rule figures_main:
     """
     Build all main manuscript figures (Fig 1–5).
@@ -104,7 +107,7 @@ rule fig_erp_timecourse:
     input:
         config="workflow/config.yaml"
     output:
-        fig=MIXED_ROOT + "/figures/F_erp_timecourse.pdf"   # or FIG_ROOT
+        fig=FIG_ROOT + "/F_erp_timecourse.pdf"
     shell:
         r"""
         python -m turntaking.cli.main viz-erp-timecourse --config "{input.config}"
