@@ -48,11 +48,6 @@ def erp_outputs_for_contrast(contrast: str) -> list[str]:
 
 ERP_OUT = [p for c in erp_contrasts() for p in erp_outputs_for_contrast(c)]
 
-TFR_OUT = [
-    str(out_dir() / "tfr" / "manifest.json"),
-    str(out_dir() / "tfr" / "grand_average-tfr.h5"),
-    str(out_dir() / "tfr" / "stats.csv"),
-]
 
 DECODING_OUT = [
     str(out_dir() / "decoding" / "manifest.json"),
@@ -64,12 +59,12 @@ DECODING_OUT = [
 rule test_erp:
     input:
         erp_outputs=ERP_OUT,  # or just the specific per-contrast inputs
-        config=str(Path(workflow.basedir) / "config.yaml"),
+        config=str(Path(workflow.basedir) / "config.yaml")
     output:
         hdf5=str(stats_erp_out_dir() / "{contrast}" / "cluster_results.hdf5"),
-        summary=str(stats_erp_out_dir() / "{contrast}" / "cluster_summary.csv"),
+        summary=str(stats_erp_out_dir() / "{contrast}" / "cluster_summary.csv")
     params:
-        entrypoint=str(entrypoint()),
+        entrypoint=str(entrypoint())
     shell:
         r"""
         set -euo pipefail
@@ -98,26 +93,91 @@ rule test_erp_all:
         ERP_CLUSTER_OUT
 
 
+# =============================================================================
+# TFR cluster tests (mirrors ERP pattern, but adds {band})
+# =============================================================================
+
+def tfr_contrasts() -> list[str]:
+    return list(config.get("analysis", {}).get("contrasts", []))
+
+
+def tfr_bands() -> list[str]:
+    return list(config.get("analysis", {}).get("bands", []))
+
+
+def tfr_outputs_for_contrast_band(contrast: str, band: str) -> list[str]:
+    base = out_dir() / "tfr" / contrast / band
+
+    if contrast == "duration":
+        cond1 = "long_ave.fif"
+        cond2 = "short_ave.fif"
+    elif contrast == "latency":
+        cond1 = "fast_ave.fif"
+        cond2 = "slow_ave.fif"
+    else:
+        raise ValueError(f"Unknown TFR contrast: {contrast}")
+
+    return [
+        str(base / "difference_ave.fif"),
+        str(base / "induced-data.npy"),
+        str(base / cond1),
+        str(base / cond2),
+        str(base / "n_trials.csv"),
+        str(base / "metadata.hdf5"),
+    ]
+
+
+TFR_OUT = [
+    p
+    for c in tfr_contrasts()
+    for b in tfr_bands()
+    for p in tfr_outputs_for_contrast_band(c, b)
+]
+
+
 rule test_tfr:
     """
-    Run TFR-related tests and store the pytest log as a tracked artifact.
+    TFR cluster permutation test (per contrast × band).
+    Do not target this rule directly (it contains wildcards).
+    Target `test_tfr_all` instead.
     """
     input:
-        tfr_outputs=TFR_OUT,
-        config=str(Path(workflow.basedir) / "config.yaml"),
+        tfr_outputs=lambda wc: tfr_outputs_for_contrast_band(wc.contrast, wc.band),
+        config=str(Path(workflow.basedir) / "config.yaml")
     output:
-        log=str(stats_tfr_out_dir() / "pytest.log"),
+        hdf5=str(stats_tfr_out_dir() / "{contrast}" / "{band}" / "cluster_results.hdf5"),
+        summary=str(stats_tfr_out_dir() / "{contrast}" / "{band}" / "cluster_summary.csv")
     threads: 1
     resources:
         mem_mb=heavy_mem_mb()
+    params:
+        entrypoint=str(entrypoint())
     shell:
         r"""
         set -euo pipefail
-        mkdir -p "$(dirname "{output.log}")"
-
-        # Narrow this once you have TFR-specific tests
-        python -m pytest -q tests > "{output.log}"
+        python "{params.entrypoint}" cluster --config "{input.config}" --kind tfr --contrast "{wildcards.contrast}" --band "{wildcards.band}"
         """
+
+
+TFR_CLUSTER_OUT = [
+    *expand(
+        str(stats_tfr_out_dir() / "{contrast}" / "{band}" / "cluster_results.hdf5"),
+        contrast=tfr_contrasts(),
+        band=tfr_bands(),
+    ),
+    *expand(
+        str(stats_tfr_out_dir() / "{contrast}" / "{band}" / "cluster_summary.csv"),
+        contrast=tfr_contrasts(),
+        band=tfr_bands(),
+    ),
+]
+
+rule test_tfr_all:
+    """
+    Wildcard-free TFR cluster test target (all configured contrasts × bands).
+    """
+    input:
+        TFR_CLUSTER_OUT
 
 
 rule test_decoding:
@@ -126,9 +186,9 @@ rule test_decoding:
     """
     input:
         decoding_outputs=DECODING_OUT,
-        config=str(Path(workflow.basedir) / "config.yaml"),
+        config=str(Path(workflow.basedir) / "config.yaml")
     output:
-        log=str(stats_decoding_out_dir() / "pytest.log"),
+        log=str(stats_decoding_out_dir() / "pytest.log")
     threads: 1
     resources:
         mem_mb=heavy_mem_mb()
@@ -152,7 +212,7 @@ rule table_lmm:
         erp=ERP_OUT,
         tfr=TFR_OUT,
         decoding=DECODING_OUT,
-        config=str(Path(workflow.basedir) / "config.yaml"),
+        config=str(Path(workflow.basedir) / "config.yaml")
     output:
         T1_LMM
     threads: 1
