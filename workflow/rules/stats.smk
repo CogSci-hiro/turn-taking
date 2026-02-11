@@ -202,26 +202,19 @@ rule test_decoding:
         """
 
 
-rule table_lmm:
-    """
-    Build Table T1: LMM results (CSV).
-    R implementation can replace the backend later without changing the output contract.
-    """
+rule lmm_fit:
     input:
-        epochs=epoch_inputs(),
-        erp=ERP_OUT,
-        tfr=TFR_OUT,
-        decoding=DECODING_OUT,
-        config=str(Path(workflow.basedir) / "config.yaml")
+        table=MIXED_ROOT + "/table.csv"
     output:
-        T1_LMM
-    threads: 1
-    resources:
-        mem_mb=heavy_mem_mb()
-    params:
-        entrypoint=str(entrypoint())
+        models_dir=MIXED_ROOT + "/lmm/models/.done",
+        tables_dir=MIXED_ROOT + "/lmm/tables/models.csv",
     shell:
         r"""
-        set -euo pipefail
-        python "{params.entrypoint}" stats lmm --config "{input.config}" --out "{output}"
+        mkdir -p {MIXED_ROOT}/lmm/models
+        Rscript workflow/scripts/fit_lmm.R \
+          --in "{input.table}" \
+          --out "{MIXED_ROOT}/lmm" \
+          --zscore TRUE \
+          --run_as_factor FALSE
+        touch {MIXED_ROOT}/lmm/models/.done
         """
