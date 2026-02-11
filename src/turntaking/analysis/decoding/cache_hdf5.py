@@ -5,7 +5,7 @@ from typing import Any, Callable, Tuple, Literal
 
 import numpy as np
 
-from turntaking.analysis.decoding.hdf5_cache import (
+from turntaking.analysis.io.decoding import (
     Hdf5CacheParams,
     load_subject_feature_cache_hdf5,
     save_subject_feature_cache_hdf5,
