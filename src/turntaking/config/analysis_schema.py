@@ -1,3 +1,4 @@
+from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -65,10 +66,18 @@ class AnalysisTfrSection:
 
 
 @dataclass(frozen=True)
+class MixedSelectionSection:
+    min_latency: float
+    max_latency: float
+    min_self_duration: float
+
+
+@dataclass(frozen=True)
 class AnalysisMixedSection:
     tw1: list[float]
     tw2: list[float]
     baseline: list[float]
+    selection: MixedSelectionSection
 
 
 @dataclass(frozen=True)
@@ -193,13 +202,24 @@ class TurntakingConfig:
             threshold=tfr_d.get("threshold"),
         )
 
+        # ------------------------------ mixed ------------------------------
         mixed_d = _require_mapping(_require_key(analysis_d, "mixed", "analysis"), "analysis.mixed")
+
+        sel_d = _require_mapping(_require_key(mixed_d, "selection", "analysis.mixed"), "analysis.mixed.selection")
+        selection = MixedSelectionSection(
+            min_latency=float(_require_key(sel_d, "min_latency", "analysis.mixed.selection")),
+            max_latency=float(_require_key(sel_d, "max_latency", "analysis.mixed.selection")),
+            min_self_duration=float(_require_key(sel_d, "min_self_duration", "analysis.mixed.selection")),
+        )
+
         mixed = AnalysisMixedSection(
             tw1=[float(x) for x in _require_key(mixed_d, "tw1", "analysis.mixed")],
             tw2=[float(x) for x in _require_key(mixed_d, "tw2", "analysis.mixed")],
             baseline=[float(x) for x in _require_key(mixed_d, "baseline", "analysis.mixed")],
+            selection=selection,
         )
 
+        # ----------------------------- decoding ----------------------------
         decoding_d = _require_mapping(_require_key(analysis_d, "decoding", "analysis"), "analysis.decoding")
         decoding = AnalysisDecodingSection(
             sfreq=int(_require_key(decoding_d, "sfreq", "analysis.decoding")),

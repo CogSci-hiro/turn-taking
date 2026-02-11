@@ -62,15 +62,13 @@ analysis:
     n_permutations: 1000
     threshold: null
   mixed:
-    tw1:
-    - -1.3
-    - -0.7
-    tw2:
-    - -0.7
-    - 0.0
-    baseline:
-    - -2.0
-    - 0.5
+    tw1: [-1.3, -0.8]
+    tw2: [-0.7, 0.0]
+    baseline: [-2, 0.0]
+    selection:
+      min_latency: 0.05
+      max_latency: 2.0
+      min_self_duration: 0.10
   decoding:
     sfreq: 64
     n_splits: 10

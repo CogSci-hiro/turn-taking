@@ -48,3 +48,18 @@ class MixedEffectTablePaths:
 
     epoch_dir: Path
     out_csv: Path
+
+
+@dataclass(frozen=True)
+class MixedSelectionSection:
+    min_latency: float
+    max_latency: float
+    min_self_duration: float
+
+
+@dataclass(frozen=True)
+class AnalysisMixedSection:
+    tw1: list[float]
+    tw2: list[float]
+    baseline: list[float]
+    selection: MixedSelectionSection

@@ -134,6 +134,6 @@ def _time_window_mean(
 
 
 def _band_power_epochs(epochs: mne.BaseEpochs, *, fmin: float, fmax: float) -> mne.BaseEpochs:
-    epochs.filter(l_freq=fmin, h_freq=fmax)
+    epochs.load_data().filter(l_freq=fmin, h_freq=fmax)
     epochs.apply_hilbert(envelope=True)
     return epochs
