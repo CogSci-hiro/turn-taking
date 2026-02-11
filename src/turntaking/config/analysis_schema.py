@@ -117,6 +117,7 @@ class TurntakingConfig:
     constraints: ConstraintsSection
     analysis: AnalysisSection
     execution: ExecutionSection
+    viz: VizSection
 
     @staticmethod
     def from_dict(d: dict[str, Any]) -> "TurntakingConfig":
@@ -248,10 +249,63 @@ class TurntakingConfig:
             mem_mb_heavy=int(_require_key(execution_d, "mem_mb_heavy", "execution")),
         )
 
+        # ------------------------------- viz -------------------------------
+        viz_d = _require_mapping(_require_key(d, "viz", "root"), "viz")
+        erp_tc_d = _require_mapping(_require_key(viz_d, "erp_timecourse", "viz"), "viz.erp_timecourse")
+
+        erp_timecourse = VizErpTimecourseSection(
+            duration_long_fif=Path(_require_key(erp_tc_d, "duration_long_fif", "viz.erp_timecourse")),
+            duration_short_fif=Path(_require_key(erp_tc_d, "duration_short_fif", "viz.erp_timecourse")),
+            latency_fast_fif=Path(_require_key(erp_tc_d, "latency_fast_fif", "viz.erp_timecourse")),
+            latency_slow_fif=Path(_require_key(erp_tc_d, "latency_slow_fif", "viz.erp_timecourse")),
+            out_pdf=Path(_require_key(erp_tc_d, "out_pdf", "viz.erp_timecourse")),
+            xlim_ms=[float(x) for x in _require_key(erp_tc_d, "xlim_ms", "viz.erp_timecourse")],
+            ylim_uv=[float(x) for x in _require_key(erp_tc_d, "ylim_uv", "viz.erp_timecourse")],
+        )
+
+        viz = VizSection(
+            erp_timecourse=erp_timecourse,
+        )
+
         return TurntakingConfig(
             io=io,
             dataset=dataset,
             constraints=constraints,
             analysis=analysis,
             execution=execution,
+            viz=viz,
+        )
+
+
+@dataclass(frozen=True)
+class VizErpTimecourseSection:
+    long_glob: str
+    short_glob: str
+    fast_glob: str
+    slow_glob: str
+    out_pdf: str
+    xlim_ms: Tuple[float, float]
+    ylim_uv: Tuple[float, float]
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "VizErpTimecourseSection":
+        return cls(
+            long_glob=str(raw["long_glob"]),
+            short_glob=str(raw["short_glob"]),
+            fast_glob=str(raw["fast_glob"]),
+            slow_glob=str(raw["slow_glob"]),
+            out_pdf=str(raw["out_pdf"]),
+            xlim_ms=tuple(raw["xlim_ms"]),
+            ylim_uv=tuple(raw["ylim_uv"]),
+        )
+
+
+@dataclass(frozen=True)
+class VizSection:
+    erp_timecourse: VizErpTimecourseSection
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "VizSection":
+        return cls(
+            erp_timecourse=VizErpTimecourseSection.from_dict(raw["erp_timecourse"])
         )

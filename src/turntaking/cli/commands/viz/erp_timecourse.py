@@ -1,5 +1,6 @@
 import argparse
 from dataclasses import dataclass
+import glob
 from pathlib import Path
 from typing import List, Sequence
 
@@ -22,7 +23,8 @@ class ErpTimecourseVizConfig:
 
 
 def _glob_sorted(pattern: str) -> List[Path]:
-    paths = sorted(Path().glob(pattern))
+    matches = glob.glob(pattern)
+    paths = sorted(Path(p) for p in matches)
     if len(paths) == 0:
         raise FileNotFoundError(f"No files matched glob pattern: {pattern!r}")
     return paths
@@ -39,7 +41,7 @@ def _load_evoked_list(paths: Sequence[Path]) -> List[mne.Evoked]:
     return [_load_single_evoked(p) for p in paths]
 
 
-def run(cfg: ErpTimecourseVizConfig) -> None:
+def _run_impl(cfg: ErpTimecourseVizConfig) -> None:
     long_paths = _glob_sorted(cfg.long_glob)
     short_paths = _glob_sorted(cfg.short_glob)
     fast_paths = _glob_sorted(cfg.fast_glob)
@@ -72,42 +74,25 @@ def run(cfg: ErpTimecourseVizConfig) -> None:
     fig.savefig(cfg.out_pdf, bbox_inches="tight", dpi=300)
 
 
-def _handler(args: argparse.Namespace) -> None:
-    # If you want to read from YAML/schema, replace this with:
-    #   cfg = load_config(args.config).viz.erp_timecourse
-    # and ignore CLI args except --config.
-    cfg = ErpTimecourseVizConfig(
-        long_glob=args.long_glob,
-        short_glob=args.short_glob,
-        fast_glob=args.fast_glob,
-        slow_glob=args.slow_glob,
-        out_pdf=Path(args.out),
-        xlim_ms=(args.xmin, args.xmax),
-        ylim_uv=(args.ymin, args.ymax),
+def run(args: argparse.Namespace, cfg) -> None:
+    section = cfg.viz.erp_timecourse
+
+    viz_cfg = ErpTimecourseVizConfig(
+        duration_long_fif=Path(section.duration_long_fif),
+        duration_short_fif=Path(section.duration_short_fif),
+        latency_fast_fif=Path(section.latency_fast_fif),
+        latency_slow_fif=Path(section.latency_slow_fif),
+        out_pdf=Path(section.out_pdf),
+        xlim_ms=(section.xlim_ms[0], section.xlim_ms[1]),
+        ylim_uv=(section.ylim_uv[0], section.ylim_uv[1]),
     )
-    run(cfg)
+
+    _run_impl(viz_cfg)
 
 
 def add_subparser(subparsers: argparse._SubParsersAction) -> None:
-    """
-    Required hook for turntaking.cli.main's dynamic command registration.
-    """
     parser = subparsers.add_parser(
         "viz-erp-timecourse",
         help="Plot ERP time-course (Fz/Pz) for long/short and fast/slow.",
     )
-
-    # If you want YAML-only, keep just --config and remove the others.
-    parser.add_argument("--long_glob", required=True)
-    parser.add_argument("--short_glob", required=True)
-    parser.add_argument("--fast_glob", required=True)
-    parser.add_argument("--slow_glob", required=True)
-    parser.add_argument("--out", required=True, help="Output PDF path.")
-
-    parser.add_argument("--xmin", type=float, default=-1500.0)
-    parser.add_argument("--xmax", type=float, default=500.0)
-    parser.add_argument("--ymin", type=float, default=-2.8)
-    parser.add_argument("--ymax", type=float, default=1.9)
-
-    # This is the key line: the dispatcher likely calls args.func(args)
-    parser.set_defaults(func=_handler)
+    parser.add_argument("--config", required=True)

@@ -100,11 +100,10 @@ execution:
 
 viz:
   erp_timecourse:
-    long_glob: "/ABS/PATH/.../erp/evokeds/long/sub-*_ave.fif"
-    short_glob: "/ABS/PATH/.../erp/evokeds/short/sub-*_ave.fif"
-    fast_glob: "/ABS/PATH/.../erp/evokeds/fast/sub-*_ave.fif"
-    slow_glob: "/ABS/PATH/.../erp/evokeds/slow/sub-*_ave.fif"
-    out_pdf: "/ABS/PATH/.../figures/F_erp_timecourse.pdf"
-    # Optional, but explicit
+    duration_long_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/long_ave.fif"
+    duration_short_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/short_ave.fif"
+    latency_fast_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/fast_ave.fif"
+    latency_slow_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/slow_ave.fif"
+    out_pdf: "/Volumes/work-4T/turn-taking-new/figures/F_erp_timecourse.pdf"
     xlim_ms: [-1500, 500]
     ylim_uv: [-2.8, 1.9]
