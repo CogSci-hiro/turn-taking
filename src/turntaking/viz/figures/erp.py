@@ -1,7 +1,6 @@
 """ERP-related figures."""
 
 
-from pathlib import Path
 from typing import List, Tuple
 
 import matplotlib as mpl
@@ -9,16 +8,11 @@ import mne
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from mpl_toolkits.axes_grid1 import inset_locator
 import seaborn as sns
 
 from .._style import (
     FACE_COLOR,
-    FONT_SIZE,
-    JOINT_TIMES,
     MARKER_SIZE,
-    P_THRESHOLD,
-    TITLE_FONT_SIZE,
     WIDTH,
     DURATION_COLOR_1,
     DURATION_COLOR_2,
@@ -26,8 +20,9 @@ from .._style import (
     LATENCY_COLOR_2,
     SMALLER_MARKER_SIZE
 )
-from .._utils import _get_dummy_raw, _get_mask, _get_targets
+from .._utils import _get_mask
 from ..components.electrodes import _plot_selection_electrode_time_course
+
 
 def plot_topo_selection(t: np.ndarray, p: np.ndarray, cluster: List[Tuple], info: mne.Info, data_tmin: float,
                         time: float, p_threshold: float = 0.01,
