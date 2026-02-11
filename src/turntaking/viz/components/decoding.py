@@ -1,5 +1,6 @@
 """Decoding visualization components (private helpers)."""
 
+from typing import List
 
 from matplotlib import pyplot as plt
 from matplotlib.image import AxesImage

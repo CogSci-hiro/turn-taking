@@ -13,5 +13,6 @@ dependencies = [
   "mne",
   "numpy",
   "pandas",
-  "pyarrow >= 14.0"
+  "pyarrow >= 14.0",
+  "seaborn"
 ]

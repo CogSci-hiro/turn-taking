@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import inset_locator
+import seaborn as sns
 
 from .._style import (
     FACE_COLOR,
@@ -19,6 +20,11 @@ from .._style import (
     P_THRESHOLD,
     TITLE_FONT_SIZE,
     WIDTH,
+    DURATION_COLOR_1,
+    DURATION_COLOR_2,
+    LATENCY_COLOR_1,
+    LATENCY_COLOR_2,
+    SMALLER_MARKER_SIZE
 )
 from .._utils import _get_dummy_raw, _get_mask, _get_targets
 from ..components.electrodes import _plot_selection_electrode_time_course
@@ -222,8 +228,6 @@ def plot_electrode_time_course(long_list: List[mne.Evoked], short_list: List[mne
     return fig
 
 
-
-
 def plot_latency_erp_with_histograms(fast_list: List[mne.Evoked], slow_list: List[mne.Evoked],
                                      df: pd.DataFrame, ymax: float = 2000) -> plt.Figure:
     """
@@ -343,9 +347,4 @@ def plot_joint_erps(long_list: List[mne.Evoked], short_list: List[mne.Evoked],
     slow = slow.plot_joint(times, title="Slow responses", show=False)
 
     return long, short, fast, slow
-
-
-################################################################
-#                TIME FREQUENCY REPRESENTATIONS                #
-################################################################
 

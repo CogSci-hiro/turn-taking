@@ -13,10 +13,10 @@ import mne
 
 @dataclass(frozen=True)
 class ErpTimecourseVizConfig:
-    long_glob: str
-    short_glob: str
-    fast_glob: str
-    slow_glob: str
+    duration_long_fif: Path
+    duration_short_fif: Path
+    latency_fast_fif: Path
+    latency_slow_fif: Path
     out_pdf: Path
     xlim_ms: tuple[float, float]
     ylim_uv: tuple[float, float]
@@ -30,34 +30,35 @@ def _glob_sorted(pattern: str) -> List[Path]:
     return paths
 
 
-def _load_single_evoked(path: Path) -> mne.Evoked:
+def _load_evoked_list(path: Path) -> list[mne.Evoked]:
+    if not path.exists():
+        raise FileNotFoundError(f"Evoked file not found: {path}")
+
     evokeds = mne.read_evokeds(path, condition=None, verbose="ERROR")
-    if len(evokeds) != 1:
-        raise ValueError(f"Expected exactly 1 Evoked in {path}, found {len(evokeds)}")
-    return evokeds[0]
+    if len(evokeds) == 0:
+        raise ValueError(f"No Evoked objects found in {path}")
 
-
-def _load_evoked_list(paths: Sequence[Path]) -> List[mne.Evoked]:
-    return [_load_single_evoked(p) for p in paths]
+    return evokeds
 
 
 def _run_impl(cfg: ErpTimecourseVizConfig) -> None:
-    long_paths = _glob_sorted(cfg.long_glob)
-    short_paths = _glob_sorted(cfg.short_glob)
-    fast_paths = _glob_sorted(cfg.fast_glob)
-    slow_paths = _glob_sorted(cfg.slow_glob)
+    long_path = cfg.duration_long_fif
+    short_path = cfg.duration_short_fif
+    fast_path = cfg.latency_fast_fif
+    slow_path = cfg.latency_slow_fif
 
-    if len(long_paths) != len(short_paths):
-        raise ValueError(f"ERP long ({len(long_paths)}) != short ({len(short_paths)}) counts")
-    if len(fast_paths) != len(slow_paths):
-        raise ValueError(f"ERP fast ({len(fast_paths)}) != slow ({len(slow_paths)}) counts")
+    long_list = _load_evoked_list(cfg.duration_long_fif)
+    short_list = _load_evoked_list(cfg.duration_short_fif)
+    fast_list = _load_evoked_list(cfg.latency_fast_fif)
+    slow_list = _load_evoked_list(cfg.latency_slow_fif)
 
-    long_list = _load_evoked_list(long_paths)
-    short_list = _load_evoked_list(short_paths)
-    fast_list = _load_evoked_list(fast_paths)
-    slow_list = _load_evoked_list(slow_paths)
+    # Optional sanity check: same number of subjects per contrast
+    if len(long_list) != len(short_list):
+        raise ValueError(f"duration long ({len(long_list)}) != short ({len(short_list)}) evoked counts")
+    if len(fast_list) != len(slow_list):
+        raise ValueError(f"latency fast ({len(fast_list)}) != slow ({len(slow_list)}) evoked counts")
 
-    from turntaking.viz.erp import plot_electrode_time_course
+    from turntaking.viz.figures.erp import plot_electrode_time_course
 
     fig = plot_electrode_time_course(
         long_list=long_list,

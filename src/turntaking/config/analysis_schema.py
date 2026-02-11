@@ -279,10 +279,10 @@ class TurntakingConfig:
 
 @dataclass(frozen=True)
 class VizErpTimecourseSection:
-    long_glob: str
-    short_glob: str
-    fast_glob: str
-    slow_glob: str
+    duration_long_fif: Path
+    duration_short_fif: Path
+    latency_fast_fif: Path
+    latency_slow_fif: Path
     out_pdf: str
     xlim_ms: Tuple[float, float]
     ylim_uv: Tuple[float, float]

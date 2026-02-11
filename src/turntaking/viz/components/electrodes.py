@@ -10,9 +10,10 @@ from typing import List
 import mne
 import numpy as np
 from matplotlib import pyplot as plt
+from mpl_toolkits.axes_grid1 import inset_locator
 
 from .._style import FONT_SIZE, TITLE_FONT_SIZE
-from .._utils import _ci
+from .._utils import _ci, _get_dummy_raw, _get_targets
 
 
 def _plot_selection_electrode_time_course(data_1_list: List[mne.Evoked], data_2_list: List[mne.Evoked],
