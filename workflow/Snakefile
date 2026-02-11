@@ -51,17 +51,3 @@ rule all:
         + [T1_LMM]
         + FIG_MAIN
         + FIG_SUPP
-
-rule debug_pyarrow:
-    conda: "workflow/envs/python.yaml"
-    shell:
-        r"""
-        python - << 'EOF'
-        import sys
-        print("PYTHON:", sys.executable)
-        import pyarrow, pandas as pd
-        print("pyarrow:", pyarrow.__version__)
-        pd.DataFrame({"a":[1,2]}).to_parquet("/tmp/test.parquet")
-        print("PARQUET OK")
-        EOF
-        """

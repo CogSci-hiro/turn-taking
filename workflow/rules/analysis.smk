@@ -130,7 +130,8 @@ rule mixed_effect:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main mixed-effect --config "{input.config}"
+        python -m turntaking.cli.main mixed-effect --config "{input.config}" 
+
         """
 
 
