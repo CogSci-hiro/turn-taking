@@ -97,3 +97,14 @@ execution:
   threads_heavy: 10
   mem_mb_light: 1000
   mem_mb_heavy: 10000
+
+viz:
+  erp_timecourse:
+    long_glob: "/ABS/PATH/.../erp/evokeds/long/sub-*_ave.fif"
+    short_glob: "/ABS/PATH/.../erp/evokeds/short/sub-*_ave.fif"
+    fast_glob: "/ABS/PATH/.../erp/evokeds/fast/sub-*_ave.fif"
+    slow_glob: "/ABS/PATH/.../erp/evokeds/slow/sub-*_ave.fif"
+    out_pdf: "/ABS/PATH/.../figures/F_erp_timecourse.pdf"
+    # Optional, but explicit
+    xlim_ms: [-1500, 500]
+    ylim_uv: [-2.8, 1.9]

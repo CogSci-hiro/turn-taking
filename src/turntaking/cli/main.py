@@ -26,11 +26,14 @@ import turntaking.cli.commands.cluster as cmd_cluster
 import turntaking.cli.commands.decoding as cmd_decoding
 import turntaking.cli.commands.mixed_effect as cmd_mixed_effect
 
+import turntaking.cli.commands.viz.erp_timecourse as cmd_erp_timecourse
+
 _COMMANDS = {"erp": cmd_erp,
              "tfr": cmd_tfr,
              "decoding": cmd_decoding,
              "cluster": cmd_cluster,
-             "mixed-effect": cmd_mixed_effect}
+             "mixed-effect": cmd_mixed_effect,
+             "viz-erp-timecourse": cmd_erp_timecourse}
 
 
 def build_arg_parser() -> argparse.ArgumentParser:

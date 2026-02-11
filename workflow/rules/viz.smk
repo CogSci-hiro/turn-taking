@@ -98,3 +98,14 @@ rule figures_supp:
         set -euo pipefail
         python "{params.entrypoint}" viz supp --config "{input.config}"
         """
+
+
+rule fig_erp_timecourse:
+    input:
+        config="workflow/config.yaml"
+    output:
+        fig=MIXED_ROOT + "/figures/F_erp_timecourse.pdf"   # or FIG_ROOT
+    shell:
+        r"""
+        python -m turntaking.cli.main viz-erp-timecourse --config "{input.config}"
+        """
