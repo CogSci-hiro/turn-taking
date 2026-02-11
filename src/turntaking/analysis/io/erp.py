@@ -151,7 +151,7 @@ def write_erp_outputs(
         |----------|----------|----------|
         | sub-004  |  120     |  118     |
     results
-        Mapping saved to "results.hdf5".
+        Mapping saved to "metadata.hdf5".
     offsets
         Legacy offsets table (as in old script). Saved to "offsets.csv".
     overwrite
@@ -184,7 +184,7 @@ def write_erp_outputs(
     path_c2 = out_dir / f"{names.cond_2}_ave.fif"
     path_evoked_npy = out_dir / "evoked-data.npy"
     path_n_trials = out_dir / "n_trials.csv"
-    path_results = out_dir / "results.hdf5"
+    path_results = out_dir / "metadata.hdf5"
     path_offsets = out_dir / "offsets.csv"
 
     # Basic validation (cheap, catches lots of silent bugs)

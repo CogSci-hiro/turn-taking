@@ -53,7 +53,7 @@ rule erp:
         expand(ERP_ROOT + "/{contrast}/difference_ave.fif",contrast=CONTRASTS),
         expand(ERP_ROOT + "/{contrast}/evoked-data.npy",contrast=CONTRASTS),
         expand(ERP_ROOT + "/{contrast}/n_trials.csv",contrast=CONTRASTS),
-        expand(ERP_ROOT + "/{contrast}/results.hdf5",contrast=CONTRASTS),
+        expand(ERP_ROOT + "/{contrast}/metadata.hdf5",contrast=CONTRASTS),
         expand(ERP_ROOT + "/{contrast}/offsets.csv",contrast=CONTRASTS),
 
         # Condition-specific filenames (2 per contrast)

@@ -42,7 +42,7 @@ def erp_outputs_for_contrast(contrast: str) -> list[str]:
         str(base / cond1),
         str(base / cond2),
         str(base / "n_trials.csv"),
-        str(base / "results.hdf5"),
+        str(base / "metadata.hdf5"),
         str(base / "offsets.csv"),
     ]
 
