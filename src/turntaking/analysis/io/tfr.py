@@ -27,8 +27,6 @@
 #
 # =============================================================================
 
-
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -36,6 +34,8 @@ from typing import Any, Mapping, Sequence
 import mne
 import numpy as np
 import pandas as pd
+
+from turntaking.analysis.io.core import save_hdf5, save_npy, save_table_csv
 
 
 # =============================================================================
@@ -76,56 +76,6 @@ def get_tfr_condition_names(contrast: str) -> TfrConditionNames:
     if contrast == "latency":
         return TfrConditionNames(cond_1="fast", cond_2="slow")
     raise ValueError(f"Unknown contrast: {contrast!r}. Expected 'duration' or 'latency'.")
-
-
-# =============================================================================
-#                     ########################################
-#                     #              GENERIC I/O               #
-#                     ########################################
-# =============================================================================
-
-def _save_table_csv(df: pd.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False)
-
-
-def _save_npy(arr: np.ndarray, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(path, arr)
-
-
-def _save_hdf5(path: Path, metadata: Mapping[str, Any]) -> None:
-    """
-    Minimal HDF5 serializer: arrays -> datasets, scalars -> attributes.
-
-    Notes
-    -----
-    This is intentionally minimal and deterministic. Avoid object dtype.
-    """
-    import h5py
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with h5py.File(path, "w") as f:
-        for key, value in metadata.items():
-            if value is None:
-                continue
-
-            # Scalars -> attrs
-            if isinstance(value, (int, float, str, bytes, np.integer, np.floating)):
-                f.attrs[str(key)] = value
-                continue
-
-            arr = np.asarray(value)
-
-            # Prevent object dtype surprises
-            if arr.dtype == object:
-                # Store as JSON bytes if it's an arbitrary python object/sequence
-                import json
-                payload = json.dumps(value, sort_keys=True).encode("utf-8")
-                f.create_dataset(str(key), data=np.bytes_(payload))
-                continue
-
-            f.create_dataset(str(key), data=arr)
 
 
 # =============================================================================
@@ -236,12 +186,12 @@ def write_tfr_outputs(
     mne.write_evokeds(path_diff.as_posix(), list(evokeds_difference), overwrite=overwrite)
 
     # Write numeric/table outputs
-    _save_npy(induced_data, path_induced_npy)
-    _save_table_csv(n_trials, path_n_trials)
+    save_npy(induced_data, path_induced_npy)
+    save_table_csv(n_trials, path_n_trials)
 
     if path_metadata.exists() and not overwrite:
         raise FileExistsError(f"Refusing to overwrite metadata: {path_metadata}")
-    _save_hdf5(path_metadata, metadata=meta)
+    save_hdf5(path_metadata, meta)
 
     # Final sanity check: Snakemake completion criteria
     required = [path_diff, path_induced_npy, path_c1, path_c2, path_n_trials, path_metadata]

@@ -32,6 +32,8 @@ import numpy as np
 import pandas as pd
 import mne
 
+from turntaking.analysis.io.core import save_hdf5, save_npy, save_table_csv
+
 
 # =============================================================================
 #                     ########################################
@@ -71,40 +73,6 @@ def get_erp_condition_names(contrast: str) -> ErpConditionNames:
     if contrast == "latency":
         return ErpConditionNames(cond_1="fast", cond_2="slow")
     raise ValueError(f"Unknown contrast: {contrast!r}. Expected 'duration' or 'latency'.")
-
-
-# =============================================================================
-#                     ########################################
-#                     #              GENERIC I/O               #
-#                     ########################################
-# =============================================================================
-
-def _save_table_csv(df: pd.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False)
-
-
-def _save_npy(arr: np.ndarray, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(path, arr)
-
-
-def _save_hdf5(path: Path, results: Mapping[str, Any]) -> None:
-    """
-    Minimal HDF5 serializer: arrays -> datasets, scalars -> attributes.
-    """
-    import h5py
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with h5py.File(path, "w") as f:
-        for key, value in results.items():
-            if value is None:
-                continue
-            if isinstance(value, (int, float, str, bytes, np.integer, np.floating)):
-                f.attrs[str(key)] = value
-            else:
-                f.create_dataset(str(key), data=np.asarray(value))
-
 
 # =============================================================================
 #                     ########################################
@@ -203,12 +171,12 @@ def write_erp_outputs(
     mne.write_evokeds(path_diff.as_posix(), list(evokeds_difference), overwrite=overwrite)
 
     # Write numeric/table outputs
-    _save_npy(evoked_data, path_evoked_npy)
-    _save_table_csv(n_trials, path_n_trials)
-    _save_table_csv(offsets, path_offsets)
+    save_npy(evoked_data, path_evoked_npy)
+    save_table_csv(n_trials, path_n_trials)
+    save_table_csv(offsets, path_offsets)
     if path_results.exists() and not overwrite:
         raise FileExistsError(f"Refusing to overwrite results: {path_results}")
-    _save_hdf5(path_results, results=results)
+    save_hdf5(path_results, results)
 
     # Final sanity check: Snakemake completion criteria
     required = [path_diff, path_evoked_npy, path_c1, path_c2, path_n_trials, path_results, path_offsets]
