@@ -41,6 +41,7 @@ BANDS = config["analysis"]["bands"]
 
 ERP_ROOT = config["io"]["out_dir"] + "/erp"
 TFR_ROOT = config["io"]["out_dir"] + "/tfr"
+DECODING_ROOT = config["io"]["out_dir"] + "/decoding/erp"
 
 
 rule erp:
@@ -93,21 +94,27 @@ rule tfr:
 
 rule decoding:
     input:
-        epochs=epoch_inputs(),
-        config=str(Path(workflow.basedir) / "config.yaml"),
+        config="workflow/config.yaml"
     output:
-        DECODING_OUT
+        scores=DECODING_ROOT + "/{contrast}/scores.npy",
+        times=DECODING_ROOT + "/{contrast}/times.npy",
     threads:
         heavy_threads()
     resources:
         mem_mb=heavy_mem_mb()
-    params:
-        entrypoint=str(entrypoint())
     shell:
         r"""
         set -euo pipefail
-        python "{params.entrypoint}" analyze decoding --config "{input.config}"
+        python -m turntaking.cli.main decoding \
+          --config "{input.config}" \
+          --contrast "{wildcards.contrast}"
         """
+
+
+rule decoding_all:
+    input:
+        expand(DECODING_ROOT + "/{contrast}/scores.npy", contrast=CONTRASTS),
+        expand(DECODING_ROOT + "/{contrast}/times.npy", contrast=CONTRASTS),
 
 
 rule mixed:

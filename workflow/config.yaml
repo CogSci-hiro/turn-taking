@@ -89,6 +89,11 @@ analysis:
     tg:
       left_margin: 0.2
       right_margin: 0.5
+
+stats:
+  decoding:
+    n_permutations: 1000
+    threshold: null
 execution:
   threads_light: 1
   threads_heavy: 10

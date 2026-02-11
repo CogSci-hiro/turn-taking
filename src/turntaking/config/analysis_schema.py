@@ -75,10 +75,12 @@ class AnalysisMixedSection:
 class AnalysisDecodingSection:
     sfreq: int
     n_splits: int
-    n_permutations: int
-    threshold: Any | None
-    left_margin: float
-    right_margin: float
+
+    # used in stats stage (but harmless to exist now)
+    n_permutations: int = 0
+    threshold: Any | None = None
+    left_margin: float = 0.0
+    right_margin: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -202,10 +204,10 @@ class TurntakingConfig:
         decoding = AnalysisDecodingSection(
             sfreq=int(_require_key(decoding_d, "sfreq", "analysis.decoding")),
             n_splits=int(_require_key(decoding_d, "n_splits", "analysis.decoding")),
-            n_permutations=int(_require_key(decoding_d, "n_permutations", "analysis.decoding")),
-            threshold=decoding_d.get("threshold"),
-            left_margin=float(_require_key(decoding_d, "left_margin", "analysis.decoding")),
-            right_margin=float(_require_key(decoding_d, "right_margin", "analysis.decoding")),
+            n_permutations=int(decoding_d.get("n_permutations", 0)),
+            threshold=decoding_d.get("threshold", None),
+            left_margin=float(decoding_d.get("left_margin", 0.0)),
+            right_margin=float(decoding_d.get("right_margin", 0.0)),
         )
 
         analysis = AnalysisSection(
