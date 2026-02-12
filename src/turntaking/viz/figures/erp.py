@@ -121,7 +121,7 @@ def plot_erp_topo(
     timesteps = np.linspace(req_tmin_s, req_tmax_s, n_topo)
 
     # Plot topographies
-    fig, axes = plt.subplots(2, timesteps.size, figsize=(15, 3))
+    fig, axes = plt.subplots(2, timesteps.size, figsize=(20, 10))
 
     mask_params = {
         "marker": "o",
