@@ -118,13 +118,13 @@ rule fig_behavior:
     input:
         config="workflow/config.yaml"
     output:
-        main=FIG_ROOT + "/F_behavior.tif",
-        s1=FIG_ROOT + "/S1_response_duration_hist.tif",
-        s2=FIG_ROOT + "/S2_previous_speech_duration_hist.tif",
-        s3_long=FIG_ROOT + "/S3_long_joint.tif",
-        s3_short=FIG_ROOT + "/S3_short_joint.tif",
-        s3_fast=FIG_ROOT + "/S3_fast_joint.tif",
-        s3_slow=FIG_ROOT + "/S3_slow_joint.tif"
+        main=FIG_ROOT + "/main" + "/F_behavior.tif",
+        s1=FIG_ROOT + "/supp" + "/S1_response_duration_hist.tif",
+        s2=FIG_ROOT + "/supp" + "/S2_previous_speech_duration_hist.tif",
+        s3_long=FIG_ROOT + "/supp" + "/S3_long_joint.tif",
+        s3_short=FIG_ROOT + "/supp" + "/S3_short_joint.tif",
+        s3_fast=FIG_ROOT + "/supp" + "/S3_fast_joint.tif",
+        s3_slow=FIG_ROOT + "/supp" + "/S3_slow_joint.tif"
     shell:
         r"""
         python -m turntaking.cli.main viz-behavior --config "{input.config}"
