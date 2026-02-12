@@ -119,7 +119,7 @@ viz:
     latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/latency/cluster_results.hdf5"
     info_source_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/difference_ave.fif"
     out_base: "/Volumes/work-4T/turn-taking-new/figures/F_erp_topo"
-    tmin_ms: -2
-    tmax_ms: 0
+    tmin_s: -2
+    tmax_s: 0
     n_topo: 3
     p_threshold: 0.01

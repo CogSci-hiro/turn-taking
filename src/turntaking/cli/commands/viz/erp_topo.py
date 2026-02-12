@@ -21,8 +21,8 @@ class ErpTopoVizConfig:
     latency_cluster_hdf5: Path
     info_source_fif: Path
     out_base: Path
-    tmin_ms: float
-    tmax_ms: float
+    tmin_s: float
+    tmax_s: float
     n_topo: int
     p_threshold: float
 
@@ -113,8 +113,8 @@ def _run_impl(cfg: ErpTopoVizConfig) -> None:
         latency_cluster=latency_clusters,
         info=info,
         data_tmin=data_tmin,
-        tmin=cfg.tmin_ms,
-        tmax=cfg.tmax_ms,
+        tmin=cfg.tmin_s,
+        tmax=cfg.tmax_s,
         n_topo=cfg.n_topo,
         p_threshold=cfg.p_threshold,
         figure_profile="jneuro_2col",
@@ -132,8 +132,8 @@ def run(args: argparse.Namespace, cfg: Any) -> None:
         latency_cluster_hdf5=Path(section.latency_cluster_hdf5),
         info_source_fif=Path(section.info_source_fif),
         out_base=Path(section.out_base),
-        tmin_ms=float(section.tmin_ms),
-        tmax_ms=float(section.tmax_ms),
+        tmin_s=float(section.tmin_s),
+        tmax_s=float(section.tmax_s),
         n_topo=int(section.n_topo),
         p_threshold=float(getattr(section, "p_threshold", 0.01)),
     )
