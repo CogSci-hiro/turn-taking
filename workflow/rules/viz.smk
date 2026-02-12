@@ -116,15 +116,10 @@ rule fig_erp_timecourse:
 
 rule fig_behavior:
     input:
-        config="workflow/config.yaml"
+        config="workflow/config.yaml",
+        table=BEH_ROOT + "/turn_table.csv"
     output:
-        main=FIG_ROOT + "/main" + "/F_behavior.tif",
-        s1=FIG_ROOT + "/supp" + "/S1_response_duration_hist.tif",
-        s2=FIG_ROOT + "/supp" + "/S2_previous_speech_duration_hist.tif",
-        s3_long=FIG_ROOT + "/supp" + "/S3_long_joint.tif",
-        s3_short=FIG_ROOT + "/supp" + "/S3_short_joint.tif",
-        s3_fast=FIG_ROOT + "/supp" + "/S3_fast_joint.tif",
-        s3_slow=FIG_ROOT + "/supp" + "/S3_slow_joint.tif"
+        fig=FIG_ROOT + "/F_behavior.tif"
     shell:
         r"""
         python -m turntaking.cli.main viz-behavior --config "{input.config}"
