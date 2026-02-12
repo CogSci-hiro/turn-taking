@@ -130,6 +130,22 @@ rule fig_erp_topomaps:
         """
 
 
+rule fig_tfr_topomaps:
+    input:
+        config="workflow/config.yaml"
+    output:
+        fig=FIG_ROOT + "/main" + "/F_tfr_topo.tif"
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
+    shell:
+        r"""
+        set -euo pipefail
+        python -m turntaking.cli.main viz-tfr-topo --config "{input.config}"
+        """
+
+
 rule fig_behavior:
     input:
         config="workflow/config.yaml",
