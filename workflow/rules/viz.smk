@@ -107,7 +107,7 @@ rule fig_erp_timecourse:
     input:
         config="workflow/config.yaml"
     output:
-        fig=FIG_ROOT + "/F_erp_timecourse.pdf"
+        fig=FIG_ROOT + "/F_erp_timecourse.tif"
     shell:
         r"""
         python -m turntaking.cli.main viz-erp-timecourse --config "{input.config}"

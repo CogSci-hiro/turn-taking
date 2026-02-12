@@ -17,7 +17,7 @@ class ErpTimecourseVizConfig:
     duration_short_fif: Path
     latency_fast_fif: Path
     latency_slow_fif: Path
-    out_pdf: Path
+    out_base: Path
     xlim_ms: tuple[float, float]
     ylim_uv: tuple[float, float]
 
@@ -59,6 +59,8 @@ def _run_impl(cfg: ErpTimecourseVizConfig) -> None:
         raise ValueError(f"latency fast ({len(fast_list)}) != slow ({len(slow_list)}) evoked counts")
 
     from turntaking.viz.figures.erp import plot_electrode_time_course
+    from turntaking.viz._style import save_figure  # noqa
+    from matplotlib import pyplot as plt
 
     fig = plot_electrode_time_course(
         long_list=long_list,
@@ -69,10 +71,11 @@ def _run_impl(cfg: ErpTimecourseVizConfig) -> None:
         xmax=cfg.xlim_ms[1],
         ymin=cfg.ylim_uv[0],
         ymax=cfg.ylim_uv[1],
+        figure_profile="jneuro_2col",
+        save_basepath=cfg.out_base,  # let the function call save_figure()
     )
 
-    cfg.out_pdf.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(cfg.out_pdf, bbox_inches="tight", dpi=300)
+    plt.close(fig)
 
 
 def run(args: argparse.Namespace, cfg) -> None:
@@ -83,7 +86,7 @@ def run(args: argparse.Namespace, cfg) -> None:
         duration_short_fif=Path(section.duration_short_fif),
         latency_fast_fif=Path(section.latency_fast_fif),
         latency_slow_fif=Path(section.latency_slow_fif),
-        out_pdf=Path(section.out_pdf),
+        out_base=Path(section.out_base),
         xlim_ms=(section.xlim_ms[0], section.xlim_ms[1]),
         ylim_uv=(section.ylim_uv[0], section.ylim_uv[1]),
     )

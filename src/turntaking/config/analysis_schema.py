@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, Tuple
 
 
 def _require_mapping(d: Any, where: str) -> dict[str, Any]:
@@ -258,7 +258,7 @@ class TurntakingConfig:
             duration_short_fif=Path(_require_key(erp_tc_d, "duration_short_fif", "viz.erp_timecourse")),
             latency_fast_fif=Path(_require_key(erp_tc_d, "latency_fast_fif", "viz.erp_timecourse")),
             latency_slow_fif=Path(_require_key(erp_tc_d, "latency_slow_fif", "viz.erp_timecourse")),
-            out_pdf=Path(_require_key(erp_tc_d, "out_pdf", "viz.erp_timecourse")),
+            out_base=Path(_require_key(erp_tc_d, "out_base", "viz.erp_timecourse")),
             xlim_ms=[float(x) for x in _require_key(erp_tc_d, "xlim_ms", "viz.erp_timecourse")],
             ylim_uv=[float(x) for x in _require_key(erp_tc_d, "ylim_uv", "viz.erp_timecourse")],
         )
@@ -283,20 +283,20 @@ class VizErpTimecourseSection:
     duration_short_fif: Path
     latency_fast_fif: Path
     latency_slow_fif: Path
-    out_pdf: str
+    out_base: Path
     xlim_ms: Tuple[float, float]
     ylim_uv: Tuple[float, float]
 
     @classmethod
     def from_dict(cls, raw: dict) -> "VizErpTimecourseSection":
         return cls(
-            long_glob=str(raw["long_glob"]),
-            short_glob=str(raw["short_glob"]),
-            fast_glob=str(raw["fast_glob"]),
-            slow_glob=str(raw["slow_glob"]),
-            out_pdf=str(raw["out_pdf"]),
-            xlim_ms=tuple(raw["xlim_ms"]),
-            ylim_uv=tuple(raw["ylim_uv"]),
+            duration_long_fif=Path(raw["duration_long_fif"]),
+            duration_short_fif=Path(raw["duration_short_fif"]),
+            latency_fast_fif=Path(raw["latency_fast_fif"]),
+            latency_slow_fif=Path(raw["latency_slow_fif"]),
+            out_base=Path(raw["out_base"]),
+            xlim_ms=tuple(float(x) for x in raw["xlim_ms"]),
+            ylim_uv=tuple(float(y) for y in raw["ylim_uv"]),
         )
 
 
