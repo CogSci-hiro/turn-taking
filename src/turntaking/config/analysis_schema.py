@@ -263,8 +263,17 @@ class TurntakingConfig:
             ylim_uv=[float(x) for x in _require_key(erp_tc_d, "ylim_uv", "viz.erp_timecourse")],
         )
 
+        behavior_d = _require_mapping(_require_key(viz_d, "behavior", "viz"), "viz.behavior")
+        behavior = VizBehaviorSection(
+            duration_offsets_csv=Path(_require_key(behavior_d, "duration_offsets_csv", "viz.behavior")),
+            latency_offsets_csv=Path(_require_key(behavior_d, "latency_offsets_csv", "viz.behavior")),
+            out_base=Path(_require_key(behavior_d, "out_base", "viz.behavior")),
+            n_bins=int(_require_key(behavior_d, "n_bins", "viz.behavior")),
+        )
+
         viz = VizSection(
             erp_timecourse=erp_timecourse,
+            behavior=behavior
         )
 
         return TurntakingConfig(
@@ -303,9 +312,18 @@ class VizErpTimecourseSection:
 @dataclass(frozen=True)
 class VizSection:
     erp_timecourse: VizErpTimecourseSection
+    behavior: VizBehaviorSection
 
     @classmethod
     def from_dict(cls, raw: dict) -> "VizSection":
         return cls(
             erp_timecourse=VizErpTimecourseSection.from_dict(raw["erp_timecourse"])
         )
+
+
+@dataclass(frozen=True)
+class VizBehaviorSection:
+    duration_offsets_csv: str
+    latency_offsets_csv: str
+    out_base: str
+    n_bins: int = 100

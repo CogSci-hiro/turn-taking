@@ -107,3 +107,17 @@ viz:
     out_base: "/Volumes/work-4T/turn-taking-new/figures/F_erp_timecourse.tif"
     xlim_ms: [-1500, 500]
     ylim_uv: [-2.8, 1.9]
+  behavior:
+    duration_offsets_csv: "/Volumes/work-4T/turn-taking-new/erp/duration/offsets.csv"
+    latency_offsets_csv: "/Volumes/work-4T/turn-taking-new/erp/latency/offsets.csv"
+    out_base: "/Volumes/work-4T/turn-taking-new/figures/F_behavior"
+    n_bins: 100
+  erp_topo:
+    duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/duration/cluster_results.hdf5"
+    latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/latency/cluster_results.hdf5"
+    info_source_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/difference_ave.fif"
+    out_base: "/Volumes/work-4T/turn-taking-new/figures/F_erp_topo"
+    tmin_ms: -200
+    tmax_ms: 450
+    n_topo: 6
+    p_threshold: 0.01

@@ -8,7 +8,7 @@ This package re-exports the same figure functions that previously lived in
 All functions are intended to keep figure outputs identical to the legacy script.
 """
 
-from .figures.behavior import plot_behavior, plot_latencies, plot_other_duration
+from .figures.behavior import plot_behavior, plot_other_duration
 from .figures.erp import (
     plot_electrode_time_course,
     plot_erp_topo,
@@ -22,7 +22,6 @@ from ._io import plot_colorbar
 
 __all__ = [
     "plot_behavior",
-    "plot_latencies",
     "plot_other_duration",
     "plot_topo_selection",
     "plot_erp_topo",
