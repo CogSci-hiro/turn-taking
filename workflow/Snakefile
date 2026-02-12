@@ -41,6 +41,7 @@ include: str(WORKFLOW_DIR / "rules" / "bootstrap.smk")
 include: str(WORKFLOW_DIR / "rules" / "common.smk")
 include: str(WORKFLOW_DIR / "rules" / "analysis.smk")
 include: str(WORKFLOW_DIR / "rules" / "stats.smk")
+include: str(WORKFLOW_DIR / "rules" / "behavior.smk")
 include: str(WORKFLOW_DIR / "rules" / "viz.smk")
 
 rule all:
