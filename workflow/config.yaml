@@ -105,7 +105,7 @@ viz:
     duration_short_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/short_ave.fif"
     latency_fast_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/fast_ave.fif"
     latency_slow_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/slow_ave.fif"
-    out_base: "/Volumes/work-4T/turn-taking-new/figures/F_erp_timecourse.tif"
+    out_base: "/Volumes/work-4T/turn-taking-new/figures/main/F_erp_timecourse.tif"
     xlim_ms: [-1500, 500]
     ylim_uv: [-2.8, 1.9]
   behavior:
