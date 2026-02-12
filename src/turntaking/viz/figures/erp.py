@@ -162,8 +162,6 @@ def plot_erp_topo(
     return fig
 
 
-
-
 def plot_electrode_time_course(
     long_list: List[mne.Evoked],
     short_list: List[mne.Evoked],
@@ -255,6 +253,18 @@ def plot_electrode_time_course(
         title=None,
         xlabel="Time (ms)",
         ylabel="Amplitude ($\\mu$V)",
+    )
+
+    # After all panels are drawn
+    fig.align_ylabels(axes[:, 0])  # aligns left-column ylabels
+
+    fig.subplots_adjust(
+        left=0.18,
+        right=0.98,
+        bottom=0.10,
+        top=0.92,
+        wspace=0.25,
+        hspace=0.25,
     )
 
     _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
