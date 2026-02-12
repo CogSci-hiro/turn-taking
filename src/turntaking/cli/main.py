@@ -29,6 +29,7 @@ import turntaking.cli.commands.mixed_effect as cmd_mixed_effect
 import turntaking.cli.commands.viz.erp_timecourse as cmd_viz_erp_timecourse
 import turntaking.cli.commands.viz.behavior as cmd_viz_behavior
 import turntaking.cli.commands.viz.erp_topo as cmd_viz_erp_topo
+import turntaking.cli.commands.turn_table as cmd_beh_turn_table
 
 _COMMANDS = {"erp": cmd_erp,
              "tfr": cmd_tfr,
@@ -37,7 +38,8 @@ _COMMANDS = {"erp": cmd_erp,
              "mixed-effect": cmd_mixed_effect,
              "viz-erp-timecourse": cmd_viz_erp_timecourse,
              "viz-behavior": cmd_viz_behavior,
-             "viz-erp-topo": cmd_viz_erp_topo}
+             "viz-erp-topo": cmd_viz_erp_topo,
+             "beh-turn-table": cmd_beh_turn_table}
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
