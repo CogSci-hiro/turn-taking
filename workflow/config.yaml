@@ -118,8 +118,8 @@ viz:
     duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/duration/cluster_results.hdf5"
     latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/latency/cluster_results.hdf5"
     info_source_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/difference_ave.fif"
-    out_base: "/Volumes/work-4T/turn-taking-new/figures/F_erp_topo"
+    out_base: "/Volumes/work-4T/turn-taking-new/figures/main/F_erp_topo"
     tmin_s: -2
     tmax_s: 0
-    n_topo: 3
+    n_topo: 10
     p_threshold: 0.01

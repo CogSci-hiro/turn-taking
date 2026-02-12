@@ -111,8 +111,14 @@ def plot_erp_topo(
     duration_t = mne.EvokedArray(duration_t.T * 1e-6, info, tmin=data_tmin)
     latency_t = mne.EvokedArray(latency_t.T * 1e-6, info, tmin=data_tmin)
 
+    req_tmin_s, req_tmax_s = _clip_time_range_to_evoked(
+        duration_t,
+        tmin_s=tmin,
+        tmax_s=tmax,
+    )
+
     # Timesteps
-    timesteps = np.linspace(tmin, tmax, n_topo)
+    timesteps = np.linspace(req_tmin_s, req_tmax_s, n_topo)
 
     # Plot topographies
     fig, axes = plt.subplots(2, timesteps.size, figsize=(15, 3))
@@ -414,3 +420,30 @@ def _maybe_save(
     if save_basepath is None:
         return
     save_figure(fig, save_basepath=save_basepath, profile_name=figure_profile)
+
+
+def _clip_time_range_to_evoked(
+    evoked: mne.Evoked,
+    *,
+    tmin_s: float,
+    tmax_s: float,
+) -> tuple[float, float]:
+    t0 = float(evoked.times[0])
+    t1 = float(evoked.times[-1])
+
+    # clip to available range
+    tmin_s = max(float(tmin_s), t0)
+    tmax_s = min(float(tmax_s), t1)
+
+    # snap to nearest sample (avoids "0.0" when last sample is -0.00195)
+    sfreq = float(evoked.info["sfreq"])
+    i_min = int(np.round((tmin_s - t0) * sfreq))
+    i_max = int(np.round((tmax_s - t0) * sfreq))
+
+    i_min = max(0, min(i_min, len(evoked.times) - 1))
+    i_max = max(0, min(i_max, len(evoked.times) - 1))
+
+    tmin_s_snapped = float(evoked.times[i_min])
+    tmax_s_snapped = float(evoked.times[i_max])
+    return tmin_s_snapped, tmax_s_snapped
+
