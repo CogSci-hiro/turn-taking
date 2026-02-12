@@ -13,6 +13,7 @@ from matplotlib import pyplot as plt
 class BehaviorVizConfig:
     duration_offsets_csv: Path
     latency_offsets_csv: Path
+    turn_table_csv: Path
     out_main: Path
     out_s1: Path
     out_s2: Path
@@ -41,6 +42,7 @@ def _run_impl(cfg: BehaviorVizConfig) -> None:
     make_behavior_figures(
         duration_offsets_csv=cfg.duration_offsets_csv,
         latency_offsets_csv=cfg.latency_offsets_csv,
+        turn_table_csv=cfg.turn_table_csv,
         out_main=cfg.out_main,
         out_s1=cfg.out_s1,
         out_s2=cfg.out_s2,
@@ -71,6 +73,7 @@ def run(args: argparse.Namespace, cfg) -> None:
     viz_cfg = BehaviorVizConfig(
         duration_offsets_csv=Path(section.duration_offsets_csv),
         latency_offsets_csv=Path(section.latency_offsets_csv),
+        turn_table_csv=Path(section.turn_table_csv),
         out_main=out_dir / "figures" / "main" / "F_behavior.tif",
         out_s1=out_dir / "figures" / "supp" / "S1_response_duration_hist.tif",
         out_s2=out_dir / "figures" / "supp" / "S2_previous_speech_duration_hist.tif",
@@ -91,3 +94,6 @@ def add_subparser(subparsers: argparse._SubParsersAction) -> None:
         help="Build behavior figures (Fig1 + S1–S3) from offsets.csv files.",
     )
     parser.add_argument("--config", required=True)
+    parser.add_argument("--turn-table-csv", type=Path, default=None)
+    parser.add_argument("--duration-offsets-csv", type=Path, default=None)
+    parser.add_argument("--latency-offsets-csv", type=Path, default=None)

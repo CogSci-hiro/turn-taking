@@ -267,6 +267,7 @@ class TurntakingConfig:
         behavior = VizBehaviorSection(
             duration_offsets_csv=Path(_require_key(behavior_d, "duration_offsets_csv", "viz.behavior")),
             latency_offsets_csv=Path(_require_key(behavior_d, "latency_offsets_csv", "viz.behavior")),
+            turn_table_csv=Path(_require_key(behavior_d, "turn_table_csv", "viz.behavior")),
             out_base=Path(_require_key(behavior_d, "out_base", "viz.behavior")),
             n_bins=int(_require_key(behavior_d, "n_bins", "viz.behavior")),
         )
@@ -325,5 +326,6 @@ class VizSection:
 class VizBehaviorSection:
     duration_offsets_csv: str
     latency_offsets_csv: str
+    turn_table_csv: str
     out_base: str
     n_bins: int = 100

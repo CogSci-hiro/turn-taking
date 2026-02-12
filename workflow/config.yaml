@@ -111,6 +111,7 @@ viz:
   behavior:
     duration_offsets_csv: "/Volumes/work-4T/turn-taking-new/erp/duration/offsets.csv"
     latency_offsets_csv: "/Volumes/work-4T/turn-taking-new/erp/latency/offsets.csv"
+    turn_table_csv: "/Volumes/work-4T/turn-taking-new/beh/turn_table.csv"
     out_base: "/Volumes/work-4T/turn-taking-new/figures/F_behavior"
     n_bins: 100
   erp_topo:

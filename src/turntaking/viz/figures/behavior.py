@@ -36,6 +36,20 @@ JOINT_SCATTER_ALPHA: float = 0.25
 JOINT_SCATTER_SIZE: float = 8.0
 
 
+LATENCY_XLIM_S: tuple[float, float] = (-4.0, 4.0)
+DURATION_XLIM_S: tuple[float, float] = (0.0, 6.0)
+BIN_WIDTH_S: float = 0.08  # 80 ms bins (tweak once, never touch again)
+
+
+def _make_edges(xlim: tuple[float, float], bin_width: float) -> np.ndarray:
+    start, stop = xlim
+    n = int(np.ceil((stop - start) / bin_width))
+    # Ensure last edge >= stop
+    edges = start + bin_width * np.arange(n + 1)
+    edges[-1] = stop
+    return edges
+
+
 # ======================================================================================================================
 # Column resolution
 # ======================================================================================================================
@@ -118,28 +132,41 @@ def plot_behavior(df: pd.DataFrame, n_bins: int = DEFAULT_N_BINS) -> plt.Figure:
         The figure.
     """
     cols = BehaviorColumns()
-    df_cropped = _crop_behavior_df(df, cols)
+
+    # Force numeric parsing (prevents silent object/string filtering issues)
+    df = df.copy()
+    df[cols.latency] = pd.to_numeric(df[cols.latency], errors="coerce")
+    df[cols.self_duration] = pd.to_numeric(df[cols.self_duration], errors="coerce")
+
+    # Plot window for latency (the thing that should show light gray tails)
+    df_plot_latency = df.copy()
+    df_plot_latency = df_plot_latency[df_plot_latency[cols.latency].notna()]
+    df_plot_latency = df_plot_latency[df_plot_latency[cols.latency] > -MAX_LATENCY_S]
+    df_plot_latency = df_plot_latency[df_plot_latency[cols.latency] < MAX_LATENCY_S]
+    df_plot_latency = df_plot_latency[df_plot_latency[cols.self_duration] < MAX_SELF_DURATION_S]
+
+    # Analysis/inclusion window (-1, 1): used for medians and duration histogram
+    df_included = df_plot_latency[
+        (df_plot_latency[cols.latency] > -INCLUSION_LATENCY_S) &
+        (df_plot_latency[cols.latency] < INCLUSION_LATENCY_S)
+        ].copy()
 
     fig, axes = plt.subplots(1, 2, figsize=(WIDTH, WIDTH * 0.5))
 
+    lat_edges = _make_edges(LATENCY_XLIM_S, BIN_WIDTH_S)
+    dur_edges = _make_edges(DURATION_XLIM_S, BIN_WIDTH_S)
+
     # Latency
-    latency_median = _median_in_inclusion_window(df_cropped, cols, cols.latency)
-    _, _, patches = axes[0].hist(df_cropped[cols.latency], n_bins)
+    latency_median = float(df_included[cols.latency].median())
+    _, _, patches = axes[0].hist(df_plot_latency[cols.latency], bins=lat_edges)
 
     # Set colors (keeps your original styling behavior)
-    min_val, max_val = -MAX_LATENCY_S, MAX_LATENCY_S
-    upper, lower = INCLUSION_LATENCY_S, -INCLUSION_LATENCY_S
-    length = max_val - min_val
-    step = length / n_bins
-    left_lim = floor((lower - min_val) / step)
-    right_lim = n_bins - floor((max_val - upper) / step)
-
-    for idx in range(left_lim):
-        patches[idx].set_facecolor("lightgray")
-    for idx in range(left_lim, right_lim):
-        patches[idx].set_facecolor("gray")
-    for idx in range(right_lim, n_bins):
-        patches[idx].set_facecolor("lightgray")
+    bin_centers = 0.5 * (lat_edges[:-1] + lat_edges[1:])
+    for center, patch in zip(bin_centers, patches):
+        if (-INCLUSION_LATENCY_S < center) and (center < INCLUSION_LATENCY_S):
+            patch.set_facecolor("gray")
+        else:
+            patch.set_facecolor("lightgray")
 
     axes[0].vlines(x=latency_median, ymin=0, ymax=1600, colors="salmon", linestyles=":")
     axes[0].text(
@@ -157,8 +184,8 @@ def plot_behavior(df: pd.DataFrame, n_bins: int = DEFAULT_N_BINS) -> plt.Figure:
     axes[0].tick_params(axis="both", which="major", labelsize=FONT_SIZE)
 
     # Duration
-    duration_median = _median_in_inclusion_window(df_cropped, cols, cols.self_duration)
-    axes[1].hist(df_cropped[cols.self_duration], n_bins, facecolor="gray")
+    duration_median = float(df_included[cols.self_duration].median())
+    axes[1].hist(df_included[cols.self_duration], bins=dur_edges, facecolor="gray")
 
     axes[1].vlines(x=duration_median, ymin=0, ymax=1400, colors="salmon", linestyles=":")
     axes[1].text(
@@ -320,6 +347,7 @@ def _filter_condition(df: pd.DataFrame, condition_value: str) -> pd.DataFrame:
 def make_behavior_figures(
     duration_offsets_csv: Path,
     latency_offsets_csv: Path,
+    turn_table_csv: Path,
     out_main: Path,
     out_s1: Path,
     out_s2: Path,
@@ -366,7 +394,8 @@ def make_behavior_figures(
     latency_df = pd.read_csv(latency_offsets_csv)
 
     # Fig1: use duration_df as the canonical “overall distribution” source (avoids duplicating turns).
-    fig1 = plot_behavior(duration_df, n_bins=n_bins)
+    fig1_df = pd.read_csv(turn_table_csv)
+    fig1 = plot_behavior(fig1_df, n_bins=n_bins)
     save_figure(fig1, out_main, profile_name=figure_profile)
     plt.close(fig1)
 
