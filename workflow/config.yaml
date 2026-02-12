@@ -1,6 +1,7 @@
 paths:
   workdir: "/Users/hiro/PycharmProjects/turn-taking-working"
   epoch_dir: "/Volumes/work-4T/hyperscanning/derived/eeg/epochs"
+  beh_dir: "/Volumes/work-4T/hyperscanning/derived/beh/metadata"
   out_dir: "/Volumes/work-4T/turn-taking-new"
 io:
   epoch_dir: "/Volumes/work-4T/hyperscanning/derived/eeg/epochs"
