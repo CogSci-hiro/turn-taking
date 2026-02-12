@@ -142,11 +142,11 @@ def _load_out_root(cfg: Any) -> Path:
     return Path(getattr(io_cfg, "out_dir"))
 
 
-def _load_erp_X_and_info(
+def _load_erp_X_info_tmin(
     out_root: Path,
     *,
     contrast: str,
-) -> tuple[np.ndarray, mne.Info]:
+) -> tuple[np.ndarray, mne.Info, float]:
     evoked_data_path = out_root / "erp" / contrast / "evoked-data.npy"
     diff_ave_path = out_root / "erp" / contrast / "difference_ave.fif"
 
@@ -158,15 +158,16 @@ def _load_erp_X_and_info(
     X = np.transpose(diff, (0, 2, 1)).astype(float)  # (N,T,C)
 
     evoked = mne.read_evokeds(diff_ave_path, condition=0)
-    return X, evoked.info
+    tmin_s = float(evoked.times[0])
+    return X, evoked.info, tmin_s
 
 
-def _load_tfr_X_and_info(
+def _load_tfr_X_info_tmin(
     out_root: Path,
     *,
     contrast: str,
     band: str,
-) -> tuple[np.ndarray, mne.Info]:
+) -> tuple[np.ndarray, mne.Info, float]:
     induced_data_path = out_root / "tfr" / contrast / band / "induced-data.npy"
     diff_ave_path = out_root / "tfr" / contrast / band / "difference_ave.fif"
 
@@ -178,7 +179,8 @@ def _load_tfr_X_and_info(
     X = np.transpose(diff, (0, 2, 1)).astype(float)  # (N,T,C)
 
     evoked = mne.read_evokeds(diff_ave_path, condition=0)
-    return X, evoked.info
+    tmin_s = float(evoked.times[0])
+    return X, evoked.info, tmin_s
 
 
 # =============================================================================
@@ -218,11 +220,11 @@ def run(args: Any, cfg: Any) -> None:
 
     # Load X + info
     if kind == "erp":
-        X, info = _load_erp_X_and_info(out_root, contrast=contrast)
+        X, info, data_tmin_s_orig = _load_erp_X_info_tmin(out_root, contrast=contrast)
         stats_out_dir = out_root / "stats" / "erp" / contrast
     else:
         assert band is not None
-        X, info = _load_tfr_X_and_info(out_root, contrast=contrast, band=band)
+        X, info, data_tmin_s_orig = _load_tfr_X_info_tmin(out_root, contrast=contrast, band=band)
         stats_out_dir = out_root / "stats" / "tfr" / contrast / band
 
     print(
@@ -240,12 +242,16 @@ def run(args: Any, cfg: Any) -> None:
         right_margin=right_margin,
     )
 
+    data_tmin_s = float(data_tmin_s_orig + (float(start_idx) / float(sfreq)))
+
     # Run cluster test (identical for ERP and band-averaged induced TFR)
     result = run_cluster_1samp_spatiotemporal(
         X_cropped,
         info=info,
         params=params,
         kind=kind,
+        data_tmin_s=data_tmin_s,
+        sfreq_hz=float(sfreq),
     )
 
     # Record crop metadata for reproducibility

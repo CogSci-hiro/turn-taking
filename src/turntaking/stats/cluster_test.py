@@ -45,6 +45,8 @@ def run_cluster_1samp_spatiotemporal(
     info: mne.Info,
     params: ClusterTestParams,
     kind: ClusterKind,
+    data_tmin_s: float,
+    sfreq_hz: float,
 ) -> ClusterTestResult:
     """
     Spatio-temporal cluster test for ERP-like data.
@@ -108,6 +110,8 @@ def run_cluster_1samp_spatiotemporal(
         "seed": int(params.seed),
         "n_jobs": int(params.n_jobs),
         "ch_type": str(params.ch_type),
+        "data_tmin": float(data_tmin_s),
+        "sfreq_hz": float(sfreq_hz),
     }
 
     return ClusterTestResult(

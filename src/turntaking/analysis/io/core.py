@@ -65,8 +65,8 @@ def save_hdf5(path: Path, payload: Mapping[str, Any]) -> None:
 
             k = str(key)
 
-            if isinstance(value, (int, float, str, bytes, np.integer, np.floating)):
-                f.attrs[k] = value
+            if isinstance(value, np.bytes_):
+                f.create_dataset(k, data=value)
                 continue
 
             if isinstance(value, np.ndarray):

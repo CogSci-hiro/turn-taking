@@ -6,6 +6,8 @@ from typing import Any
 import mne
 import numpy as np
 
+from turntaking.analysis.io.cluster import read_cluster_outputs
+
 # =============================================================================
 #                     ########################################
 #                     #         ERP TOPO VIZ COMMAND         #
@@ -51,55 +53,42 @@ def _load_info_from_evoked(path: Path) -> mne.Info:
     return evokeds[0].info
 
 
-def _load_cluster_outputs(path: Path) -> tuple[np.ndarray, np.ndarray, list[tuple], float]:
-    """
-    Load cluster test outputs saved by the pipeline.
+def _require_float(meta: dict[str, Any], key: str, context: str) -> float:
+    if key not in meta:
+        raise KeyError(
+            f"Missing metadata key {key!r} in {context}. "
+            f"Available keys: {sorted(meta.keys())}"
+        )
+    return float(meta[key])
 
-    Notes
-    -----
-    This assumes your project already writes cluster results in the format that
-    `turntaking.analysis.io.cluster` knows how to read.
+
+def _load_cluster_outputs(
+    path: Path,
+) -> tuple[np.ndarray, np.ndarray, list[tuple[np.ndarray, ...]], float]:
+    """
+    Load cluster results as a simple tuple for plotting.
 
     Returns
     -------
-    t
-        t-stat array (time x channels) or (channels x time) depending on writer.
-    p
-        p-value array, same shape as t.
+    t_values
+        Array of t-values.
+    p_values
+        Array of cluster p-values.
     clusters
-        Cluster list (as returned by MNE permutation cluster test).
+        List of cluster index tuples.
     data_tmin
-        The tmin in seconds for the data arrays.
-
-    Usage example
-    -------------
-        t, p, clusters, data_tmin = _load_cluster_outputs(Path(".../cluster_results.hdf5"))
+        Start time (seconds) for the t-value time axis.
     """
-    if not path.exists():
-        raise FileNotFoundError(f"Cluster results not found: {path}")
-
-    # Prefer project-native loader to avoid guessing HDF5 key names.
-    try:
-        from turntaking.analysis.io.cluster import read_cluster_outputs  # type: ignore
-    except Exception as e:  # pragma: no cover
-        raise ImportError(
-            "Could not import turntaking.analysis.io.cluster.read_cluster_outputs. "
-            "Either add it, or implement an HDF5 reader here."
-        ) from e
-
     out = read_cluster_outputs(path)
 
-    # Be forgiving about exact return type: support dict-like or tuple-like.
-    if isinstance(out, dict):
-        t = np.asarray(out["t"])
-        p = np.asarray(out["p"])
-        clusters = list(out["clusters"])
-        data_tmin = float(out["tmin"])
-        return t, p, clusters, data_tmin
+    t_values = np.asarray(out.t_values, dtype=float)
+    p_values = np.asarray(out.p_values, dtype=float)
+    clusters = list(out.clusters)
 
-    # Otherwise assume tuple ordering
-    t, p, clusters, data_tmin = out
-    return np.asarray(t), np.asarray(p), list(clusters), float(data_tmin)
+    # Make this strict to avoid silent wrong time alignment:
+    data_tmin = _require_float(out.metadata, "data_tmin", context=str(path))
+
+    return t_values, p_values, clusters, data_tmin
 
 
 def _run_impl(cfg: ErpTopoVizConfig) -> None:

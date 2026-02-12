@@ -114,6 +114,22 @@ rule fig_erp_timecourse:
         """
 
 
+rule fig_erp_topomaps:
+    input:
+        config="workflow/config.yaml"
+    output:
+        fig=FIG_ROOT + "/main" + "/F_erp_topo.tif"
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
+    shell:
+        r"""
+        set -euo pipefail
+        python -m turntaking.cli.main viz-erp-topo --config "{input.config}"
+        """
+
+
 rule fig_behavior:
     input:
         config="workflow/config.yaml",

@@ -272,8 +272,23 @@ class TurntakingConfig:
             n_bins=int(_require_key(behavior_d, "n_bins", "viz.behavior")),
         )
 
+        erp_topo_d = _require_mapping(
+            _require_key(viz_d, "erp_topo", "viz"),
+            "viz.erp_topo",
+        )
+
+        erp_topo = VizErpTopoSection(
+            duration_cluster_hdf5=Path(_require_key(erp_topo_d, "duration_cluster_hdf5", "viz.erp_topo")),
+            latency_cluster_hdf5=Path(_require_key(erp_topo_d, "latency_cluster_hdf5", "viz.erp_topo")),
+            info_source_fif=Path(_require_key(erp_topo_d, "info_source_fif", "viz.erp_topo")),
+            out_base=Path(_require_key(erp_topo_d, "out_base", "viz.erp_topo")),
+            tmin_ms=float(_require_key(erp_topo_d, "tmin_ms", "viz.erp_topo")),
+            tmax_ms=float(_require_key(erp_topo_d, "tmax_ms", "viz.erp_topo")),
+            n_topo=int(_require_key(erp_topo_d, "n_topo", "viz.erp_topo")),
+            p_threshold=float(erp_topo_d.get("p_threshold", 0.01)))
         viz = VizSection(
             erp_timecourse=erp_timecourse,
+            erp_topo=erp_topo,
             behavior=behavior
         )
 
@@ -311,8 +326,34 @@ class VizErpTimecourseSection:
 
 
 @dataclass(frozen=True)
+class VizErpTopoSection:
+    duration_cluster_hdf5: Path
+    latency_cluster_hdf5: Path
+    info_source_fif: Path
+    out_base: Path
+    tmin_ms: float
+    tmax_ms: float
+    n_topo: int
+    p_threshold: float
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "VizErpTopoSection":
+        return cls(
+            duration_cluster_hdf5=Path(raw["duration_cluster_hdf5"]),
+            latency_cluster_hdf5=Path(raw["latency_cluster_hdf5"]),
+            info_source_fif=Path(raw["info_source_fif"]),
+            out_base=Path(raw["out_base"]),
+            tmin_ms=float(raw["tmin_ms"]),
+            tmax_ms=float(raw["tmax_ms"]),
+            n_topo=int(raw["n_topo"]),
+            p_threshold=float(raw.get("p_threshold", 0.01)),
+        )
+
+
+@dataclass(frozen=True)
 class VizSection:
     erp_timecourse: VizErpTimecourseSection
+    erp_topo: VizErpTopoSection
     behavior: VizBehaviorSection
 
     @classmethod
