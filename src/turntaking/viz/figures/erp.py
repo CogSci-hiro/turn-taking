@@ -1,7 +1,7 @@
 """ERP-related figures."""
 
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 import matplotlib as mpl
 import mne
