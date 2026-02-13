@@ -193,12 +193,9 @@ rule fig_decoding:
 rule fig_erp_topomap_svg:
     input:
         template="workflow/templates/ERP-timeline.svg",
-        # for now: just require a config; later you can add real stats inputs
         config="workflow/config.yaml",
     output:
         svg="workflow/results/F_erp_topomap.svg",
-        # optional TIFF
-        tiff="workflow/results/F_erp_topomap.tiff",
     params:
         parts_dir="workflow/results/parts_erp_topomap",
     conda:
@@ -206,6 +203,7 @@ rule fig_erp_topomap_svg:
     shell:
         r"""
         python -m turntaking.cli.main viz-topomaps \
+          --config "{input.config}" \
           --template "{input.template}" \
           --parts-dir "{params.parts_dir}" \
           --out-svg "{output.svg}"

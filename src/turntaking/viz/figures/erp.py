@@ -82,37 +82,43 @@ def plot_topo_selection(
 # =============================================================================
 # Topomap grid (generic: ERP/TFR)
 # =============================================================================
-def _make_step_times_s(
+def _make_step_times_s_and_labels_ms(
     evoked: mne.Evoked,
     *,
     tmin_s: float,
     tmax_s: float,
     step_ms: float,
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray]:
     """
-    Create step-based time points (in seconds), clipped and snapped to evoked samples.
+    Return snapped times (seconds) for plotting and clean labels (ms) for display.
     """
     if step_ms <= 0:
         raise ValueError(f"step_ms must be > 0, got {step_ms}.")
 
     req_tmin_s, req_tmax_s = _clip_time_range_to_evoked(evoked, tmin_s=tmin_s, tmax_s=tmax_s)
 
-    # build ms grid (avoids awkward fractions); include endpoint
+    # clean grid in ms (no weird decimals)
     tmin_ms = req_tmin_s * 1e3
     tmax_ms = req_tmax_s * 1e3
-    times_ms = np.arange(tmin_ms, tmax_ms + 0.5 * step_ms, step_ms)
+    grid_ms = np.arange(tmin_ms, tmax_ms + 0.5 * step_ms, step_ms)
 
-    # snap each time to nearest sample (keeps titles clean & consistent)
+    # snap to sample indices
     t0 = float(evoked.times[0])
     sfreq = float(evoked.info["sfreq"])
-    idx = np.round((times_ms / 1e3 - t0) * sfreq).astype(int)
+    idx = np.round((grid_ms / 1e3 - t0) * sfreq).astype(int)
     idx = np.clip(idx, 0, len(evoked.times) - 1)
+
+    # de-duplicate (snapping can collapse neighbors); keep first occurrence label
+    keep = np.concatenate(([True], idx[1:] != idx[:-1]))
+    idx = idx[keep]
+    grid_ms = grid_ms[keep]
 
     times_s = evoked.times[idx].astype(float)
 
-    # de-duplicate in case snapping collapses neighbors
-    times_s = np.unique(times_s)
-    return times_s
+    # make labels *exact* multiples of step_ms (avoids 1699)
+    labels_ms = np.round(grid_ms / step_ms) * step_ms
+
+    return times_s, labels_ms.astype(int)
 
 
 def plot_stat_topomaps_grid(
@@ -182,7 +188,7 @@ def plot_stat_topomaps_grid(
     # MNE expects (n_channels, n_times) in Volts for EvokedArray
     evoked = mne.EvokedArray(stat.T * 1e-6, info, tmin=float(data_tmin))
 
-    times_s = _make_step_times_s(evoked, tmin_s=float(tmin), tmax_s=float(tmax), step_ms=float(step_ms))
+    times_s, labels_ms = _make_step_times_s_and_labels_ms(evoked, tmin_s=tmin, tmax_s=tmax, step_ms=step_ms)
     if times_s.size == 0:
         raise ValueError("No time points selected after clipping/snapping. Check tmin/tmax/step_ms.")
 
@@ -245,19 +251,14 @@ def plot_stat_topomaps_grid(
         cmap=cmap,
     )
 
-    # Move timestamps inside each panel so they don't "float" into the row above
-    for ax in axes_flat[:n_maps]:
-        t = ax.get_title()
-        ax.set_title("")  # remove default MNE title
-
+    for ax, label_ms in zip(axes_flat[:n_maps], labels_ms):
+        ax.set_title("")
         ax.text(
-            0.5,
-            1.2,  # inside the axes (top)
-            t,
+            0.5, 1.2,
+            f"{label_ms:d} ms",
             transform=ax.transAxes,
-            ha="center",
-            va="top",
-            fontsize=time_fontsize,  # your desired timestamp size
+            ha="center", va="top",
+            fontsize=time_fontsize,
             color="0.2",
             zorder=20,
         )
