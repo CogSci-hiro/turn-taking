@@ -1,12 +1,16 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, Tuple
+from typing import Final, Literal, Tuple
 
 import h5py
 import numpy as np
 
 ContrastName = Literal["latency", "duration"]
+
+
+_SCORES_FNAME: Final[str] = "scores.npy"
+_TIMES_FNAME: Final[str] = "times.npy"
 
 
 @dataclass(frozen=True)
@@ -73,6 +77,66 @@ def save_decoding_scores(
     np.save(times_path, np.asarray(times_s, dtype=np.float64))
 
     return scores_path, times_path
+
+
+@dataclass(frozen=True)
+class DecodingScorePaths:
+    """
+    File locations for decoding score artifacts.
+
+    Usage example
+    -------------
+        paths = DecodingScorePaths.from_dir(Path("/.../out/decoding/erp/duration"))
+        scores, times_s = load_decoding_scores(paths)
+    """
+
+    scores_npy: Path
+    times_npy: Path
+
+    @staticmethod
+    def from_dir(decoding_dir: Path) -> "DecodingScorePaths":
+        return DecodingScorePaths(
+            scores_npy=decoding_dir / _SCORES_FNAME,
+            times_npy=decoding_dir / _TIMES_FNAME,
+        )
+
+
+def load_decoding_scores(paths: DecodingScorePaths) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Load temporal generalization decoding scores and their time axis.
+
+    Parameters
+    ----------
+    paths
+        Locations of `scores.npy` and `times.npy`.
+
+    Returns
+    -------
+    scores
+        Array shaped (n_subjects, n_splits, n_times, n_times).
+
+    times_s
+        Array shaped (n_times,), in seconds.
+    """
+    if not paths.scores_npy.exists():
+        raise FileNotFoundError(f"Missing scores file: {paths.scores_npy}")
+    if not paths.times_npy.exists():
+        raise FileNotFoundError(f"Missing times file: {paths.times_npy}")
+
+    scores = np.load(paths.scores_npy)
+    times_s = np.load(paths.times_npy)
+
+    if scores.ndim != 4:
+        raise ValueError(f"Expected scores as 4D array, got shape={scores.shape}.")
+    if times_s.ndim != 1:
+        raise ValueError(f"Expected times as 1D array, got shape={times_s.shape}.")
+    if scores.shape[2] != times_s.shape[0] or scores.shape[3] != times_s.shape[0]:
+        raise ValueError(
+            f"Time axis mismatch: scores has n_times={scores.shape[2]}x{scores.shape[3]}, "
+            f"times has n_times={times_s.shape[0]}."
+        )
+
+    return scores, times_s
 
 
 def get_feature_cache_path(out_dir: Path, contrast: ContrastName, subject: str) -> Path:
@@ -162,22 +226,3 @@ def load_subject_feature_cache_hdf5(
         times_s = np.asarray(h5["times"])
 
     return X, y, times_s
-
-
-def save_decoding_outputs(
-    *,
-    out_dir: Path,
-    contrast: ContrastName,
-    scores: np.ndarray,
-    times_s: np.ndarray,
-) -> Tuple[Path, Path]:
-    out_path = out_dir / "decoding" / "erp" / contrast
-    out_path.mkdir(parents=True, exist_ok=True)
-
-    scores_path = out_path / "scores.npy"
-    times_path = out_path / "times.npy"
-
-    np.save(scores_path, scores)
-    np.save(times_path, np.asarray(times_s, dtype=np.float64))
-
-    return scores_path, times_path

@@ -24,6 +24,7 @@ import turntaking.cli.commands.erp as cmd_erp
 import turntaking.cli.commands.tfr as cmd_tfr
 import turntaking.cli.commands.cluster as cmd_cluster
 import turntaking.cli.commands.decoding as cmd_decoding
+import turntaking.cli.commands.decoding_cluster as cmd_decoding_cluster
 import turntaking.cli.commands.mixed_effect as cmd_mixed_effect
 
 import turntaking.cli.commands.viz.erp_timecourse as cmd_viz_erp_timecourse
@@ -34,6 +35,7 @@ import turntaking.cli.commands.turn_table as cmd_beh_turn_table
 _COMMANDS = {"erp": cmd_erp,
              "tfr": cmd_tfr,
              "decoding": cmd_decoding,
+             "decoding-cluster": cmd_decoding_cluster,
              "cluster": cmd_cluster,
              "mixed-effect": cmd_mixed_effect,
              "viz-erp-timecourse": cmd_viz_erp_timecourse,

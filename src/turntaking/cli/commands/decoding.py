@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from turntaking.analysis.decoding.dataset import DecodingDatasetParams
-from turntaking.analysis.io.decoding import save_decoding_outputs
+from turntaking.analysis.io.decoding import save_decoding_scores
 from turntaking.analysis.decoding.run_decoding import DecodingRunParams, run_group_decoding
 from turntaking.analysis.io.epochs import load_subject_epochs
 from turntaking.analysis.selection import SelectionParams
@@ -249,7 +249,7 @@ def run(args: argparse.Namespace, cfg: Any) -> None:
     )
 
     # 8) Save outputs (ONLY scores + times)
-    save_decoding_outputs(
+    save_decoding_scores(
         out_dir=base_out_dir,
         contrast=str(args.contrast),  # type: ignore[arg-type]
         scores=scores,

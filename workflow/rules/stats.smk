@@ -180,26 +180,41 @@ rule test_tfr_all:
         TFR_CLUSTER_OUT
 
 
+# Add near the top with other OUT lists
+def decoding_contrasts() -> list[str]:
+    return list(config.get("analysis",{}).get("contrasts",[]))
+
 rule test_decoding:
-    """
-    Run decoding-related tests and store pytest log as a tracked artifact.
-    """
     input:
-        decoding_outputs=DECODING_OUT,
-        config=str(Path(workflow.basedir) / "config.yaml")
+        scores=str(out_dir() / "decoding" / "erp" / "{contrast}" / "scores.npy"),
+        times=str(out_dir() / "decoding" / "erp" / "{contrast}" / "times.npy"),
+        config=str(Path(workflow.basedir) / "config.yaml"),
     output:
-        log=str(stats_decoding_out_dir() / "pytest.log")
+        hdf5=str(stats_decoding_out_dir() / "erp" / "{contrast}" / "cluster_results.hdf5"),
+        summary=str(stats_decoding_out_dir() / "erp" / "{contrast}" / "cluster_summary.csv"),
     threads: 1
     resources:
         mem_mb=heavy_mem_mb()
+    params:
+        entrypoint=str(entrypoint())
     shell:
         r"""
         set -euo pipefail
-        mkdir -p "$(dirname "{output.log}")"
-
-        # Narrow to decoding tests when available
-        python -m pytest -q tests > "{output.log}"
+        python "{params.entrypoint}" decoding-cluster \
+          --config "{input.config}" \
+          --feature erp \
+          --contrast "{wildcards.contrast}"
         """
+
+
+DECODING_CLUSTER_OUT = [
+    *expand(str(stats_decoding_out_dir() / "erp" / "{contrast}" / "cluster_results.hdf5"),contrast=decoding_contrasts()),
+    *expand(str(stats_decoding_out_dir() / "erp" / "{contrast}" / "cluster_summary.csv"),contrast=decoding_contrasts()),
+]
+
+rule test_decoding_all:
+    input:
+        DECODING_CLUSTER_OUT
 
 
 rule lmm_fit:
