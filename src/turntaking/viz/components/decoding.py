@@ -19,7 +19,7 @@ def _plot_generalization(
     ax: plt.Axes,
     p_threshold: float,
     y_axis: bool,
-    lim: float = 0.05,
+    lim: float = 0.04,
 ) -> AxesImage:
     """
     Plot temporal generalisation matrix (legacy-matching).
