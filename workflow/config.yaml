@@ -119,10 +119,12 @@ viz:
     duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/duration/cluster_results.hdf5"
     latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/latency/cluster_results.hdf5"
     info_source_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/difference_ave.fif"
-    out_base: "/Volumes/work-4T/turn-taking-new/figures/main/F_erp_topo"
+    out_duration: figures/supp/F_erp_topo_duration.tif
+    out_latency: figures/supp/F_erp_topo_latency.tif
     tmin_s: -2
     tmax_s: 0
-    n_topo: 10
+    step_ms: 100          # pick e.g. 50 or 100
+    max_cols: 10          # optional
     p_threshold: 0.01
   decoding:
     duration_scores_npy: "/Volumes/work-4T/turn-taking-new/decoding/erp/duration/scores.npy"
