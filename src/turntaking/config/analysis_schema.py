@@ -59,10 +59,12 @@ class VizErpTopoSection:
             duration_cluster_hdf5=Path(raw["duration_cluster_hdf5"]),
             latency_cluster_hdf5=Path(raw["latency_cluster_hdf5"]),
             info_source_fif=Path(raw["info_source_fif"]),
-            out_base=Path(raw["out_base"]),
+            out_duration=Path(raw["out_duration"]),
+            out_latency=Path(raw["out_latency"]),
             tmin_s=float(raw["tmin_s"]),
             tmax_s=float(raw["tmax_s"]),
-            n_topo=int(raw["n_topo"]),
+            step_ms=float(raw["step_ms"]),
+            max_cols=int(raw.get("max_cols", 10)),
             p_threshold=float(raw.get("p_threshold", 0.01)),
         )
 
