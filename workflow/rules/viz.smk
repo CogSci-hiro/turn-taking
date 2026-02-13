@@ -188,3 +188,28 @@ rule fig_decoding:
           --config "{input.config}" \
           --out "{output.fig}"
         """
+
+
+rule fig_erp_topomap_svg:
+    input:
+        template="workflow/templates/ERP-timeline.svg",
+        # for now: just require a config; later you can add real stats inputs
+        config="workflow/config.yaml",
+    output:
+        svg="workflow/results/F_erp_topomap.svg",
+        # optional TIFF
+        tiff="workflow/results/F_erp_topomap.tiff",
+    params:
+        parts_dir="workflow/results/parts_erp_topomap",
+    conda:
+        "workflow/envs/python.yaml"
+    shell:
+        r"""
+        python -m turntaking.cli.main viz-topomaps \
+          --template "{input.template}" \
+          --parts-dir "{params.parts_dir}" \
+          --out-svg "{output.svg}"
+
+        # Optional deterministic conversion (only if inkscape exists in env)
+        # inkscape "{output.svg}" --export-type=tiff --export-filename="{output.tiff}" --export-dpi=300
+        """
