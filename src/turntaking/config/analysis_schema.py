@@ -14,7 +14,6 @@ def _require_key(d: dict[str, Any], key: str, where: str) -> Any:
         raise KeyError(f"Missing required key '{key}' at {where}.")
     return d[key]
 
-
 @dataclass(frozen=True)
 class VizErpTopomapsSection:
     """
@@ -36,6 +35,13 @@ class VizErpTopomapsSection:
     out_svg: Path
     parts_dir: Path
 
+    info_source_fif: Path
+    duration_cluster_hdf5: Path
+    latency_cluster_hdf5: Path
+
+    p_threshold: float
+    n_duration_maps: int
+    n_latency_maps: int
 
 @dataclass(frozen=True)
 class VizErpTimecourseSection:
@@ -382,6 +388,12 @@ class TurntakingConfig:
             template_svg=Path(_require_key(erp_topomaps_d, "template_svg", "viz.erp_topomaps")),
             parts_dir=Path(_require_key(erp_topomaps_d, "parts_dir", "viz.erp_topomaps")),
             out_svg=Path(_require_key(erp_topomaps_d, "out_svg", "viz.erp_topomaps")),
+            info_source_fif=Path(_require_key(erp_topomaps_d, "info_source_fif", "viz.erp_topomaps")),
+            duration_cluster_hdf5=Path(_require_key(erp_topomaps_d, "duration_cluster_hdf5", "viz.erp_topomaps")),
+            latency_cluster_hdf5=Path(_require_key(erp_topomaps_d, "latency_cluster_hdf5", "viz.erp_topomaps")),
+            p_threshold=float(erp_topomaps_d.get("p_threshold", 0.05)),
+            n_duration_maps=int(erp_topomaps_d.get("n_duration_maps", 2)),
+            n_latency_maps=int(erp_topomaps_d.get("n_latency_maps", 3)),
         )
 
         erp_topo = VizErpTopoSection(

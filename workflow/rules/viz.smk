@@ -197,9 +197,7 @@ rule fig_erp_topomap_svg:
     output:
         svg="workflow/results/F_erp_topomap.svg",
     params:
-        parts_dir="workflow/results/parts_erp_topomap",
-    conda:
-        "workflow/envs/python.yaml"
+        parts_dir="workflow/results/parts_erp_topomap"
     shell:
         r"""
         python -m turntaking.cli.main viz-topomaps \

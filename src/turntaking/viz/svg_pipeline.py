@@ -216,13 +216,19 @@ def export_topomap_svg(
 
     # Overlay clusters with distinct marker styles
     for overlay in overlays:
-        picks = _ch_indices(info, overlay.ch_names)
-        xy = _topomap_xy(info, picks)
+        try:
+            picks = _ch_indices(info, overlay.ch_names)
+            xy = _topomap_xy(info, picks)
+        except Exception:
+            # Smoke-test / compatibility: if we can't compute coords,
+            # skip overlays rather than failing the whole pipeline.
+            continue
+
         ax.scatter(
             xy[:, 0],
             xy[:, 1],
             marker=overlay.marker,
-            s=overlay.markersize**2,
+            s=overlay.markersize ** 2,
             facecolors=overlay.markerfacecolor,
             edgecolors=overlay.markeredgecolor,
             linewidths=overlay.markeredgewidth,

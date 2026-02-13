@@ -143,3 +143,9 @@ viz:
     template_svg: "workflow/templates/ERP-timeline.svg"
     parts_dir: "workflow/results/parts_erp_topomaps"
     out_svg: "workflow/results/F_erp_topomaps.svg"
+    info_source_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/difference_ave.fif"
+    duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/decoding/erp/duration/cluster_results.hdf5"
+    latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/decoding/erp/latency/cluster_results.hdf5"
+    p_threshold: 0.05
+    n_duration_maps: 2
+    n_latency_maps: 3
