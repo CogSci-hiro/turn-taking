@@ -20,10 +20,14 @@ class ErpTopoVizConfig:
     duration_cluster_hdf5: Path
     latency_cluster_hdf5: Path
     info_source_fif: Path
-    out_base: Path
+
+    out_duration: Path
+    out_latency: Path
+
     tmin_s: float
     tmax_s: float
-    n_topo: int
+    step_ms: float
+    max_cols: int
     p_threshold: float
 
 
