@@ -98,18 +98,23 @@ def _load_cluster_outputs(
 def _run_impl(cfg: ErpTopoVizConfig) -> None:
     from matplotlib import pyplot as plt
     from turntaking.viz.figures.erp import plot_erp_topo_duration, plot_erp_topo_latency
+    from turntaking.viz._style import save_figure
+
 
     info = _load_info_from_evoked(cfg.info_source_fif)
 
     duration_t, duration_p, duration_clusters, data_tmin = _load_cluster_outputs(cfg.duration_cluster_hdf5)
     latency_t, latency_p, latency_clusters, data_tmin_2 = _load_cluster_outputs(cfg.latency_cluster_hdf5)
 
-    # Sanity check: both stats should align to same data_tmin if produced similarly
     if abs(data_tmin - data_tmin_2) > 1e-9:
         raise ValueError(f"duration data_tmin={data_tmin} != latency data_tmin={data_tmin_2}")
 
     cfg.out_duration.parent.mkdir(parents=True, exist_ok=True)
     cfg.out_latency.parent.mkdir(parents=True, exist_ok=True)
+
+    # IMPORTANT: if your save_figure expects basepath-without-extension, enforce it here
+    out_duration_base = cfg.out_duration.with_suffix("")
+    out_latency_base = cfg.out_latency.with_suffix("")
 
     fig_duration = plot_erp_topo_duration(
         duration_t=duration_t,
