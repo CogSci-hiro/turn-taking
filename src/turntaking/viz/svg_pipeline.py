@@ -253,11 +253,11 @@ def export_topomap_svg(
     mask_params = None
     if mask is not None and np.any(mask):
         mask_params = dict(
-            marker="o",
-            markerfacecolor="none",
-            markeredgecolor="black",
-            linewidth=1.5,
-            markersize=9.0,
+            marker="o",  # shape
+            markerfacecolor="gray",  # hollow
+            markeredgecolor="black",  # edge color
+            markersize=5.0,
+            linewidth=0,  # IMPORTANT: no outline lines
         )
 
     mne.viz.plot_topomap(
@@ -276,7 +276,7 @@ def export_topomap_svg(
     )
 
     if title is not None:
-        ax.set_title(title)
+        ax.set_title(title, fontsize=14)
 
     ax.set_axis_off()
     fig.savefig(out_svg, format="svg", bbox_inches="tight", pad_inches=pad_inches)

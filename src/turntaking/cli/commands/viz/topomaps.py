@@ -134,6 +134,9 @@ def run(args: argparse.Namespace, cfg) -> None:
     # Local imports to keep CLI startup light and to avoid import cycles.
     from turntaking.analysis.io.cluster import read_cluster_outputs
 
+    duration_label_times_ms = [-700, -100]
+    latency_label_times_ms = [-1000, -700, -300]
+
     topomaps_config = cfg.viz.erp_topomaps
 
     template_svg_path: Path = Path(topomaps_config.template_svg)
@@ -277,7 +280,8 @@ def run(args: argparse.Namespace, cfg) -> None:
 
         topomap_by_slot[slot_id] = topo_vector
         mask_by_slot[slot_id] = cluster_mask
-        title_by_slot[slot_id] = f"{tmin_s:+.3f}–{tmax_s:+.3f} s  (p={cluster_p_value:.3g})"
+        label_time_ms = duration_label_times_ms[slot_number - 1]
+        title_by_slot[slot_id] = f"{label_time_ms:+d} ms (p={cluster_p_value:.3g})"
 
     # Latency slots: slot_lat_tw1, slot_lat_tw2, slot_lat_tw3
     for slot_number, cluster_index in enumerate(latency_cluster_indices, start=1):
@@ -293,7 +297,8 @@ def run(args: argparse.Namespace, cfg) -> None:
 
         topomap_by_slot[slot_id] = topo_vector
         mask_by_slot[slot_id] = cluster_mask
-        title_by_slot[slot_id] = f"{tmin_s:+.3f}–{tmax_s:+.3f} s  (p={cluster_p_value:.3g})"
+        label_time_ms = latency_label_times_ms[slot_number - 1]
+        title_by_slot[slot_id] = f"{label_time_ms:+d} ms (p={cluster_p_value:.3g})"
 
     # -------------------------------------------------------------------------
     # Shared symmetric color scale across all exported maps
