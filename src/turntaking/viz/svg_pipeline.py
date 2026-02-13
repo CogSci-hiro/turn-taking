@@ -212,7 +212,6 @@ def export_topomap_svg(
         contours=contours,
         outlines="head",
         sphere=None,
-        colorbar=False,
     )
 
     # Overlay clusters with distinct marker styles
