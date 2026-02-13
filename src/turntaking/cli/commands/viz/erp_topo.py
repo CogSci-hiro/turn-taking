@@ -128,7 +128,7 @@ def _run_impl(cfg: ErpTopoVizConfig) -> None:
         p_threshold=cfg.p_threshold,
         max_cols=cfg.max_cols,
     )
-    
+
     save_figure(fig_duration, save_basepath=out_duration_base, profile_name="jneuro_2col")
     plt.close(fig_duration)
 
