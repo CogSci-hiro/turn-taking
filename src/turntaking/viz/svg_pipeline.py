@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Iterable, Mapping, Sequence
 
 import numpy as np
@@ -23,6 +24,79 @@ _DEFAULT_TOPO_FIGSIZE_IN: tuple[float, float] = (2.2, 2.2)
 _DEFAULT_DPI: int = 300
 _DEFAULT_PAD_INCHES: float = 0.0
 
+
+_SVG_NS: str = "http://www.w3.org/2000/svg"
+_XLINK_NS: str = "http://www.w3.org/1999/xlink"
+
+
+def _rewrite_ids_inplace(root: etree._Element, *, prefix: str) -> None:
+    """
+    Prefix all SVG ids in `root` and update url(#...) / href references.
+
+    Matplotlib/MNE SVGs rely on <defs> entries like clipPaths and gradients.
+    When composing multiple snippet SVGs into one template, their ids collide
+    (e.g., 'clipPath1'). This breaks clipping and makes topomaps look wrong.
+    """
+    id_map: dict[str, str] = {}
+
+    # Collect ids
+    for el in root.iter():
+        el_id = el.get("id")
+        if el_id:
+            id_map[el_id] = f"{prefix}__{el_id}"
+
+    if not id_map:
+        return
+
+    # Rewrite element ids
+    for el in root.iter():
+        el_id = el.get("id")
+        if el_id and el_id in id_map:
+            el.set("id", id_map[el_id])
+
+    # Rewrite references inside attribute strings
+    url_pat = re.compile(r"url\(#([^)]+)\)")
+
+    def _rewrite_value(v: str) -> str:
+        # url(#id)
+        v2 = url_pat.sub(lambda m: f"url(#{id_map.get(m.group(1), m.group(1))})", v)
+        # href="#id"
+        if v2.startswith("#"):
+            key = v2[1:]
+            if key in id_map:
+                return f"#{id_map[key]}"
+        return v2
+
+    for el in root.iter():
+        # Generic attributes
+        for k, v in list(el.attrib.items()):
+            if isinstance(v, str):
+                new_v = _rewrite_value(v)
+                if new_v != v:
+                    el.set(k, new_v)
+
+        # xlink:href explicitly
+        xhref_key = f"{{{_XLINK_NS}}}href"
+        if xhref_key in el.attrib:
+            el.set(xhref_key, _rewrite_value(el.attrib[xhref_key]))
+
+
+def _snippet_children_with_defs(snippet_root: etree._Element, *, slot_id: str) -> list[etree._Element]:
+    """
+    Return snippet children INCLUDING <defs>, after rewriting ids uniquely.
+
+    We keep <defs> because clipPath definitions are required for correct
+    rendering of Matplotlib/MNE SVG output.
+    """
+    _rewrite_ids_inplace(snippet_root, prefix=slot_id)
+
+    children: list[etree._Element] = []
+    for child in snippet_root:
+        tag = etree.QName(child).localname
+        if tag in {"metadata", "title", "desc"}:
+            continue
+        children.append(child)
+    return children
 
 # =============================================================================
 #                     ########################################
@@ -141,54 +215,23 @@ def export_topomap_svg(
     info: mne.Info,
     out_svg: Path,
     vlim: tuple[float, float],
-    cmap: str = _DEFAULT_CMAP,
-    overlays: Sequence[ClusterOverlay] = (),
+    cmap: str = "RdBu_r",
+    mask: np.ndarray | None = None,  # shape (n_channels,), True where cluster channels are
     title: str | None = None,
     show_sensors: bool = False,
-    contours: int = 0,
-    fig_size_in: tuple[float, float] = _DEFAULT_TOPO_FIGSIZE_IN,
-    dpi: int = _DEFAULT_DPI,
-    pad_inches: float = _DEFAULT_PAD_INCHES,
+    contours: int = 6,
+    fig_size_in: tuple[float, float] = (2.2, 2.2),
+    dpi: int = 300,
+    pad_inches: float = 0.0,
+    overlays: Sequence[ClusterOverlay] = (),  # kept for compatibility; mask is preferred
 ) -> None:
     """
-    Export a single topomap as an SVG (drop-in ready for template assembly).
+    Export a single topomap SVG.
 
-    Parameters
-    ----------
-    data
-        Array of shape (n_channels,) aligned to `info.ch_names`.
-    info
-        MNE Info.
-    out_svg
-        Output SVG path.
-    vlim
-        (vmin, vmax) shared across all exported maps.
-    cmap
-        Matplotlib colormap name.
-    overlays
-        Cluster overlays to draw as distinct markers.
-    title
-        Optional title text inside the SVG.
-    show_sensors
-        Whether to show sensor dots from MNE itself (usually False if you overlay clusters).
-    contours
-        Number of contour lines (0 tends to look clean for publication).
-    fig_size_in
-        Figure size in inches (keep fixed for consistent SVG scaling).
-    dpi
-        DPI used during rendering (does not affect vector geometry much but can affect some backends).
-    pad_inches
-        Padding for bbox tight.
-
-    Usage example
-    -------------
-        export_topomap_svg(
-            data=tvals,
-            info=evoked.info,
-            out_svg=Path("parts/duration_tw1.svg"),
-            vlim=(-8.0, 8.0),
-            overlays=[ClusterOverlay(name="C1", ch_names=("Fz", "FCz"))],
-        )
+    Correctness-first behavior:
+    - If `mask` is provided, draw electrode markers via MNE's built-in masking.
+      This avoids private coord helpers and channel-name roundtrips.
+    - Contours default to 6 (so it looks like a real topomap).
     """
     data = np.asarray(data, dtype=float)
     if data.ndim != 1:
@@ -198,10 +241,26 @@ def export_topomap_svg(
             f"`data` length must match info.ch_names. Got {len(data)} vs {len(info.ch_names)}."
         )
 
+    if mask is not None:
+        mask = np.asarray(mask, dtype=bool)
+        if mask.shape != (len(info.ch_names),):
+            raise ValueError(f"`mask` must have shape {(len(info.ch_names),)}, got {mask.shape}.")
+
     out_svg.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=fig_size_in)
-    im, _ = mne.viz.plot_topomap(
+    fig, ax = plt.subplots(figsize=fig_size_in, dpi=dpi)
+
+    mask_params = None
+    if mask is not None and np.any(mask):
+        mask_params = dict(
+            marker="o",
+            markerfacecolor="none",
+            markeredgecolor="black",
+            linewidth=1.5,
+            markersize=9.0,
+        )
+
+    mne.viz.plot_topomap(
         data,
         info,
         axes=ax,
@@ -212,28 +271,9 @@ def export_topomap_svg(
         contours=contours,
         outlines="head",
         sphere=None,
+        mask=mask,
+        mask_params=mask_params,
     )
-
-    # Overlay clusters with distinct marker styles
-    for overlay in overlays:
-        try:
-            picks = _ch_indices(info, overlay.ch_names)
-            xy = _topomap_xy(info, picks)
-        except Exception:
-            # Smoke-test / compatibility: if we can't compute coords,
-            # skip overlays rather than failing the whole pipeline.
-            continue
-
-        ax.scatter(
-            xy[:, 0],
-            xy[:, 1],
-            marker=overlay.marker,
-            s=overlay.markersize ** 2,
-            facecolors=overlay.markerfacecolor,
-            edgecolors=overlay.markeredgecolor,
-            linewidths=overlay.markeredgewidth,
-            zorder=10,
-        )
 
     if title is not None:
         ax.set_title(title)
@@ -442,7 +482,9 @@ def compose_svg_from_template(
             slot_g.remove(child)
 
         snippet_root = _load_svg_root(snippet_path)
-        snippet_children = _strip_outer_svg(snippet_root)
+
+        # IMPORTANT: keep <defs> and prefix ids uniquely per slot
+        snippet_children = _snippet_children_with_defs(snippet_root, slot_id=slot_id)
 
         wrapper = etree.Element(f"{{{_SVG_NS}}}g")
         for child in snippet_children:

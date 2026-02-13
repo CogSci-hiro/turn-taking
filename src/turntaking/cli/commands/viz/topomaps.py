@@ -221,15 +221,15 @@ def run(args: argparse.Namespace, cfg) -> None:
     marker_cycle = ["o", "s", "^", "D", "P", "X"]  # distinguish different clusters
 
     def _summarize_cluster(
-        t_values: np.ndarray,
-        times_s: np.ndarray,
-        cluster: tuple[np.ndarray, ...],
-    ) -> tuple[np.ndarray, tuple[str, ...], tuple[float, float]]:
+            t_values: np.ndarray,
+            times_s: np.ndarray,
+            cluster: tuple[np.ndarray, ...],
+    ) -> tuple[np.ndarray, np.ndarray, tuple[float, float]]:
         """
-        Convert a spatiotemporal cluster (time inds, channel inds) to:
-        - topo vector: mean t-values across cluster time support
-        - channel names: unique channels participating in cluster
-        - time window: (tmin, tmax) in seconds
+        Convert cluster (time inds, channel inds) to:
+        - topo vector (n_channels,)
+        - channel mask (n_channels,) bool
+        - time window (tmin, tmax)
         """
         if len(cluster) < 2:
             raise ValueError(f"Expected spatiotemporal cluster with >=2 dims, got {len(cluster)} dims.")
@@ -237,21 +237,24 @@ def run(args: argparse.Namespace, cfg) -> None:
         time_indices = np.asarray(cluster[0], dtype=int)
         channel_indices = np.asarray(cluster[1], dtype=int)
 
+        mask = np.zeros(len(info.ch_names), dtype=bool)
+
         if time_indices.size == 0 or channel_indices.size == 0:
-            # Degenerate cluster: still return a topo vector so plotting doesn't crash
             topo_vector = t_values.mean(axis=0)
-            return topo_vector, tuple(), (float(times_s[0]), float(times_s[-1]))
+            return topo_vector, mask, (float(times_s[0]), float(times_s[-1]))
 
         unique_time_indices = np.unique(time_indices)
         unique_channel_indices = np.unique(channel_indices)
 
+        # topo summary (keep your mean for now; we can switch to "peak time" later)
         topo_vector = t_values[unique_time_indices].mean(axis=0)
+
+        mask[unique_channel_indices] = True
 
         tmin_s = float(times_s[unique_time_indices[0]])
         tmax_s = float(times_s[unique_time_indices[-1]])
 
-        cluster_channel_names = tuple(info.ch_names[idx] for idx in unique_channel_indices)
-        return topo_vector, cluster_channel_names, (tmin_s, tmax_s)
+        return topo_vector, mask, (tmin_s, tmax_s)
 
     # -------------------------------------------------------------------------
     # Build slot->data, slot->overlays, slot->titles (B layout)
@@ -332,7 +335,7 @@ def run(args: argparse.Namespace, cfg) -> None:
             out_svg=parts_directory / f"{slot_id}.svg",
             vlim=vlim,
             overlays=overlays_by_slot.get(slot_id, ()),
-            contours=0,
+            contours=6,
             show_sensors=False,
             title=title_by_slot.get(slot_id, None),
         )
