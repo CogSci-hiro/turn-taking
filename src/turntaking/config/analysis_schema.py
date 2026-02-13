@@ -68,7 +68,6 @@ class VizErpTopoSection:
             p_threshold=float(raw.get("p_threshold", 0.01)),
         )
 
-
 @dataclass(frozen=True)
 class VizBehaviorSection:
     duration_offsets_csv: str
