@@ -354,11 +354,14 @@ class TurntakingConfig:
             duration_cluster_hdf5=Path(_require_key(erp_topo_d, "duration_cluster_hdf5", "viz.erp_topo")),
             latency_cluster_hdf5=Path(_require_key(erp_topo_d, "latency_cluster_hdf5", "viz.erp_topo")),
             info_source_fif=Path(_require_key(erp_topo_d, "info_source_fif", "viz.erp_topo")),
-            out_base=Path(_require_key(erp_topo_d, "out_base", "viz.erp_topo")),
+            out_duration=Path(_require_key(erp_topo_d, "out_duration", "viz.erp_topo")),
+            out_latency=Path(_require_key(erp_topo_d, "out_latency", "viz.erp_topo")),
             tmin_s=float(_require_key(erp_topo_d, "tmin_s", "viz.erp_topo")),
             tmax_s=float(_require_key(erp_topo_d, "tmax_s", "viz.erp_topo")),
-            n_topo=int(_require_key(erp_topo_d, "n_topo", "viz.erp_topo")),
-            p_threshold=float(erp_topo_d.get("p_threshold", 0.01)))
+            step_ms=float(_require_key(erp_topo_d, "step_ms", "viz.erp_topo")),
+            max_cols=int(erp_topo_d.get("max_cols", 10)),
+            p_threshold=float(erp_topo_d.get("p_threshold", 0.01)),
+        )
         viz = VizSection(
             erp_timecourse=erp_timecourse,
             erp_topo=erp_topo,
