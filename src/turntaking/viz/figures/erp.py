@@ -8,6 +8,7 @@ import mne
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from matplotlib.gridspec import GridSpec
 import seaborn as sns
 
 from turntaking.viz._style import (
@@ -143,6 +144,9 @@ def plot_stat_topomaps_grid(
         Array of shape (n_times, n_channels), typically t-values.
     mask
         Boolean array of shape (n_times, n_channels) or None.
+        NOTE: this supports only a single marker style. If you want different
+        clusters to have different markers, pass cluster identities and overlay
+        markers (see extension note below).
     info
         MNE Info with montage.
     data_tmin
@@ -154,53 +158,67 @@ def plot_stat_topomaps_grid(
     title
         Figure title.
     lim_val
-        If None, uses max abs(stat) within provided stat.
+        If None, uses max abs(stat).
     max_cols
-        Wrap columns to avoid crowdedness.
+        Max number of columns before wrapping.
     """
 
     if stat.ndim != 2:
         raise ValueError(f"stat must be 2D (n_times, n_channels), got shape={stat.shape}.")
     n_times, n_ch = stat.shape
 
-    if mask is not None:
-        if mask.shape != stat.shape:
-            raise ValueError(f"mask must match stat shape. stat={stat.shape}, mask={mask.shape}")
+    if mask is not None and mask.shape != stat.shape:
+        raise ValueError(f"mask must match stat shape. stat={stat.shape}, mask={mask.shape}")
 
-    # limit
+    if step_ms <= 0:
+        raise ValueError(f"step_ms must be > 0, got {step_ms}")
+
+    # Color limits
     if lim_val is None:
         lim_val = float(np.max(np.abs(stat)))
+    lim_val = float(lim_val)
 
-    # convert to Evoked for MNE topomap: input must be (n_channels, n_times) in Volts
-    evoked = mne.EvokedArray(stat.T * 1e-6, info, tmin=data_tmin)
+    # MNE expects (n_channels, n_times) in Volts for EvokedArray
+    evoked = mne.EvokedArray(stat.T * 1e-6, info, tmin=float(data_tmin))
 
-    times_s = _make_step_times_s(evoked, tmin_s=tmin, tmax_s=tmax, step_ms=step_ms)
+    times_s = _make_step_times_s(evoked, tmin_s=float(tmin), tmax_s=float(tmax), step_ms=float(step_ms))
     if times_s.size == 0:
         raise ValueError("No time points selected after clipping/snapping. Check tmin/tmax/step_ms.")
 
-    # wrap into grid
+    # Wrap into grid
     n_maps = int(times_s.size)
     n_cols = int(min(max_cols, n_maps))
     n_rows = int(np.ceil(n_maps / n_cols))
 
-    # size: aim for A4-ish friendliness; profile will handle final export anyway
-    # (these numbers are conservative; adjust in profile if needed)
-    fig_w = max(8.0, min(14.0, 1.35 * n_cols))
-    fig_h = max(4.5, min(10.5, 1.35 * n_rows + 0.8))
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_w, fig_h))
+    # Figure size: keep panels big; width grows with columns, height with rows
+    # You can tune these constants, but this is a sane starting point.
+    panel_w = 1.35
+    panel_h = 1.35
+    cbar_col_w = 0.55  # inches-ish worth of space, controlled by GridSpec ratio below
 
-    if n_rows == 1 and n_cols == 1:
-        axes_grid = np.array([[axes]])
-    elif n_rows == 1:
-        axes_grid = np.array([axes])
-    elif n_cols == 1:
-        axes_grid = np.array([[ax] for ax in axes])
-    else:
-        axes_grid = axes
+    fig_w = max(9.0, panel_w * n_cols + cbar_col_w)
+    fig_h = max(5.0, panel_h * n_rows + 0.8)
 
-    axes_flat = axes_grid.ravel().tolist()
+    fig = plt.figure(figsize=(fig_w, fig_h))
 
-    # hide unused axes (if any)
+    # Dedicated colorbar column keeps topomaps from shrinking
+    gs = GridSpec(
+        n_rows,
+        n_cols + 1,
+        figure=fig,
+        width_ratios=[1.0] * n_cols + [0.08],  # last column is narrow colorbar
+        wspace=0.05,
+        hspace=0.10,
+    )
+
+    axes_flat: list[plt.Axes] = []
+    for r in range(n_rows):
+        for c in range(n_cols):
+            axes_flat.append(fig.add_subplot(gs[r, c]))
+
+    cbar_ax = fig.add_subplot(gs[:, -1])
+
+    # Hide unused axes
     for ax in axes_flat[n_maps:]:
         ax.set_visible(False)
 
@@ -209,9 +227,10 @@ def plot_stat_topomaps_grid(
         "markerfacecolor": FACE_COLOR,
         "markeredgecolor": "k",
         "linewidth": 0,
-        "markersize": mask_marker_size,
+        "markersize": float(mask_marker_size),
     }
 
+    # Draw topomaps (no built-in colorbar; we add our own in cbar_ax)
     evoked.plot_topomap(
         axes=axes_flat[:n_maps],
         times=times_s,
@@ -227,21 +246,15 @@ def plot_stat_topomaps_grid(
 
     fig.suptitle(title)
 
-    # make room for colorbar on the right
-    fig.subplots_adjust(left=0.05, right=1.05, top=0.90, bottom=0.06, wspace=0.05, hspace=0.12)
-
+    # Our dedicated, slim colorbar
     norm = mpl.colors.Normalize(vmin=-lim_val, vmax=lim_val)
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
 
-    cbar = fig.colorbar(
-        sm,
-        ax=axes_flat[:n_maps],  # <-- key: attach to these axes
-        location="right",
-        fraction=0.025,
-        pad=0.02,
-    )
+    cbar = fig.colorbar(sm, cax=cbar_ax)
     cbar.set_label(cbar_label, rotation=270, labelpad=14)
+    cbar.ax.tick_params(labelsize=8)
+
     _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
     return fig
 
