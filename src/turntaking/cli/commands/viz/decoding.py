@@ -16,6 +16,7 @@ from turntaking.analysis.io.decoding import (
     load_decoding_scores,
 )
 from turntaking.viz.figures.decoding import plot_decoding
+from turntaking.viz._style import save_figure
 
 
 # ##################################################################################################
@@ -136,5 +137,8 @@ def run(args: argparse.Namespace, cfg) -> None:
         ymax=float(args.ymax),
     )
 
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(args.out, dpi=300, bbox_inches="tight")
+    save_figure(
+        fig,
+        save_basepath=Path(cfg.viz.decoding.out_base),
+        profile_name=cfg.viz.decoding.figure_profile,
+    )
