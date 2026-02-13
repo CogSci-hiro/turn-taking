@@ -129,13 +129,14 @@ def run(args: argparse.Namespace, cfg) -> None:
     """
     Generate ERP topomaps from cluster-test outputs and compose into a template SVG.
 
-    This implements the "B" layout:
-    - Duration: 2 topomaps (best 2 clusters by p-value, thresholded then fallback)
-    - Latency:  3 topomaps (best 3 clusters by p-value, thresholded then fallback)
+    Layout (fixed timestamps):
+    - Duration: -700 ms, -100 ms
+    - Latency:  -1000 ms, -700 ms, -300 ms
 
-    The command reads all paths/settings from the config section `viz.erp_topomaps`.
+    Key idea:
+    - Build a global (time x channel) significance mask from all clusters with p <= threshold.
+    - Slice both t-values and mask at the desired timestamps, guaranteeing synchronization.
     """
-    # Local imports to keep CLI startup light and to avoid import cycles.
     from turntaking.analysis.io.cluster import read_cluster_outputs
 
     duration_label_times_ms = [-700, -100]
@@ -151,15 +152,14 @@ def run(args: argparse.Namespace, cfg) -> None:
     output_svg_path.parent.mkdir(parents=True, exist_ok=True)
 
     # -------------------------------------------------------------------------
-    # Load real Info (must match the channel set/order used for cluster stats)
+    # Load Info (must match the channel set/order used for cluster stats)
     # -------------------------------------------------------------------------
     info_source_path: Path = Path(topomaps_config.info_source_fif)
     evoked = mne.read_evokeds(info_source_path, condition=0, verbose="ERROR")
     info = evoked.info
 
-
     # -------------------------------------------------------------------------
-    # Read cluster outputs (canonical reader matches write_cluster_outputs)
+    # Read cluster outputs
     # -------------------------------------------------------------------------
     duration_results_path: Path = Path(topomaps_config.duration_cluster_hdf5)
     latency_results_path: Path = Path(topomaps_config.latency_cluster_hdf5)
@@ -171,9 +171,8 @@ def run(args: argparse.Namespace, cfg) -> None:
     metadata_latency: dict = dict(latency_result.metadata or {})
 
     # -------------------------------------------------------------------------
-    # Reconstruct time axis from metadata (no explicit times stored in HDF5)
-    # ---------------------------------------------------------------
-
+    # Time axis (assumes _times_from_metadata exists and is correct)
+    # -------------------------------------------------------------------------
     def _nearest_time_index(times_s: np.ndarray, target_ms: float) -> int:
         target_s = float(target_ms) / 1000.0
         return int(np.argmin(np.abs(times_s - target_s)))
@@ -197,129 +196,128 @@ def run(args: argparse.Namespace, cfg) -> None:
         )
 
     # -------------------------------------------------------------------------
-    # Convenience: choose clusters by p-threshold with fallback to best p-values
+    # Load arrays
     # -------------------------------------------------------------------------
     p_value_threshold: float = float(topomaps_config.p_threshold)
-    n_duration_maps: int = int(topomaps_config.n_duration_maps)
-    n_latency_maps: int = int(topomaps_config.n_latency_maps)
 
-    def _pick_cluster_indices(p_values: np.ndarray, n_keep: int) -> list[int]:
-        sorted_indices = list(np.argsort(p_values))
-        passing_indices = [i for i in sorted_indices if float(p_values[i]) <= p_value_threshold]
-        if len(passing_indices) >= n_keep:
-            return passing_indices[:n_keep]
-        return sorted_indices[:n_keep]
-
-    p_values_duration = np.asarray(duration_result.p_values, dtype=float)
-    p_values_latency = np.asarray(latency_result.p_values, dtype=float)
-
-    duration_cluster_indices = _pick_cluster_indices(p_values_duration, n_duration_maps)
-    latency_cluster_indices = _pick_cluster_indices(p_values_latency, n_latency_maps)
-
-    # -------------------------------------------------------------------------
-    # Compute topomap vectors + overlay channel markers for a single cluster
-    # -------------------------------------------------------------------------
-    t_values_duration = np.asarray(duration_result.t_values, dtype=float)
+    t_values_duration = np.asarray(duration_result.t_values, dtype=float)  # (n_times, n_channels)
     t_values_latency = np.asarray(latency_result.t_values, dtype=float)
 
-    marker_cycle = ["o", "s", "^", "D", "P", "X"]  # distinguish different clusters
+    p_values_duration = np.asarray(duration_result.p_values, dtype=float)  # (n_clusters,)
+    p_values_latency = np.asarray(latency_result.p_values, dtype=float)
 
-    def _summarize_cluster(
-            t_values: np.ndarray,
-            times_s: np.ndarray,
-            cluster: tuple[np.ndarray, ...],
-            *,
-            topo_time_ms: float | None,
-    ) -> tuple[np.ndarray, np.ndarray, tuple[float, float], int]:
-        """
-        Convert cluster (time inds, channel inds) to:
-        - topo vector (n_channels,) at `topo_time_ms` if provided, else cluster-mean
-        - channel mask (n_channels,) bool (cluster channels)
-        - time window (tmin, tmax) of the cluster (for debugging)
-        - topo_time_index used for the topo vector
-        """
-        if len(cluster) < 2:
-            raise ValueError(f"Expected spatiotemporal cluster with >=2 dims, got {len(cluster)} dims.")
-
-        time_indices = np.asarray(cluster[0], dtype=int)
-        channel_indices = np.asarray(cluster[1], dtype=int)
-
-        mask = np.zeros(len(info.ch_names), dtype=bool)
-
-        if time_indices.size == 0:
-            raise ValueError("Cluster has no time indices.")
-        if channel_indices.size == 0:
-            raise ValueError("Cluster has no channel indices.")
-
-        unique_time_indices = np.unique(time_indices)
-        unique_channel_indices = np.unique(channel_indices)
-        mask[unique_channel_indices] = True
-
-        tmin_s = float(times_s[unique_time_indices[0]])
-        tmax_s = float(times_s[unique_time_indices[-1]])
-
-        if topo_time_ms is None:
-            topo_vector = t_values[unique_time_indices].mean(axis=0)
-            topo_time_index = int(unique_time_indices[len(unique_time_indices) // 2])
-            return topo_vector, mask, (tmin_s, tmax_s), topo_time_index
-
-        topo_time_index = _nearest_time_index(times_s, topo_time_ms)
-        topo_vector = t_values[topo_time_index]
-        return topo_vector, mask, (tmin_s, tmax_s), topo_time_index
+    clusters_duration = list(duration_result.clusters)
+    clusters_latency = list(latency_result.clusters)
 
     # -------------------------------------------------------------------------
-    # Build slot->data, slot->overlays, slot->titles (B layout)
+    # Build global significance masks (time x channel) from all significant clusters
+    # -------------------------------------------------------------------------
+    def _get_mask(
+        t_values: np.ndarray,
+        p_values: np.ndarray,
+        cluster_list: list[tuple],
+        p_threshold: float,
+    ) -> np.ndarray:
+        mask = np.zeros_like(t_values, dtype=bool)
+        for idx, cluster in enumerate(cluster_list):
+            if float(p_values[idx]) > p_threshold:
+                continue
+            # cluster is expected to be a tuple like (time_inds, channel_inds)
+            mask[cluster] = True
+        return mask
+
+    sig_mask_duration = _get_mask(
+        t_values=t_values_duration,
+        p_values=p_values_duration,
+        cluster_list=clusters_duration,
+        p_threshold=p_value_threshold,
+    )
+    sig_mask_latency = _get_mask(
+        t_values=t_values_latency,
+        p_values=p_values_latency,
+        cluster_list=clusters_latency,
+        p_threshold=p_value_threshold,
+    )
+
+    # -------------------------------------------------------------------------
+    # Helper: minimum p among clusters active at a given time index
+    # -------------------------------------------------------------------------
+    def _min_p_at_time_index(
+        cluster_list: list[tuple[np.ndarray, ...]],
+        p_values: np.ndarray,
+        time_index: int,
+        p_threshold: float,
+    ) -> float | None:
+        candidates: list[float] = []
+        for idx, cluster in enumerate(cluster_list):
+            if float(p_values[idx]) > p_threshold:
+                continue
+            time_inds = np.asarray(cluster[0], dtype=int)
+            if time_inds.size == 0:
+                continue
+            if np.any(time_inds == int(time_index)):
+                candidates.append(float(p_values[idx]))
+        if len(candidates) == 0:
+            return None
+        return float(min(candidates))
+
+    # -------------------------------------------------------------------------
+    # Build slot->data, slot->mask, slot->title (fixed timestamps)
     # -------------------------------------------------------------------------
     topomap_by_slot: dict[str, np.ndarray] = {}
     mask_by_slot: dict[str, np.ndarray] = {}
     title_by_slot: dict[str, str] = {}
 
-    # Duration slots: slot_dur_tw1, slot_dur_tw2
-    for slot_number, cluster_index in enumerate(duration_cluster_indices, start=1):
+    # Duration slots
+    for slot_number, label_time_ms in enumerate(duration_label_times_ms, start=1):
         slot_id = f"slot_dur_tw{slot_number}"
+        time_index = _nearest_time_index(times_duration_s, label_time_ms)
 
-        label_time_ms = duration_label_times_ms[slot_number - 1]
+        topo_vector = t_values_duration[time_index]
+        mask_vector = sig_mask_duration[time_index]
 
-        topo_vector, cluster_mask, (tmin_s, tmax_s), topo_time_index = _summarize_cluster(
-            t_values=t_values_duration,
-            times_s=times_duration_s,
-            cluster=duration_result.clusters[cluster_index],
-            topo_time_ms=label_time_ms,
+        min_p = _min_p_at_time_index(
+            cluster_list=clusters_duration,
+            p_values=p_values_duration,
+            time_index=time_index,
+            p_threshold=p_value_threshold,
         )
-
-        cluster_p_value = float(p_values_duration[cluster_index])
+        if min_p is None:
+            title = f"{label_time_ms:+d} ms (p=n/a)"
+        else:
+            title = f"{label_time_ms:+d} ms (p={min_p:.3g})"
 
         topomap_by_slot[slot_id] = topo_vector
-        mask_by_slot[slot_id] = cluster_mask
-        label_time_ms = duration_label_times_ms[slot_number - 1]
-        title_by_slot[slot_id] = f"{label_time_ms:+d} ms (p={cluster_p_value:.3g})"
+        mask_by_slot[slot_id] = mask_vector
+        title_by_slot[slot_id] = title
 
-    # Latency slots: slot_lat_tw1, slot_lat_tw2, slot_lat_tw3
-    for slot_number, cluster_index in enumerate(latency_cluster_indices, start=1):
+    # Latency slots
+    for slot_number, label_time_ms in enumerate(latency_label_times_ms, start=1):
         slot_id = f"slot_lat_tw{slot_number}"
+        time_index = _nearest_time_index(times_latency_s, label_time_ms)
 
-        label_time_ms = latency_label_times_ms[slot_number - 1]
+        topo_vector = t_values_latency[time_index]
+        mask_vector = sig_mask_latency[time_index]
 
-        topo_vector, cluster_mask, (tmin_s, tmax_s), topo_time_index = _summarize_cluster(
-            t_values=t_values_latency,
-            times_s=times_latency_s,
-            cluster=latency_result.clusters[cluster_index],
-            topo_time_ms=label_time_ms,
+        min_p = _min_p_at_time_index(
+            cluster_list=clusters_latency,
+            p_values=p_values_latency,
+            time_index=time_index,
+            p_threshold=p_value_threshold,
         )
-
-        cluster_p_value = float(p_values_latency[cluster_index])
+        if min_p is None:
+            title = f"{label_time_ms:+d} ms (p=n/a)"
+        else:
+            title = f"{label_time_ms:+d} ms (p={min_p:.3g})"
 
         topomap_by_slot[slot_id] = topo_vector
-        mask_by_slot[slot_id] = cluster_mask
-        label_time_ms = latency_label_times_ms[slot_number - 1]
-        title_by_slot[slot_id] = f"{label_time_ms:+d} ms (p={cluster_p_value:.3g})"
+        mask_by_slot[slot_id] = mask_vector
+        title_by_slot[slot_id] = title
 
     # -------------------------------------------------------------------------
     # Shared symmetric color scale across all exported maps
     # -------------------------------------------------------------------------
-    absolute_max_value = float(
-        np.max([np.max(np.abs(values)) for values in topomap_by_slot.values()])
-    )
+    absolute_max_value = float(np.max([np.max(np.abs(v)) for v in topomap_by_slot.values()]))
     vlim = (-absolute_max_value, absolute_max_value)
 
     # -------------------------------------------------------------------------
@@ -354,4 +352,5 @@ def run(args: argparse.Namespace, cfg) -> None:
         slot_to_snippet=slot_to_snippet,
         out_svg=output_svg_path,
     )
+
 
