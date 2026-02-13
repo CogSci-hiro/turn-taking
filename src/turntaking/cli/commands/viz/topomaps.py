@@ -1,8 +1,9 @@
-from __future__ import annotations
-
 import argparse
+from dataclasses import dataclass
 from pathlib import Path
 
+import json
+import h5py
 import numpy as np
 import mne
 
@@ -12,12 +13,80 @@ from turntaking.viz.svg_pipeline import (
     export_colorbar_svg,
     export_topomap_svg,
 )
+from turntaking.analysis.io.cluster import read_cluster_outputs
+
 
 # =============================================================================
 #                     ########################################
 #                     #            CLI REGISTRATION          #
 #                     ########################################
 # =============================================================================
+
+
+@dataclass(frozen=True)
+class _ClusterResult:
+    t_vals: np.ndarray          # (n_times, n_channels)
+    clusters: np.ndarray        # (n_clusters, n_times, n_channels) bool
+    p_vals: np.ndarray          # (n_clusters,)
+    meta: dict
+
+def _read_meta_json(h5: h5py.File) -> dict:
+    raw = h5["meta"]["json"][()]
+    # h5py may return bytes, numpy scalar, or str depending on how it was saved
+    if isinstance(raw, (bytes, bytearray)):
+        s = raw.decode("utf-8")
+    else:
+        s = str(raw)
+    return json.loads(s)
+
+def _read_cluster_hdf5(path: Path) -> _ClusterResult:
+    with h5py.File(path, "r") as h5:
+        t_vals = np.asarray(h5["t-values"])
+        clusters = np.asarray(h5["clusters"]).astype(bool)
+        p_vals = np.asarray(h5["p-values"]).astype(float)
+        meta = _read_meta_json(h5)
+
+    return _ClusterResult(t_vals=t_vals, clusters=clusters, p_vals=p_vals, meta=meta)
+
+def _times_from_meta(meta: dict) -> np.ndarray:
+    sfreq = float(meta["sfreq_hz"])
+    n_times = int(meta["n_times"])
+    data_tmin = float(meta["data_tmin"])
+    crop_start_idx = int(meta["crop_start_idx"])
+
+    tmin_used = data_tmin + (crop_start_idx / sfreq)
+    return tmin_used + (np.arange(n_times, dtype=float) / sfreq)
+
+
+def _assert_time_consistent(meta: dict) -> None:
+    n_times = int(meta["n_times"])
+    crop_start = int(meta["crop_start_idx"])
+    crop_end = int(meta["crop_end_idx"])
+    expected = (crop_end - crop_start) + 1
+    if expected != n_times:
+        raise ValueError(f"meta mismatch: n_times={n_times} but crop window implies {expected} samples.")
+
+
+def _ensure_time_by_channel(x: np.ndarray, n_times: int, n_channels: int, name: str) -> np.ndarray:
+    if x.shape == (n_times, n_channels):
+        return x
+    if x.shape == (n_channels, n_times):
+        return x.T
+    raise ValueError(f"{name} has shape {x.shape}, expected {(n_times, n_channels)} or {(n_channels, n_times)}.")
+
+
+def _ensure_clusters_shape(x: np.ndarray, n_times: int, n_channels: int) -> np.ndarray:
+    # expected: (n_clusters, n_times, n_channels)
+    if x.ndim != 3:
+        raise ValueError(f"clusters must be 3D, got {x.shape}")
+    if x.shape[1:] == (n_times, n_channels):
+        return x.astype(bool)
+    if x.shape[1:] == (n_channels, n_times):
+        return np.transpose(x, (0, 2, 1)).astype(bool)
+    raise ValueError(f"clusters has shape {x.shape}, expected (*, {n_times}, {n_channels}) or (*, {n_channels}, {n_times}).")
+
+
+
 def add_subparser(subparsers: argparse._SubParsersAction) -> None:
     """
     Register the `viz-topomaps` command.
@@ -54,78 +123,235 @@ def add_subparser(subparsers: argparse._SubParsersAction) -> None:
 # =============================================================================
 def run(args: argparse.Namespace, cfg) -> None:
     """
-    Generate dummy topomap SVG parts and compose into the template SVG.
+    Generate ERP topomaps from cluster-test outputs and compose into a template SVG.
 
-    Notes
-    -----
-    This is intentionally minimal. Later you replace dummy maps with real
-    ERP/TFR-derived arrays but keep the same slot/compose machinery.
+    This implements the "B" layout:
+    - Duration: 2 topomaps (best 2 clusters by p-value, thresholded then fallback)
+    - Latency:  3 topomaps (best 3 clusters by p-value, thresholded then fallback)
+
+    The command reads all paths/settings from the config section `viz.erp_topomaps`.
     """
-    template_svg: Path = args.template
-    parts_dir: Path = args.parts_dir
-    out_svg: Path = args.out_svg
+    # Local imports to keep CLI startup light and to avoid import cycles.
+    from turntaking.analysis.io.cluster import read_cluster_outputs
 
-    parts_dir.mkdir(parents=True, exist_ok=True)
-    out_svg.parent.mkdir(parents=True, exist_ok=True)
+    topomaps_config = cfg.viz.erp_topomaps
 
-    # Minimal Info for testing
-    montage = mne.channels.make_standard_montage("standard_1020")
-    ch_names = montage.ch_names[: int(args.n_channels)]
-    info = mne.create_info(ch_names=ch_names, sfreq=256.0, ch_types="eeg")
-    info.set_montage(montage)
+    template_svg_path: Path = Path(topomaps_config.template_svg)
+    parts_directory: Path = Path(topomaps_config.parts_dir)
+    output_svg_path: Path = Path(topomaps_config.out_svg)
 
-    rng = np.random.default_rng(int(args.seed))
+    parts_directory.mkdir(parents=True, exist_ok=True)
+    output_svg_path.parent.mkdir(parents=True, exist_ok=True)
 
-    slot_ids = [
-        "slot_dur_tw1",
-        "slot_dur_tw2",
-        "slot_lat_tw1",
-        "slot_lat_tw2",
-        "slot_lat_tw3",
-    ]
+    # -------------------------------------------------------------------------
+    # Load real Info (must match the channel set/order used for cluster stats)
+    # -------------------------------------------------------------------------
+    info_source_path: Path = Path(topomaps_config.info_source_fif)
+    evoked = mne.read_evokeds(info_source_path, condition=0, verbose="ERROR")
+    info = evoked.info
 
-    maps = {slot: rng.normal(size=len(ch_names)) for slot in slot_ids}
 
-    vmax = max(float(np.max(np.abs(v))) for v in maps.values())
-    vlim = (-vmax, vmax)
+    # -------------------------------------------------------------------------
+    # Read cluster outputs (canonical reader matches write_cluster_outputs)
+    # -------------------------------------------------------------------------
+    duration_results_path: Path = Path(topomaps_config.duration_cluster_hdf5)
+    latency_results_path: Path = Path(topomaps_config.latency_cluster_hdf5)
 
-    overlays = [
-        ClusterOverlay(
-            name="C1",
-            ch_names=("Fz", "FCz", "Cz", "Pz"),
-            marker="s",
-            markersize=9.0,
-            markeredgecolor="black",
-            markerfacecolor="none",
-            markeredgewidth=1.5,
+    duration_result = read_cluster_outputs(duration_results_path)
+    latency_result = read_cluster_outputs(latency_results_path)
+
+    metadata_duration: dict = dict(duration_result.metadata or {})
+    metadata_latency: dict = dict(latency_result.metadata or {})
+
+    # -------------------------------------------------------------------------
+    # Reconstruct time axis from metadata (no explicit times stored in HDF5)
+    # -------------------------------------------------------------------------
+    def _times_from_metadata(metadata: dict) -> np.ndarray:
+        sfreq_hz = float(metadata["sfreq_hz"])
+        n_times = int(metadata["n_times"])
+        data_tmin_s = float(metadata["data_tmin"])
+        crop_start_index = int(metadata["crop_start_idx"])
+        tmin_used_s = data_tmin_s + (crop_start_index / sfreq_hz)
+        return tmin_used_s + (np.arange(n_times, dtype=float) / sfreq_hz)
+
+    times_duration_s = _times_from_metadata(metadata_duration)
+    times_latency_s = _times_from_metadata(metadata_latency)
+
+    # -------------------------------------------------------------------------
+    # Validate channel compatibility
+    # -------------------------------------------------------------------------
+    n_channels_duration = int(metadata_duration["n_channels"])
+    n_channels_latency = int(metadata_latency["n_channels"])
+
+    if len(info.ch_names) != n_channels_duration or len(info.ch_names) != n_channels_latency:
+        raise ValueError(
+            "Channel mismatch between info_source_fif and cluster results.\n"
+            f"info_source_fif channels: {len(info.ch_names)}\n"
+            f"duration n_channels (meta): {n_channels_duration}\n"
+            f"latency n_channels (meta): {n_channels_latency}\n"
+            "Use an info_source_fif with the exact same channel set/order used for stats."
         )
-    ]
 
-    # Export parts
-    for slot_id, data in maps.items():
+    # -------------------------------------------------------------------------
+    # Convenience: choose clusters by p-threshold with fallback to best p-values
+    # -------------------------------------------------------------------------
+    p_value_threshold: float = float(topomaps_config.p_threshold)
+    n_duration_maps: int = int(topomaps_config.n_duration_maps)
+    n_latency_maps: int = int(topomaps_config.n_latency_maps)
+
+    def _pick_cluster_indices(p_values: np.ndarray, n_keep: int) -> list[int]:
+        sorted_indices = list(np.argsort(p_values))
+        passing_indices = [i for i in sorted_indices if float(p_values[i]) <= p_value_threshold]
+        if len(passing_indices) >= n_keep:
+            return passing_indices[:n_keep]
+        return sorted_indices[:n_keep]
+
+    p_values_duration = np.asarray(duration_result.p_values, dtype=float)
+    p_values_latency = np.asarray(latency_result.p_values, dtype=float)
+
+    duration_cluster_indices = _pick_cluster_indices(p_values_duration, n_duration_maps)
+    latency_cluster_indices = _pick_cluster_indices(p_values_latency, n_latency_maps)
+
+    # -------------------------------------------------------------------------
+    # Compute topomap vectors + overlay channel markers for a single cluster
+    # -------------------------------------------------------------------------
+    t_values_duration = np.asarray(duration_result.t_values, dtype=float)
+    t_values_latency = np.asarray(latency_result.t_values, dtype=float)
+
+    marker_cycle = ["o", "s", "^", "D", "P", "X"]  # distinguish different clusters
+
+    def _summarize_cluster(
+        t_values: np.ndarray,
+        times_s: np.ndarray,
+        cluster: tuple[np.ndarray, ...],
+    ) -> tuple[np.ndarray, tuple[str, ...], tuple[float, float]]:
+        """
+        Convert a spatiotemporal cluster (time inds, channel inds) to:
+        - topo vector: mean t-values across cluster time support
+        - channel names: unique channels participating in cluster
+        - time window: (tmin, tmax) in seconds
+        """
+        if len(cluster) < 2:
+            raise ValueError(f"Expected spatiotemporal cluster with >=2 dims, got {len(cluster)} dims.")
+
+        time_indices = np.asarray(cluster[0], dtype=int)
+        channel_indices = np.asarray(cluster[1], dtype=int)
+
+        if time_indices.size == 0 or channel_indices.size == 0:
+            # Degenerate cluster: still return a topo vector so plotting doesn't crash
+            topo_vector = t_values.mean(axis=0)
+            return topo_vector, tuple(), (float(times_s[0]), float(times_s[-1]))
+
+        unique_time_indices = np.unique(time_indices)
+        unique_channel_indices = np.unique(channel_indices)
+
+        topo_vector = t_values[unique_time_indices].mean(axis=0)
+
+        tmin_s = float(times_s[unique_time_indices[0]])
+        tmax_s = float(times_s[unique_time_indices[-1]])
+
+        cluster_channel_names = tuple(info.ch_names[idx] for idx in unique_channel_indices)
+        return topo_vector, cluster_channel_names, (tmin_s, tmax_s)
+
+    # -------------------------------------------------------------------------
+    # Build slot->data, slot->overlays, slot->titles (B layout)
+    # -------------------------------------------------------------------------
+    topomap_by_slot: dict[str, np.ndarray] = {}
+    overlays_by_slot: dict[str, list[ClusterOverlay]] = {}
+    title_by_slot: dict[str, str] = {}
+
+    # Duration slots: slot_dur_tw1, slot_dur_tw2
+    for slot_number, cluster_index in enumerate(duration_cluster_indices, start=1):
+        slot_id = f"slot_dur_tw{slot_number}"
+
+        topo_vector, cluster_channel_names, (tmin_s, tmax_s) = _summarize_cluster(
+            t_values=t_values_duration,
+            times_s=times_duration_s,
+            cluster=duration_result.clusters[cluster_index],
+        )
+
+        cluster_p_value = float(p_values_duration[cluster_index])
+
+        topomap_by_slot[slot_id] = topo_vector
+        title_by_slot[slot_id] = f"{tmin_s:+.3f}–{tmax_s:+.3f} s  (p={cluster_p_value:.3g})"
+
+        overlays_by_slot[slot_id] = [
+            ClusterOverlay(
+                name=f"Duration C{slot_number}",
+                ch_names=cluster_channel_names,
+                marker=marker_cycle[(slot_number - 1) % len(marker_cycle)],
+                markersize=9.0,
+                markeredgecolor="black",
+                markerfacecolor="none",
+                markeredgewidth=1.5,
+            )
+        ]
+
+    # Latency slots: slot_lat_tw1, slot_lat_tw2, slot_lat_tw3
+    for slot_number, cluster_index in enumerate(latency_cluster_indices, start=1):
+        slot_id = f"slot_lat_tw{slot_number}"
+
+        topo_vector, cluster_channel_names, (tmin_s, tmax_s) = _summarize_cluster(
+            t_values=t_values_latency,
+            times_s=times_latency_s,
+            cluster=latency_result.clusters[cluster_index],
+        )
+
+        cluster_p_value = float(p_values_latency[cluster_index])
+
+        topomap_by_slot[slot_id] = topo_vector
+        title_by_slot[slot_id] = f"{tmin_s:+.3f}–{tmax_s:+.3f} s  (p={cluster_p_value:.3g})"
+
+        overlays_by_slot[slot_id] = [
+            ClusterOverlay(
+                name=f"Latency C{slot_number}",
+                ch_names=cluster_channel_names,
+                marker=marker_cycle[(slot_number - 1) % len(marker_cycle)],
+                markersize=9.0,
+                markeredgecolor="black",
+                markerfacecolor="none",
+                markeredgewidth=1.5,
+            )
+        ]
+
+    # -------------------------------------------------------------------------
+    # Shared symmetric color scale across all exported maps
+    # -------------------------------------------------------------------------
+    absolute_max_value = float(
+        np.max([np.max(np.abs(values)) for values in topomap_by_slot.values()])
+    )
+    vlim = (-absolute_max_value, absolute_max_value)
+
+    # -------------------------------------------------------------------------
+    # Export SVG parts
+    # -------------------------------------------------------------------------
+    for slot_id, topo_vector in topomap_by_slot.items():
         export_topomap_svg(
-            data=data,
+            data=topo_vector,
             info=info,
-            out_svg=parts_dir / f"{slot_id}.svg",
+            out_svg=parts_directory / f"{slot_id}.svg",
             vlim=vlim,
-            overlays=overlays,
+            overlays=overlays_by_slot.get(slot_id, ()),
             contours=0,
             show_sensors=False,
-            title=None,
+            title=title_by_slot.get(slot_id, None),
         )
 
     export_colorbar_svg(
-        out_svg=parts_dir / "colorbar.svg",
+        out_svg=parts_directory / "colorbar.svg",
         vlim=vlim,
         label="t value",
     )
 
-    # Compose
-    slot_to_snippet = {slot: parts_dir / f"{slot}.svg" for slot in slot_ids}
-    slot_to_snippet["slot_colorbar"] = parts_dir / "colorbar.svg"
+    # -------------------------------------------------------------------------
+    # Compose final SVG
+    # -------------------------------------------------------------------------
+    slot_to_snippet = {slot: parts_directory / f"{slot}.svg" for slot in topomap_by_slot.keys()}
+    slot_to_snippet["slot_colorbar"] = parts_directory / "colorbar.svg"
 
     compose_svg_from_template(
-        template_svg=template_svg,
+        template_svg=template_svg_path,
         slot_to_snippet=slot_to_snippet,
-        out_svg=out_svg,
+        out_svg=output_svg_path,
     )
+
