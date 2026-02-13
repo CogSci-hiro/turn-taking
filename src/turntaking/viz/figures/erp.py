@@ -78,94 +78,236 @@ def plot_topo_selection(
     return fig, lim_val
 
 
-def plot_erp_topo(
-    duration_t: np.ndarray,
-    latency_t: np.ndarray,
-    duration_p: np.ndarray,
-    latency_p: np.ndarray,
-    duration_cluster: List[Tuple],
-    latency_cluster: List[Tuple],
+# =============================================================================
+# Topomap grid (generic: ERP/TFR)
+# =============================================================================
+def _make_step_times_s(
+    evoked: mne.Evoked,
+    *,
+    tmin_s: float,
+    tmax_s: float,
+    step_ms: float,
+) -> np.ndarray:
+    """
+    Create step-based time points (in seconds), clipped and snapped to evoked samples.
+    """
+    if step_ms <= 0:
+        raise ValueError(f"step_ms must be > 0, got {step_ms}.")
+
+    req_tmin_s, req_tmax_s = _clip_time_range_to_evoked(evoked, tmin_s=tmin_s, tmax_s=tmax_s)
+
+    # build ms grid (avoids awkward fractions); include endpoint
+    tmin_ms = req_tmin_s * 1e3
+    tmax_ms = req_tmax_s * 1e3
+    times_ms = np.arange(tmin_ms, tmax_ms + 0.5 * step_ms, step_ms)
+
+    # snap each time to nearest sample (keeps titles clean & consistent)
+    t0 = float(evoked.times[0])
+    sfreq = float(evoked.info["sfreq"])
+    idx = np.round((times_ms / 1e3 - t0) * sfreq).astype(int)
+    idx = np.clip(idx, 0, len(evoked.times) - 1)
+
+    times_s = evoked.times[idx].astype(float)
+
+    # de-duplicate in case snapping collapses neighbors
+    times_s = np.unique(times_s)
+    return times_s
+
+
+def plot_stat_topomaps_grid(
+    *,
+    stat: np.ndarray,
+    mask: Optional[np.ndarray],
     info: mne.Info,
     data_tmin: float,
     tmin: float,
     tmax: float,
-    n_topo: int,
-    p_threshold: float = 0.01,
-    *,
+    step_ms: float,
+    title: str,
+    lim_val: float | None = None,
+    max_cols: int = 10,
+    cmap: str = "RdBu_r",
+    cbar_label: str = "t values",
+    time_unit: str = "ms",
+    time_format: str = "%0.0f",
+    mask_marker_size: float = SMALLER_MARKER_SIZE,
     figure_profile: str = "jneuro_2col",
     save_basepath: str | Path | None = None,
 ) -> plt.Figure:
     """
-    Plot two rows of topography maps, one for each time step (specified by 'tmin', 'tmax' and 'n_topo')
-    First row is duration comparison, the second row is latency comparison
+    Generic grid plotter for topomap time series (ERP/TFR compatible).
+
+    Parameters
+    ----------
+    stat
+        Array of shape (n_times, n_channels), typically t-values.
+    mask
+        Boolean array of shape (n_times, n_channels) or None.
+    info
+        MNE Info with montage.
+    data_tmin
+        Start time (seconds) corresponding to stat[0, :].
+    tmin, tmax
+        Requested time window (seconds) to display.
+    step_ms
+        Step size in milliseconds.
+    title
+        Figure title.
+    lim_val
+        If None, uses max abs(stat) within provided stat.
+    max_cols
+        Wrap columns to avoid crowdedness.
     """
 
-    # Make significance masks
-    duration_mask = _get_mask(duration_t, duration_p, duration_cluster, p_threshold)
-    latency_mask = _get_mask(latency_t, latency_p, latency_cluster, p_threshold)
+    if stat.ndim != 2:
+        raise ValueError(f"stat must be 2D (n_times, n_channels), got shape={stat.shape}.")
+    n_times, n_ch = stat.shape
 
-    # Get the largest absolute t value as the limit
-    lim_val = max(duration_t.max(), latency_t.max(), abs(duration_t.min()), abs(latency_t.min()))
+    if mask is not None:
+        if mask.shape != stat.shape:
+            raise ValueError(f"mask must match stat shape. stat={stat.shape}, mask={mask.shape}")
 
-    # Convert to MNE evoked: crop the margin
-    duration_t = mne.EvokedArray(duration_t.T * 1e-6, info, tmin=data_tmin)
-    latency_t = mne.EvokedArray(latency_t.T * 1e-6, info, tmin=data_tmin)
+    # limit
+    if lim_val is None:
+        lim_val = float(np.max(np.abs(stat)))
 
-    req_tmin_s, req_tmax_s = _clip_time_range_to_evoked(
-        duration_t,
-        tmin_s=tmin,
-        tmax_s=tmax,
-    )
+    # convert to Evoked for MNE topomap: input must be (n_channels, n_times) in Volts
+    evoked = mne.EvokedArray(stat.T * 1e-6, info, tmin=data_tmin)
 
-    # Timesteps
-    timesteps = np.linspace(req_tmin_s, req_tmax_s, n_topo)
+    times_s = _make_step_times_s(evoked, tmin_s=tmin, tmax_s=tmax, step_ms=step_ms)
+    if times_s.size == 0:
+        raise ValueError("No time points selected after clipping/snapping. Check tmin/tmax/step_ms.")
 
-    # Plot topographies
-    fig, axes = plt.subplots(2, timesteps.size, figsize=(20, 10))
+    # wrap into grid
+    n_maps = int(times_s.size)
+    n_cols = int(min(max_cols, n_maps))
+    n_rows = int(np.ceil(n_maps / n_cols))
+
+    # size: aim for A4-ish friendliness; profile will handle final export anyway
+    # (these numbers are conservative; adjust in profile if needed)
+    fig_w = max(8.0, min(14.0, 1.35 * n_cols))
+    fig_h = max(4.5, min(10.5, 1.35 * n_rows + 0.8))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(fig_w, fig_h))
+
+    if n_rows == 1 and n_cols == 1:
+        axes_grid = np.array([[axes]])
+    elif n_rows == 1:
+        axes_grid = np.array([axes])
+    elif n_cols == 1:
+        axes_grid = np.array([[ax] for ax in axes])
+    else:
+        axes_grid = axes
+
+    axes_flat = axes_grid.ravel().tolist()
+
+    # hide unused axes (if any)
+    for ax in axes_flat[n_maps:]:
+        ax.set_visible(False)
 
     mask_params = {
         "marker": "o",
         "markerfacecolor": FACE_COLOR,
         "markeredgecolor": "k",
         "linewidth": 0,
-        "markersize": SMALLER_MARKER_SIZE,
+        "markersize": mask_marker_size,
     }
-    duration_t.plot_topomap(
-        axes=axes[0, :],
-        times=timesteps,
+
+    evoked.plot_topomap(
+        axes=axes_flat[:n_maps],
+        times=times_s,
         colorbar=False,
         show=False,
-        mask=duration_mask.T,
+        mask=None if mask is None else mask.T,  # MNE expects (n_channels, n_times)
         vlim=(-lim_val, lim_val),
-        time_unit="ms",
+        time_unit=time_unit,
+        time_format=time_format,
         mask_params=mask_params,
-    )
-    latency_t.plot_topomap(
-        axes=axes[1, :],
-        times=timesteps,
-        colorbar=False,
-        show=False,
-        mask=latency_mask.T,
-        vlim=(-lim_val, lim_val),
-        time_unit="ms",
-        time_format="",
-        mask_params=mask_params,
+        cmap=cmap,
     )
 
-    axes[0, 0].set_ylabel("Duration")
-    axes[1, 0].set_ylabel("Latency")
+    fig.suptitle(title)
 
-    # Colorbar
-    fig.subplots_adjust(left=0.02, right=0.95, top=0.9, bottom=0.05, hspace=0.05, wspace=0.0)
-    cbar_ax = fig.add_axes((0.97, 0.15, 0.01, 0.7))
-    cbar_ax.set_ylabel("t values", rotation=270)
+    # make room for colorbar on the right
+    fig.subplots_adjust(left=0.05, right=0.92, top=0.90, bottom=0.06, wspace=0.05, hspace=0.12)
+
+    cbar_ax = fig.add_axes((0.94, 0.15, 0.015, 0.70))
+    cbar_ax.set_ylabel(cbar_label, rotation=270, labelpad=14)
     norm = mpl.colors.Normalize(vmin=-lim_val, vmax=lim_val)
-    sm = plt.cm.ScalarMappable(cmap="RdBu_r", norm=norm)
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
     fig.colorbar(sm, cax=cbar_ax)
 
     _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
     return fig
+
+
+# =============================================================================
+# ERP wrappers: separate figures
+# =============================================================================
+def plot_erp_topo_duration(
+    duration_t: np.ndarray,
+    duration_p: np.ndarray,
+    duration_cluster: List[Tuple],
+    info: mne.Info,
+    data_tmin: float,
+    tmin: float,
+    tmax: float,
+    step_ms: float,
+    p_threshold: float = 0.01,
+    *,
+    max_cols: int = 10,
+    figure_profile: str = "jneuro_2col",
+    save_basepath: str | Path | None = None,
+) -> plt.Figure:
+    mask = _get_mask(duration_t, duration_p, duration_cluster, p_threshold)
+    lim_val = float(np.max(np.abs(duration_t)))
+    return plot_stat_topomaps_grid(
+        stat=duration_t,
+        mask=mask,
+        info=info,
+        data_tmin=data_tmin,
+        tmin=tmin,
+        tmax=tmax,
+        step_ms=step_ms,
+        title="ERP topographies (Duration)",
+        lim_val=lim_val,
+        max_cols=max_cols,
+        figure_profile=figure_profile,
+        save_basepath=save_basepath,
+    )
+
+
+def plot_erp_topo_latency(
+    latency_t: np.ndarray,
+    latency_p: np.ndarray,
+    latency_cluster: List[Tuple],
+    info: mne.Info,
+    data_tmin: float,
+    tmin: float,
+    tmax: float,
+    step_ms: float,
+    p_threshold: float = 0.01,
+    *,
+    max_cols: int = 10,
+    figure_profile: str = "jneuro_2col",
+    save_basepath: str | Path | None = None,
+) -> plt.Figure:
+    mask = _get_mask(latency_t, latency_p, latency_cluster, p_threshold)
+    lim_val = float(np.max(np.abs(latency_t)))
+    return plot_stat_topomaps_grid(
+        stat=latency_t,
+        mask=mask,
+        info=info,
+        data_tmin=data_tmin,
+        tmin=tmin,
+        tmax=tmax,
+        step_ms=step_ms,
+        title="ERP topographies (Latency)",
+        lim_val=lim_val,
+        max_cols=max_cols,
+        figure_profile=figure_profile,
+        save_basepath=save_basepath,
+    )
 
 
 def plot_electrode_time_course(
