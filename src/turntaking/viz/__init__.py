@@ -23,7 +23,6 @@ __all__ = [
     "plot_behavior",
     "plot_other_duration",
     "plot_topo_selection",
-    "plot_erp_topo",
     "plot_electrode_time_course",
     "plot_latency_erp_with_histograms",
     "plot_joint_erps",
