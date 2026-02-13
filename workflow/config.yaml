@@ -124,3 +124,16 @@ viz:
     tmax_s: 0
     n_topo: 10
     p_threshold: 0.01
+  decoding:
+    duration_scores_npy: "/Volumes/work-4T/turn-taking-new/decoding/erp/duration/scores.npy"
+    duration_times_npy: "/Volumes/work-4T/turn-taking-new/decoding/erp/duration/times.npy"
+    latency_scores_npy: "/Volumes/work-4T/turn-taking-new/decoding/erp/latency/scores.npy"
+    latency_times_npy: "/Volumes/work-4T/turn-taking-new/decoding/erp/latency/times.npy"
+    duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/decoding/erp/duration/cluster_results.hdf5"
+    latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/decoding/erp/latency/cluster_results.hdf5"
+
+    out_base: "/Volumes/work-4T/turn-taking-new/figures/main/F_decoding"
+    p_threshold: 0.05
+    figure_profile: "jneuro_2col"
+    ymax: 0.65
+    lim: 0.04
