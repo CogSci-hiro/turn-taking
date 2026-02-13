@@ -48,15 +48,19 @@ def _read_cluster_hdf5(path: Path) -> _ClusterResult:
 
     return _ClusterResult(t_vals=t_vals, clusters=clusters, p_vals=p_vals, meta=meta)
 
-def _times_from_meta(meta: dict) -> np.ndarray:
-    sfreq = float(meta["sfreq_hz"])
-    n_times = int(meta["n_times"])
-    data_tmin = float(meta["data_tmin"])
-    crop_start_idx = int(meta["crop_start_idx"])
+def _times_from_metadata(metadata: dict) -> np.ndarray:
+    """
+    Reconstruct time axis for the stats array.
 
-    tmin_used = data_tmin + (crop_start_idx / sfreq)
-    return tmin_used + (np.arange(n_times, dtype=float) / sfreq)
+    Assumes:
+    - data_tmin is already the tmin of the array used in stats
+    - n_times matches t_values.shape[0]
+    """
+    sfreq_hz = float(metadata.get("crop_sfreq_used", metadata["sfreq_hz"]))
+    n_times = int(metadata["n_times"])
+    tmin_s = float(metadata["data_tmin"])  # already cropped tmin
 
+    return tmin_s + (np.arange(n_times, dtype=float) / sfreq_hz)
 
 def _assert_time_consistent(meta: dict) -> None:
     n_times = int(meta["n_times"])
@@ -168,14 +172,11 @@ def run(args: argparse.Namespace, cfg) -> None:
 
     # -------------------------------------------------------------------------
     # Reconstruct time axis from metadata (no explicit times stored in HDF5)
-    # -------------------------------------------------------------------------
-    def _times_from_metadata(metadata: dict) -> np.ndarray:
-        sfreq_hz = float(metadata["sfreq_hz"])
-        n_times = int(metadata["n_times"])
-        data_tmin_s = float(metadata["data_tmin"])
-        crop_start_index = int(metadata["crop_start_idx"])
-        tmin_used_s = data_tmin_s + (crop_start_index / sfreq_hz)
-        return tmin_used_s + (np.arange(n_times, dtype=float) / sfreq_hz)
+    # ---------------------------------------------------------------
+
+    def _nearest_time_index(times_s: np.ndarray, target_ms: float) -> int:
+        target_s = float(target_ms) / 1000.0
+        return int(np.argmin(np.abs(times_s - target_s)))
 
     times_duration_s = _times_from_metadata(metadata_duration)
     times_latency_s = _times_from_metadata(metadata_latency)
@@ -227,12 +228,15 @@ def run(args: argparse.Namespace, cfg) -> None:
             t_values: np.ndarray,
             times_s: np.ndarray,
             cluster: tuple[np.ndarray, ...],
-    ) -> tuple[np.ndarray, np.ndarray, tuple[float, float]]:
+            *,
+            topo_time_ms: float | None,
+    ) -> tuple[np.ndarray, np.ndarray, tuple[float, float], int]:
         """
         Convert cluster (time inds, channel inds) to:
-        - topo vector (n_channels,)
-        - channel mask (n_channels,) bool
-        - time window (tmin, tmax)
+        - topo vector (n_channels,) at `topo_time_ms` if provided, else cluster-mean
+        - channel mask (n_channels,) bool (cluster channels)
+        - time window (tmin, tmax) of the cluster (for debugging)
+        - topo_time_index used for the topo vector
         """
         if len(cluster) < 2:
             raise ValueError(f"Expected spatiotemporal cluster with >=2 dims, got {len(cluster)} dims.")
@@ -242,22 +246,26 @@ def run(args: argparse.Namespace, cfg) -> None:
 
         mask = np.zeros(len(info.ch_names), dtype=bool)
 
-        if time_indices.size == 0 or channel_indices.size == 0:
-            topo_vector = t_values.mean(axis=0)
-            return topo_vector, mask, (float(times_s[0]), float(times_s[-1]))
+        if time_indices.size == 0:
+            raise ValueError("Cluster has no time indices.")
+        if channel_indices.size == 0:
+            raise ValueError("Cluster has no channel indices.")
 
         unique_time_indices = np.unique(time_indices)
         unique_channel_indices = np.unique(channel_indices)
-
-        # topo summary (keep your mean for now; we can switch to "peak time" later)
-        topo_vector = t_values[unique_time_indices].mean(axis=0)
-
         mask[unique_channel_indices] = True
 
         tmin_s = float(times_s[unique_time_indices[0]])
         tmax_s = float(times_s[unique_time_indices[-1]])
 
-        return topo_vector, mask, (tmin_s, tmax_s)
+        if topo_time_ms is None:
+            topo_vector = t_values[unique_time_indices].mean(axis=0)
+            topo_time_index = int(unique_time_indices[len(unique_time_indices) // 2])
+            return topo_vector, mask, (tmin_s, tmax_s), topo_time_index
+
+        topo_time_index = _nearest_time_index(times_s, topo_time_ms)
+        topo_vector = t_values[topo_time_index]
+        return topo_vector, mask, (tmin_s, tmax_s), topo_time_index
 
     # -------------------------------------------------------------------------
     # Build slot->data, slot->overlays, slot->titles (B layout)
@@ -270,10 +278,13 @@ def run(args: argparse.Namespace, cfg) -> None:
     for slot_number, cluster_index in enumerate(duration_cluster_indices, start=1):
         slot_id = f"slot_dur_tw{slot_number}"
 
-        topo_vector, cluster_mask, (tmin_s, tmax_s) = _summarize_cluster(
+        label_time_ms = duration_label_times_ms[slot_number - 1]
+
+        topo_vector, cluster_mask, (tmin_s, tmax_s), topo_time_index = _summarize_cluster(
             t_values=t_values_duration,
             times_s=times_duration_s,
             cluster=duration_result.clusters[cluster_index],
+            topo_time_ms=label_time_ms,
         )
 
         cluster_p_value = float(p_values_duration[cluster_index])
@@ -287,10 +298,13 @@ def run(args: argparse.Namespace, cfg) -> None:
     for slot_number, cluster_index in enumerate(latency_cluster_indices, start=1):
         slot_id = f"slot_lat_tw{slot_number}"
 
-        topo_vector, cluster_mask, (tmin_s, tmax_s) = _summarize_cluster(
+        label_time_ms = latency_label_times_ms[slot_number - 1]
+
+        topo_vector, cluster_mask, (tmin_s, tmax_s), topo_time_index = _summarize_cluster(
             t_values=t_values_latency,
             times_s=times_latency_s,
             cluster=latency_result.clusters[cluster_index],
+            topo_time_ms=label_time_ms,
         )
 
         cluster_p_value = float(p_values_latency[cluster_index])
