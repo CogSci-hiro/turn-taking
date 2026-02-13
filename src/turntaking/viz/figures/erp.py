@@ -134,6 +134,7 @@ def plot_stat_topomaps_grid(
     mask_marker_size: float = SMALLER_MARKER_SIZE,
     figure_profile: str = "jneuro_2col",
     save_basepath: str | Path | None = None,
+    time_fontsize: float = 6
 ) -> plt.Figure:
     """
     Generic grid plotter for topomap time series (ERP/TFR compatible).
@@ -243,6 +244,26 @@ def plot_stat_topomaps_grid(
         mask_params=mask_params,
         cmap=cmap,
     )
+
+    # Move timestamps inside each panel so they don't "float" into the row above
+    for ax in axes_flat[:n_maps]:
+        t = ax.get_title()
+        ax.set_title("")  # remove default MNE title
+
+        ax.text(
+            0.5,
+            1.2,  # inside the axes (top)
+            t,
+            transform=ax.transAxes,
+            ha="center",
+            va="top",
+            fontsize=time_fontsize,  # your desired timestamp size
+            color="0.2",
+            zorder=20,
+        )
+
+    for ax in axes_flat[:n_maps]:
+        ax.title.set_fontsize(time_fontsize)
 
     fig.suptitle(title)
 

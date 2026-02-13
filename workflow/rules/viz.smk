@@ -209,7 +209,4 @@ rule fig_erp_topomap_svg:
           --template "{input.template}" \
           --parts-dir "{params.parts_dir}" \
           --out-svg "{output.svg}"
-
-        # Optional deterministic conversion (only if inkscape exists in env)
-        # inkscape "{output.svg}" --export-type=tiff --export-filename="{output.tiff}" --export-dpi=300
         """
