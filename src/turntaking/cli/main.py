@@ -32,6 +32,7 @@ import turntaking.cli.commands.viz.behavior as cmd_viz_behavior
 import turntaking.cli.commands.viz.erp_topo as cmd_viz_erp_topo
 import turntaking.cli.commands.turn_table as cmd_beh_turn_table
 import turntaking.cli.commands.viz.decoding as cmd_viz_decoding
+import turntaking.cli.commands.viz.topomaps as cmd_viz_topomaps
 
 _COMMANDS = {"erp": cmd_erp,
              "tfr": cmd_tfr,
@@ -42,6 +43,7 @@ _COMMANDS = {"erp": cmd_erp,
              "viz-erp-timecourse": cmd_viz_erp_timecourse,
              "viz-behavior": cmd_viz_behavior,
              "viz-erp-topo": cmd_viz_erp_topo,
+             "viz-topomaps": cmd_viz_topomaps,
              "viz-decoding": cmd_viz_decoding,
              "beh-turn-table": cmd_beh_turn_table}
 
