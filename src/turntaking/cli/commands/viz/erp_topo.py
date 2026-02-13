@@ -151,12 +151,19 @@ def run(args: argparse.Namespace, cfg: Any) -> None:
         duration_cluster_hdf5=Path(section.duration_cluster_hdf5),
         latency_cluster_hdf5=Path(section.latency_cluster_hdf5),
         info_source_fif=Path(section.info_source_fif),
-        out_base=Path(section.out_base),
+        out_duration=Path(section.out_duration),
+        out_latency=Path(section.out_latency),
         tmin_s=float(section.tmin_s),
         tmax_s=float(section.tmax_s),
-        n_topo=int(section.n_topo),
+        step_ms=float(section.step_ms),
+        max_cols=int(getattr(section, "max_cols", 10)),
         p_threshold=float(getattr(section, "p_threshold", 0.01)),
     )
+
+    # Fail early with clear messages
+    for path in (viz_cfg.duration_cluster_hdf5, viz_cfg.latency_cluster_hdf5, viz_cfg.info_source_fif):
+        if not path.exists():
+            raise FileNotFoundError(f"Missing required input file: {path}")
 
     _run_impl(viz_cfg)
 
@@ -164,6 +171,6 @@ def run(args: argparse.Namespace, cfg: Any) -> None:
 def add_subparser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser(
         "viz-erp-topo",
-        help="Plot ERP t-value topomaps for duration and latency cluster stats.",
+        help="Plot ERP t-value topomaps as two figures (duration and latency).",
     )
     parser.add_argument("--config", required=True)
