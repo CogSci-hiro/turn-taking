@@ -1,10 +1,11 @@
 """Decoding visualization components (private helpers)."""
 
-from typing import List
+from typing import List, Tuple
 
 from matplotlib import pyplot as plt
 from matplotlib.image import AxesImage
 import numpy as np
+import scipy
 
 from .._style import FONT_SIZE, TITLE_FONT_SIZE
 
@@ -150,3 +151,29 @@ def _plot_diagonal(tmin: float, tmax: float, scores: np.ndarray, ax: plt.axis,
         ax.set_yticks([])
 
 
+def _ci(data: np.ndarray, confidence: float = 0.95) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Compute confidence interval
+
+    Parameters
+    ----------
+    data: np.ndarray
+        1D, data along sample axis
+
+    confidence: float
+        confidence level
+
+    Returns
+    -------
+    Tuple[np.ndarray, np.ndarray, np.ndarray]
+        mean: mean time series
+        lower: lower confidence interval
+        upper: upper confidence interval
+    """
+
+    n = data.size
+    mean = data.mean()
+    se = scipy.stats.sem(data)
+
+    height = se * scipy.stats.t.ppf((1 + confidence) / 2., n - 1)
+    return mean, mean - height, mean + height

@@ -44,9 +44,15 @@ TFR_OUT = [
     str(out_dir() / "tfr" / "stats.csv"),
 ]
 DECODING_OUT = [
-    str(out_dir() / "decoding" / "manifest.json"),
-    str(out_dir() / "decoding" / "scores.csv"),
-    str(out_dir() / "decoding" / "confusion_matrix.csv"),
+    # Decoding outputs (ERP)
+    str(out_dir() / "decoding" / "erp" / "duration" / "scores.npy"),
+    str(out_dir() / "decoding" / "erp" / "duration" / "times.npy"),
+    str(out_dir() / "decoding" / "erp" / "latency" / "scores.npy"),
+    str(out_dir() / "decoding" / "erp" / "latency" / "times.npy"),
+
+    # Decoding cluster-test outputs (needed to draw significance)
+    str(out_dir() / "stats" / "decoding" / "erp" / "duration" / "cluster_results.hdf5"),
+    str(out_dir() / "stats" / "decoding" / "erp" / "latency" / "cluster_results.hdf5"),
 ]
 
 
@@ -161,4 +167,23 @@ rule fig_behavior:
     shell:
         r"""
         python -m turntaking.cli.main viz-behavior --config "{input.config}"
+        """
+
+
+rule fig_decoding:
+    input:
+        config="workflow/config.yaml",
+        decoding=DECODING_OUT
+    output:
+        fig=FIG_ROOT + "/main" + "/F_decoding.tif"
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
+    shell:
+        r"""
+        set -euo pipefail
+        python -m turntaking.cli.main viz-decoding \
+          --config "{input.config}" \
+          --out "{output.fig}"
         """
