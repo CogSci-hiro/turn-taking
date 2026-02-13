@@ -11,7 +11,6 @@ All functions are intended to keep figure outputs identical to the legacy script
 from .figures.behavior import plot_behavior, plot_other_duration
 from .figures.erp import (
     plot_electrode_time_course,
-    plot_erp_topo,
     plot_joint_erps,
     plot_latency_erp_with_histograms,
     plot_topo_selection,
