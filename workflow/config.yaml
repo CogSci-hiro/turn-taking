@@ -119,8 +119,8 @@ viz:
     duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/duration/cluster_results.hdf5"
     latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/latency/cluster_results.hdf5"
     info_source_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/difference_ave.fif"
-    out_duration: figures/supp/F_erp_topo_duration.tif
-    out_latency: figures/supp/F_erp_topo_latency.tif
+    out_duration: "/Volumes/work-4T/turn-taking-new/figures/supp/F_erp_topo_duration.tif"
+    out_latency: "/Volumes/work-4T/turn-taking-new/figures/supp/F_erp_topo_latency.tif"
     tmin_s: -2
     tmax_s: 0
     step_ms: 100          # pick e.g. 50 or 100
