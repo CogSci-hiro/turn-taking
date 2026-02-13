@@ -43,11 +43,15 @@ class VizErpTopoSection:
     duration_cluster_hdf5: Path
     latency_cluster_hdf5: Path
     info_source_fif: Path
-    out_base: Path
+
+    out_duration: Path
+    out_latency: Path
+
     tmin_s: float
     tmax_s: float
-    n_topo: int
-    p_threshold: float
+    step_ms: float
+    max_cols: int = 10
+    p_threshold: float = 0.01
 
     @classmethod
     def from_dict(cls, raw: dict) -> "VizErpTopoSection":
