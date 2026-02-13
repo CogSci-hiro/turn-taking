@@ -13,5 +13,5 @@
 - move TFR topo to supp
 - plot latency effect + hist
 ⌛ test decoding
-- plot decoding
+🔄 plot decoding
 - verify Ethics
