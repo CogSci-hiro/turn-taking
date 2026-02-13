@@ -16,6 +16,28 @@ def _require_key(d: dict[str, Any], key: str, where: str) -> Any:
 
 
 @dataclass(frozen=True)
+class VizErpTopomapsSection:
+    """
+    Config for the composed ERP topomap figure assembled from SVG parts.
+
+    Notes
+    -----
+    This is distinct from VizErpTopoSection (used elsewhere for other topo products).
+
+    Usage example
+    -------------
+        viz:
+          erp_topomaps:
+            template_svg: "workflow/templates/ERP-timeline.svg"
+            out_svg: "results/figures/F_erp_topomaps.svg"
+            parts_dir: "results/figures/parts/F_erp_topomaps"
+    """
+    template_svg: Path
+    out_svg: Path
+    parts_dir: Path
+
+
+@dataclass(frozen=True)
 class VizErpTimecourseSection:
     duration_long_fif: Path
     duration_short_fif: Path
@@ -81,6 +103,7 @@ class VizSection:
     erp_timecourse: VizErpTimecourseSection
     erp_topo: VizErpTopoSection
     behavior: VizBehaviorSection
+    erp_topomaps: VizErpTopomapsSection
 
     @classmethod
     def from_dict(cls, raw: dict) -> "VizSection":
@@ -350,6 +373,17 @@ class TurntakingConfig:
             "viz.erp_topo",
         )
 
+        erp_topomaps_d = _require_mapping(
+            _require_key(viz_d, "erp_topomaps", "viz"),
+            "viz.erp_topomaps",
+        )
+
+        erp_topomaps = VizErpTopomapsSection(
+            template_svg=Path(_require_key(erp_topomaps_d, "template_svg", "viz.erp_topomaps")),
+            parts_dir=Path(_require_key(erp_topomaps_d, "parts_dir", "viz.erp_topomaps")),
+            out_svg=Path(_require_key(erp_topomaps_d, "out_svg", "viz.erp_topomaps")),
+        )
+
         erp_topo = VizErpTopoSection(
             duration_cluster_hdf5=Path(_require_key(erp_topo_d, "duration_cluster_hdf5", "viz.erp_topo")),
             latency_cluster_hdf5=Path(_require_key(erp_topo_d, "latency_cluster_hdf5", "viz.erp_topo")),
@@ -365,7 +399,8 @@ class TurntakingConfig:
         viz = VizSection(
             erp_timecourse=erp_timecourse,
             erp_topo=erp_topo,
-            behavior=behavior
+            behavior=behavior,
+            erp_topomaps=erp_topomaps,
         )
 
         return TurntakingConfig(

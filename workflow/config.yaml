@@ -139,3 +139,7 @@ viz:
     figure_profile: "jneuro_2col"
     ymax: 0.65
     lim: 0.04
+  erp_topomaps:
+    template_svg: "workflow/templates/ERP-timeline.svg"
+    parts_dir: "workflow/results/parts_erp_topomaps"
+    out_svg: "workflow/results/F_erp_topomaps.svg"

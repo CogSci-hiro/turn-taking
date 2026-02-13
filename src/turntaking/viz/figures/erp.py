@@ -129,7 +129,7 @@ def plot_stat_topomaps_grid(
     cmap: str = "RdBu_r",
     cbar_label: str = "t values",
     time_unit: str = "ms",
-    time_format: str = "%0.0f",
+    time_format: str = "%0.0f ms",
     mask_marker_size: float = SMALLER_MARKER_SIZE,
     figure_profile: str = "jneuro_2col",
     save_basepath: str | Path | None = None,
@@ -228,15 +228,20 @@ def plot_stat_topomaps_grid(
     fig.suptitle(title)
 
     # make room for colorbar on the right
-    fig.subplots_adjust(left=0.05, right=0.92, top=0.90, bottom=0.06, wspace=0.05, hspace=0.12)
+    fig.subplots_adjust(left=0.05, right=1.05, top=0.90, bottom=0.06, wspace=0.05, hspace=0.12)
 
-    cbar_ax = fig.add_axes((0.94, 0.15, 0.015, 0.70))
-    cbar_ax.set_ylabel(cbar_label, rotation=270, labelpad=14)
     norm = mpl.colors.Normalize(vmin=-lim_val, vmax=lim_val)
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
-    fig.colorbar(sm, cax=cbar_ax)
 
+    cbar = fig.colorbar(
+        sm,
+        ax=axes_flat[:n_maps],  # <-- key: attach to these axes
+        location="right",
+        fraction=0.025,
+        pad=0.02,
+    )
+    cbar.set_label(cbar_label, rotation=270, labelpad=14)
     _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
     return fig
 
