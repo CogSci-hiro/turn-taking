@@ -127,9 +127,9 @@ def _run_impl(cfg: ErpTopoVizConfig) -> None:
         step_ms=cfg.step_ms,
         p_threshold=cfg.p_threshold,
         max_cols=cfg.max_cols,
-        figure_profile="jneuro_2col",
-        save_basepath=cfg.out_duration,
     )
+    
+    save_figure(fig_duration, save_basepath=out_duration_base, profile_name="jneuro_2col")
     plt.close(fig_duration)
 
     fig_latency = plot_erp_topo_latency(
