@@ -260,14 +260,14 @@ def run(args: argparse.Namespace, cfg) -> None:
     # Build slot->data, slot->overlays, slot->titles (B layout)
     # -------------------------------------------------------------------------
     topomap_by_slot: dict[str, np.ndarray] = {}
-    overlays_by_slot: dict[str, list[ClusterOverlay]] = {}
+    mask_by_slot: dict[str, np.ndarray] = {}
     title_by_slot: dict[str, str] = {}
 
     # Duration slots: slot_dur_tw1, slot_dur_tw2
     for slot_number, cluster_index in enumerate(duration_cluster_indices, start=1):
         slot_id = f"slot_dur_tw{slot_number}"
 
-        topo_vector, cluster_channel_names, (tmin_s, tmax_s) = _summarize_cluster(
+        topo_vector, cluster_mask, (tmin_s, tmax_s) = _summarize_cluster(
             t_values=t_values_duration,
             times_s=times_duration_s,
             cluster=duration_result.clusters[cluster_index],
@@ -276,25 +276,14 @@ def run(args: argparse.Namespace, cfg) -> None:
         cluster_p_value = float(p_values_duration[cluster_index])
 
         topomap_by_slot[slot_id] = topo_vector
+        mask_by_slot[slot_id] = cluster_mask
         title_by_slot[slot_id] = f"{tmin_s:+.3f}–{tmax_s:+.3f} s  (p={cluster_p_value:.3g})"
-
-        overlays_by_slot[slot_id] = [
-            ClusterOverlay(
-                name=f"Duration C{slot_number}",
-                ch_names=cluster_channel_names,
-                marker=marker_cycle[(slot_number - 1) % len(marker_cycle)],
-                markersize=9.0,
-                markeredgecolor="black",
-                markerfacecolor="none",
-                markeredgewidth=1.5,
-            )
-        ]
 
     # Latency slots: slot_lat_tw1, slot_lat_tw2, slot_lat_tw3
     for slot_number, cluster_index in enumerate(latency_cluster_indices, start=1):
         slot_id = f"slot_lat_tw{slot_number}"
 
-        topo_vector, cluster_channel_names, (tmin_s, tmax_s) = _summarize_cluster(
+        topo_vector, cluster_mask, (tmin_s, tmax_s) = _summarize_cluster(
             t_values=t_values_latency,
             times_s=times_latency_s,
             cluster=latency_result.clusters[cluster_index],
@@ -303,19 +292,8 @@ def run(args: argparse.Namespace, cfg) -> None:
         cluster_p_value = float(p_values_latency[cluster_index])
 
         topomap_by_slot[slot_id] = topo_vector
+        mask_by_slot[slot_id] = cluster_mask
         title_by_slot[slot_id] = f"{tmin_s:+.3f}–{tmax_s:+.3f} s  (p={cluster_p_value:.3g})"
-
-        overlays_by_slot[slot_id] = [
-            ClusterOverlay(
-                name=f"Latency C{slot_number}",
-                ch_names=cluster_channel_names,
-                marker=marker_cycle[(slot_number - 1) % len(marker_cycle)],
-                markersize=9.0,
-                markeredgecolor="black",
-                markerfacecolor="none",
-                markeredgewidth=1.5,
-            )
-        ]
 
     # -------------------------------------------------------------------------
     # Shared symmetric color scale across all exported maps
@@ -334,7 +312,7 @@ def run(args: argparse.Namespace, cfg) -> None:
             info=info,
             out_svg=parts_directory / f"{slot_id}.svg",
             vlim=vlim,
-            overlays=overlays_by_slot.get(slot_id, ()),
+            mask=mask_by_slot.get(slot_id, None),
             contours=6,
             show_sensors=False,
             title=title_by_slot.get(slot_id, None),
