@@ -96,8 +96,8 @@ def _load_cluster_outputs(
 
 
 def _run_impl(cfg: ErpTopoVizConfig) -> None:
-    from turntaking.viz.figures.erp import plot_erp_topo
     from matplotlib import pyplot as plt
+    from turntaking.viz.figures.erp import plot_erp_topo_duration, plot_erp_topo_latency
 
     info = _load_info_from_evoked(cfg.info_source_fif)
 
@@ -108,24 +108,40 @@ def _run_impl(cfg: ErpTopoVizConfig) -> None:
     if abs(data_tmin - data_tmin_2) > 1e-9:
         raise ValueError(f"duration data_tmin={data_tmin} != latency data_tmin={data_tmin_2}")
 
-    fig = plot_erp_topo(
+    cfg.out_duration.parent.mkdir(parents=True, exist_ok=True)
+    cfg.out_latency.parent.mkdir(parents=True, exist_ok=True)
+
+    fig_duration = plot_erp_topo_duration(
         duration_t=duration_t,
-        latency_t=latency_t,
         duration_p=duration_p,
-        latency_p=latency_p,
         duration_cluster=duration_clusters,
+        info=info,
+        data_tmin=data_tmin,
+        tmin=cfg.tmin_s,
+        tmax=cfg.tmax_s,
+        step_ms=cfg.step_ms,
+        p_threshold=cfg.p_threshold,
+        max_cols=cfg.max_cols,
+        figure_profile="jneuro_2col",
+        save_basepath=cfg.out_duration,
+    )
+    plt.close(fig_duration)
+
+    fig_latency = plot_erp_topo_latency(
+        latency_t=latency_t,
+        latency_p=latency_p,
         latency_cluster=latency_clusters,
         info=info,
         data_tmin=data_tmin,
         tmin=cfg.tmin_s,
         tmax=cfg.tmax_s,
-        n_topo=cfg.n_topo,
+        step_ms=cfg.step_ms,
         p_threshold=cfg.p_threshold,
+        max_cols=cfg.max_cols,
         figure_profile="jneuro_2col",
-        save_basepath=cfg.out_base,
+        save_basepath=cfg.out_latency,
     )
-
-    plt.close(fig)
+    plt.close(fig_latency)
 
 
 def run(args: argparse.Namespace, cfg: Any) -> None:
