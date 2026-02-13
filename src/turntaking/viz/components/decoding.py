@@ -10,83 +10,93 @@ import scipy
 from .._style import FONT_SIZE, TITLE_FONT_SIZE
 
 
-def _plot_generalization(tmin: float, tmax: float, scores: np.ndarray,
-                         cluster_list: List[np.ndarray], p_values: np.ndarray, ax: plt.axis, p_threshold: float,
-                         y_axis: bool, lim: float = 0.04) -> AxesImage:
+def _plot_generalization(
+    tmin: float,
+    tmax: float,
+    scores: np.ndarray,
+    cluster_list: List[Tuple[np.ndarray, np.ndarray]],
+    p_values: np.ndarray,
+    ax: plt.Axes,
+    p_threshold: float,
+    y_axis: bool,
+    lim: float = 0.05,
+) -> AxesImage:
     """
-    Plot temporal generalisation matrix
+    Plot temporal generalisation matrix (legacy-matching).
 
-    Parameters
-    ----------
-    tmin: float
-        start of the time window
-
-    tmax: float
-        end of the time window
-
-    scores: np.ndarray
-
-    cluster_list: List[np.ndarray]
-
-    p_values: np.ndarray
-
-    ax: plt.axis
-        axis
-
-    p_threshold: float
-        significance threshold
-
-    y_axis: bool
-
-    lim: float
-
-    Returns
-    -------
-    AxesImage
-        AxesImage returned for colorbar
+    Notes
+    -----
+    - Expects clusters in MNE out_type="indices" format: (train_idx, test_idx).
+    - Draws 0-time crosshair and black cluster outlines via upsampled mask + contour.
     """
+
+    n_times = scores.shape[-1]
 
     # Make mask
-    mask = np.zeros((scores.shape[-1], scores.shape[-1])).astype(bool)
+    mask = np.zeros((scores.shape[-1], scores.shape[-1]), dtype=bool)
+
     for cluster, p in zip(cluster_list, p_values):
-        if p < p_threshold:
-            mask[cluster] = True
+        if float(p) >= p_threshold:
+            continue
 
-    # Times
-    times = np.linspace(tmin, tmax, scores.shape[-1]) * 1e3
+        # Accept both:
+        # 1) tuple of (row_idx, col_idx)  [MNE out_type="indices"]
+        # 2) (n_points, 2) int array      [point list]
+        if isinstance(cluster, tuple) and len(cluster) == 2:
+            row_idx, col_idx = cluster
+            mask[np.asarray(row_idx, dtype=int), np.asarray(col_idx, dtype=int)] = True
+            continue
 
-    # Plot image
-    im = ax.imshow(scores.mean(axis=0).mean(axis=0),
-                   origin="lower",
-                   cmap="RdBu_r",
-                   extent=times[[0, -1, 0, -1]],
-                   vmin=0.5 - lim,
-                   vmax=0.5 + lim)
+        cluster_arr = np.asarray(cluster)
+        if cluster_arr.ndim == 2 and cluster_arr.shape[1] == 2:
+            row_idx = cluster_arr[:, 0].astype(int, copy=False)
+            col_idx = cluster_arr[:, 1].astype(int, copy=False)
+            mask[row_idx, col_idx] = True
+            continue
 
-    # Axes
+        raise TypeError(
+            "Unsupported cluster format. Expected (row_idx, col_idx) tuple or (n_points,2) array; "
+            f"got type={type(cluster)} shape={getattr(cluster_arr, 'shape', None)}."
+        )
+
+    # legacy time axis: uses linspace(tmin, tmax) and multiplies by 1e3 for plotting
+    times = np.linspace(tmin, tmax, n_times) * 1e3
+
+    im = ax.imshow(
+        scores.mean(axis=0).mean(axis=0),
+        origin="lower",
+        cmap="RdBu_r",
+        extent=times[[0, -1, 0, -1]],
+        vmin=0.5 - lim,
+        vmax=0.5 + lim,
+        aspect="auto",
+    )
+
+    # 0-time crosshair (this is the "horizontal line" you noticed)
     ax.axvline(0, color="k")
     ax.axhline(0, color="k")
 
-    # Mask
-    big_mask = np.kron(mask, np.ones((10, 10)))
-    ax.contour(big_mask,
-               colors=["k"],
-               extent=times[[0, -1, 0, -1]],
-               linewidths=[0.75],
-               corner_mask=False,
-               antialiased=False,
-               levels=[0.0])
-
-    # Labels
-    ax.set_xlabel("Testing Time (s)", fontsize=FONT_SIZE)
+    # black outline around significant clusters
+    if mask.any():
+        big_mask = np.kron(mask.astype(float), np.ones((10, 10)))
+        ax.contour(
+            big_mask,
+            levels=[0.5],
+            colors=["k"],
+            linewidths=[0.75],
+            origin="lower",
+            extent=times[[0, -1, 0, -1]],
+            corner_mask=False,
+            antialiased=False,
+            zorder=10,
+        )
+    ax.set_xlabel("Testing Time (s)")
     if y_axis:
-        ax.set_ylabel("Training Time (s)", fontsize=FONT_SIZE)
+        ax.set_ylabel("Training Time (s)")
     else:
         ax.set_yticks([])
 
     return im
-
-
 
 
 def _plot_diagonal(tmin: float, tmax: float, scores: np.ndarray, ax: plt.axis,
