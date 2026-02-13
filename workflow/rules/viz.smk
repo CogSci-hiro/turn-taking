@@ -120,11 +120,12 @@ rule fig_erp_timecourse:
         """
 
 
-rule fig_erp_topomaps:
+rule fig_erp_topos:
     input:
         config="workflow/config.yaml"
     output:
-        fig=FIG_ROOT + "/main" + "/F_erp_topo.tif"
+        duration=FIG_ROOT + "/supp/F_erp_topo_duration.tif",
+        latency=FIG_ROOT + "/supp/F_erp_topo_latency.tif",
     threads:
         heavy_threads()
     resources:
