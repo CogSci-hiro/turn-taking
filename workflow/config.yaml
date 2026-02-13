@@ -74,7 +74,6 @@ analysis:
     sfreq: 64
     n_splits: 10
     seed: 0              # for deterministic CV splits
-    n_jobs: 10           # match legacy default; you can override per machine
     cache_features: false
 
     n_permutations: 1000

@@ -16,6 +16,76 @@ def _require_key(d: dict[str, Any], key: str, where: str) -> Any:
 
 
 @dataclass(frozen=True)
+class VizErpTimecourseSection:
+    duration_long_fif: Path
+    duration_short_fif: Path
+    latency_fast_fif: Path
+    latency_slow_fif: Path
+    out_base: Path
+    xlim_ms: Tuple[float, float]
+    ylim_uv: Tuple[float, float]
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "VizErpTimecourseSection":
+        return cls(
+            duration_long_fif=Path(raw["duration_long_fif"]),
+            duration_short_fif=Path(raw["duration_short_fif"]),
+            latency_fast_fif=Path(raw["latency_fast_fif"]),
+            latency_slow_fif=Path(raw["latency_slow_fif"]),
+            out_base=Path(raw["out_base"]),
+            xlim_ms=tuple(float(x) for x in raw["xlim_ms"]),
+            ylim_uv=tuple(float(y) for y in raw["ylim_uv"]),
+        )
+
+
+@dataclass(frozen=True)
+class VizErpTopoSection:
+    duration_cluster_hdf5: Path
+    latency_cluster_hdf5: Path
+    info_source_fif: Path
+    out_base: Path
+    tmin_s: float
+    tmax_s: float
+    n_topo: int
+    p_threshold: float
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "VizErpTopoSection":
+        return cls(
+            duration_cluster_hdf5=Path(raw["duration_cluster_hdf5"]),
+            latency_cluster_hdf5=Path(raw["latency_cluster_hdf5"]),
+            info_source_fif=Path(raw["info_source_fif"]),
+            out_base=Path(raw["out_base"]),
+            tmin_s=float(raw["tmin_s"]),
+            tmax_s=float(raw["tmax_s"]),
+            n_topo=int(raw["n_topo"]),
+            p_threshold=float(raw.get("p_threshold", 0.01)),
+        )
+
+
+@dataclass(frozen=True)
+class VizBehaviorSection:
+    duration_offsets_csv: str
+    latency_offsets_csv: str
+    turn_table_csv: str
+    out_base: str
+    n_bins: int = 100
+
+@dataclass(frozen=True)
+class VizSection:
+    erp_timecourse: VizErpTimecourseSection
+    erp_topo: VizErpTopoSection
+    behavior: VizBehaviorSection
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "VizSection":
+        return cls(
+            erp_timecourse=VizErpTimecourseSection.from_dict(raw["erp_timecourse"])
+        )
+
+
+
+@dataclass(frozen=True)
 class IoSection:
     epoch_dir: Path
     epoch_pattern: str
@@ -114,7 +184,6 @@ class TurntakingConfig:
     dataset: DatasetSection
     constraints: ConstraintsSection
     analysis: AnalysisSection
-    stats: StatsSection
     execution: ExecutionSection
     viz: VizSection
 
@@ -301,71 +370,6 @@ class TurntakingConfig:
         )
 
 
-@dataclass(frozen=True)
-class VizErpTimecourseSection:
-    duration_long_fif: Path
-    duration_short_fif: Path
-    latency_fast_fif: Path
-    latency_slow_fif: Path
-    out_base: Path
-    xlim_ms: Tuple[float, float]
-    ylim_uv: Tuple[float, float]
-
-    @classmethod
-    def from_dict(cls, raw: dict) -> "VizErpTimecourseSection":
-        return cls(
-            duration_long_fif=Path(raw["duration_long_fif"]),
-            duration_short_fif=Path(raw["duration_short_fif"]),
-            latency_fast_fif=Path(raw["latency_fast_fif"]),
-            latency_slow_fif=Path(raw["latency_slow_fif"]),
-            out_base=Path(raw["out_base"]),
-            xlim_ms=tuple(float(x) for x in raw["xlim_ms"]),
-            ylim_uv=tuple(float(y) for y in raw["ylim_uv"]),
-        )
 
 
-@dataclass(frozen=True)
-class VizErpTopoSection:
-    duration_cluster_hdf5: Path
-    latency_cluster_hdf5: Path
-    info_source_fif: Path
-    out_base: Path
-    tmin_s: float
-    tmax_s: float
-    n_topo: int
-    p_threshold: float
 
-    @classmethod
-    def from_dict(cls, raw: dict) -> "VizErpTopoSection":
-        return cls(
-            duration_cluster_hdf5=Path(raw["duration_cluster_hdf5"]),
-            latency_cluster_hdf5=Path(raw["latency_cluster_hdf5"]),
-            info_source_fif=Path(raw["info_source_fif"]),
-            out_base=Path(raw["out_base"]),
-            tmin_s=float(raw["tmin_s"]),
-            tmax_s=float(raw["tmax_s"]),
-            n_topo=int(raw["n_topo"]),
-            p_threshold=float(raw.get("p_threshold", 0.01)),
-        )
-
-
-@dataclass(frozen=True)
-class VizSection:
-    erp_timecourse: VizErpTimecourseSection
-    erp_topo: VizErpTopoSection
-    behavior: VizBehaviorSection
-
-    @classmethod
-    def from_dict(cls, raw: dict) -> "VizSection":
-        return cls(
-            erp_timecourse=VizErpTimecourseSection.from_dict(raw["erp_timecourse"])
-        )
-
-
-@dataclass(frozen=True)
-class VizBehaviorSection:
-    duration_offsets_csv: str
-    latency_offsets_csv: str
-    turn_table_csv: str
-    out_base: str
-    n_bins: int = 100
