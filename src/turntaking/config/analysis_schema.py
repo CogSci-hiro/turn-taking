@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Tuple
@@ -116,6 +114,7 @@ class TurntakingConfig:
     dataset: DatasetSection
     constraints: ConstraintsSection
     analysis: AnalysisSection
+    stats: StatsSection
     execution: ExecutionSection
     viz: VizSection
 

@@ -77,6 +77,12 @@ analysis:
     n_jobs: 10           # match legacy default; you can override per machine
     cache_features: false
 
+    n_permutations: 1000
+    threshold: null
+    tail: 1
+    chance_level: 0.5
+    n_jobs: 10   # optional; if omitted, fallback to analysis.decoding.n_jobs
+
     cache:
       format: "hdf5"     # only used if cache_features: true
       compression: "gzip"
@@ -89,10 +95,6 @@ analysis:
       left_margin: 0.2
       right_margin: 0.5
 
-stats:
-  decoding:
-    n_permutations: 1000
-    threshold: null
 execution:
   threads_light: 1
   threads_heavy: 10

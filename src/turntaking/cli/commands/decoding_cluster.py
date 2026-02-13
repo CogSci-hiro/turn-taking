@@ -8,11 +8,16 @@ import h5py
 import numpy as np
 
 from turntaking.analysis.io.decoding import DecodingScorePaths, load_decoding_scores
-from turntaking.config.loader import load_config
 from turntaking.stats.decoding_cluster_test import (
     DecodingClusterTestParams,
     make_decoding_cluster_summary,
     run_decoding_cluster_test,
+)
+from turntaking.config.analysis_schema import TurntakingConfig
+from turntaking.analysis.io.decoding import (
+    DecodingScorePaths,
+    get_decoding_out_dir,
+    load_decoding_scores,
 )
 
 
@@ -69,29 +74,30 @@ def _save_cluster_results_hdf5(
             f.create_dataset(f"clusters/test-{idx}", data=np.asarray(test_idx, dtype=int), dtype=int)
 
 
-def run(args: argparse.Namespace) -> None:
-    cfg = _CliCfg(config=args.config, feature=args.feature, contrast=args.contrast)
+def run(args: argparse.Namespace, cfg: TurntakingConfig) -> None:
+    out_dir = cfg.io.out_dir  # <- correct section name from your dataclass
 
-    full_cfg = load_config(cfg.config)
+    # Align with your decoding I/O helpers (currently ERP-only)
+    if args.feature != "erp":
+        raise ValueError(f"Only feature='erp' is supported right now; got feature={args.feature!r}.")
 
-    out_dir = Path(full_cfg["paths"]["out_dir"])  # consistent with your snapshot’s resolved out_dir
-    decoding_dir = out_dir / "decoding" / cfg.feature / cfg.contrast
-
+    decoding_dir = get_decoding_out_dir(out_dir, args.contrast)
     scores, times_s = load_decoding_scores(DecodingScorePaths.from_dir(decoding_dir))
 
-    # Pull params from config (fallbacks are conservative but explicit)
-    decoding_cfg = full_cfg.get("analysis", {}).get("decoding", {})
+    # Pull params from typed config
+    decoding_cfg = cfg.analysis.decoding
+
     params = DecodingClusterTestParams(
-        threshold=decoding_cfg.get("threshold", None),
-        n_permutations=int(decoding_cfg.get("n_permutations", 1000)),
-        tail=int(decoding_cfg.get("tail", 1)),
-        n_jobs=int(decoding_cfg.get("n_jobs", 10)),
-        chance_level=float(decoding_cfg.get("chance_level", 0.5)),
+        threshold=decoding_cfg.threshold,
+        n_permutations=int(decoding_cfg.n_permutations),
+        tail=int(getattr(decoding_cfg, "tail", 1)),
+        n_jobs=int(getattr(decoding_cfg, "n_jobs", 1)),
+        chance_level=float(getattr(decoding_cfg, "chance_level", 0.5)),
     )
 
     t_values, clusters, p_values, h0 = run_decoding_cluster_test(scores=scores, params=params)
 
-    stats_dir = out_dir / "stats" / "decoding" / cfg.feature / cfg.contrast
+    stats_dir = out_dir / "stats" / "decoding" / "erp" / args.contrast
     out_hdf5 = stats_dir / "cluster_results.hdf5"
     out_csv = stats_dir / "cluster_summary.csv"
 
@@ -106,3 +112,4 @@ def run(args: argparse.Namespace) -> None:
     summary_df = make_decoding_cluster_summary(clusters=clusters, p_values=p_values, times_s=times_s)
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     summary_df.to_csv(out_csv, index=False)
+
