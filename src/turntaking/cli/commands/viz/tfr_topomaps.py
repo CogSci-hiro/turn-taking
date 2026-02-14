@@ -178,8 +178,8 @@ def run(args: argparse.Namespace, cfg: Any) -> None:
     # -------------------------------------------------------------------------
     # Keep these aligned with your template layout.
     # You can later move them into config if you want full flexibility.
-    alpha_label_times_ms: list[int] = [-1000, -700, -300]   # 3 alpha slots
-    beta_label_times_ms: list[int] = [-700, -100]          # 2 beta slots
+    alpha_label_times_ms: list[int] = [-1000, -700, -100]   # 3 alpha slots
+    beta_label_times_ms: list[int] = [-600, -300]          # 2 beta slots
 
     section = cfg.viz.tfr_topomaps
 
