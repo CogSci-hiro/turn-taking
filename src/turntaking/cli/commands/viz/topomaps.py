@@ -283,9 +283,9 @@ def run(args: argparse.Namespace, cfg) -> None:
             p_threshold=p_value_threshold,
         )
         if min_p is None:
-            title = f"{label_time_ms:+d} ms (p=n/a)"
+            title = f"{label_time_ms:+d} ms"
         else:
-            title = f"{label_time_ms:+d} ms (p={min_p:.3g})"
+            title = f"{label_time_ms:+d} ms"
 
         topomap_by_slot[slot_id] = topo_vector
         mask_by_slot[slot_id] = mask_vector

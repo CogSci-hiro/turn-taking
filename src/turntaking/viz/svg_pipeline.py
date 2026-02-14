@@ -277,7 +277,7 @@ def export_topomap_svg(
     contours: int = 6,
     fig_size_in: tuple[float, float] = (20, 20),  # bigger default
     dpi: int = _DEFAULT_DPI,
-    title_fontsize: int = 100,
+    title_fontsize: int = 200,
     marker_size: float = 9.0,
 ) -> None:
     """
@@ -352,8 +352,8 @@ def export_colorbar_svg(
     label: str = "t value",
     fig_size_in: tuple[float, float] = (10, 90),  # match topo height
     dpi: int = _DEFAULT_DPI,
-    tick_fontsize: int = 30,
-    label_fontsize: int = 30,
+    tick_fontsize: int = 300,
+    label_fontsize: int = 300,
 ) -> None:
     out_svg.parent.mkdir(parents=True, exist_ok=True)
 
