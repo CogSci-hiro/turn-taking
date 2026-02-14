@@ -272,152 +272,175 @@ ctrl <- lmerControl(
 # ================================================================================================
 
 all_model_overview <- list()
-all_fixed_effects <- list()
-all_lrt <- list()
+all_fixed_effects  <- list()
+all_lrt            <- list()
 
 for (i in seq_len(nrow(grid))) {
+
   row <- grid[i, ]
 
-  outcome <- row$outcome[[1]]
-  base_covs <- row$base_covariates[[1]]
-
-  predictor <- row$predictor[[1]]
-  roi <- row$roi[[1]]
-  window <- row$window[[1]]
-  family <- row$family[[1]]
+  outcome      <- row$outcome[[1]]
+  base_covs    <- row$base_covariates[[1]]
+  predictor    <- row$predictor[[1]]
+  roi          <- row$roi[[1]]
+  window       <- row$window[[1]]
+  family       <- row$family[[1]]
   baseline_roi <- row$baseline_roi[[1]]
 
-  # Deterministic model_id
+  # ----------------------------------------------------------------------------
+  # Construct model formulas
+  # ----------------------------------------------------------------------------
+
   model_id <- paste(outcome, predictor, sep = "__")
 
-  # Baseline neural covariate only when available/appropriate
   neural_baseline_term <- ""
   if (isTRUE(row$include_neural_baseline[[1]])) {
     neural_baseline_term <- paste0(" + ", baseline_roi)
   }
 
-  formula_base_str <- paste0(outcome, " ~ ", base_covs, neural_baseline_term, " + (1|subject)")
-  formula_full_str <- paste0(outcome, " ~ ", base_covs, neural_baseline_term, " + ", predictor, " + (1|subject)")
+  formula_base_str <- paste0(
+    outcome, " ~ ", base_covs,
+    neural_baseline_term,
+    " + (1|subject)"
+  )
+
+  formula_full_str <- paste0(
+    outcome, " ~ ", base_covs,
+    neural_baseline_term,
+    " + ", predictor,
+    " + (1|subject)"
+  )
 
   formula_base <- as.formula(formula_base_str)
   formula_full <- as.formula(formula_full_str)
 
-  vars_needed <- c(
-  outcome,
-  "subject",
-  "run",
-  "self_duration", "other_duration", "latency",
-  predictor
-)
-if (isTRUE(row$include_neural_baseline[[1]])) {
-  vars_needed <- c(vars_needed, baseline_roi)
-}
-
-df_fit <- df %>%
-  dplyr::select(all_of(unique(vars_needed))) %>%
-  tidyr::drop_na()
+  # ----------------------------------------------------------------------------
+  # Ensure base and full are fit on identical rows (drop NAs deterministically)
+  # ----------------------------------------------------------------------------
 
   vars_needed <- c(
-  outcome,
-  "subject",
-  "run",
-  "self_duration", "other_duration", "latency",
-  predictor
-)
+    outcome,
+    "subject",
+    "run",
+    "self_duration",
+    "other_duration",
+    "latency",
+    predictor
+  )
 
-if (isTRUE(row$include_neural_baseline[[1]])) {
-  vars_needed <- c(vars_needed, baseline_roi)
-}
+  if (isTRUE(row$include_neural_baseline[[1]])) {
+    vars_needed <- c(vars_needed, baseline_roi)
+  }
 
-df_fit <- df %>%
-  dplyr::select(all_of(unique(vars_needed))) %>%
-  tidyr::drop_na()
+  df_fit <- df %>%
+    dplyr::select(all_of(unique(vars_needed))) %>%
+    tidyr::drop_na()
+
+  # ----------------------------------------------------------------------------
+  # Fit models
+  # ----------------------------------------------------------------------------
 
   res <- fit_pair(
-    data = df_fit,
-    model_id = model_id,
-    formula_base = formula_base,
-    formula_full = formula_full,
-    out_models = out_models,
+    data          = df_fit,
+    model_id      = model_id,
+    formula_base  = formula_base,
+    formula_full  = formula_full,
+    out_models    = out_models,
     out_summaries = out_summaries,
-    ctrl = ctrl
+    ctrl          = ctrl
   )
 
   base_mod <- res$base
   full_mod <- res$full
-  cmp <- res$cmp
+  cmp      <- res$cmp
 
+  # ----------------------------------------------------------------------------
+  # Store model summaries
+  # ----------------------------------------------------------------------------
 
-  # ---- Did the predictor actually appear in the full model? ----
-full_terms <- names(lme4::fixef(full_mod))
-predictor_in_full <- predictor %in% full_terms
+  all_model_overview[[length(all_model_overview) + 1]] <-
+    model_overview_row(model_id, outcome, predictor, roi, window, family, "base", base_mod)
 
-if (!predictor_in_full) {
-  message("Predictor term dropped from full model: ", model_id)
-}
+  all_model_overview[[length(all_model_overview) + 1]] <-
+    model_overview_row(model_id, outcome, predictor, roi, window, family, "full", full_mod)
 
-  all_model_overview[[length(all_model_overview) + 1]] <- model_overview_row(
-    model_id = model_id, outcome = outcome, predictor = predictor,
-    roi = roi, window = window, family = family, kind = "base", mod = base_mod
-  )
-  all_model_overview[[length(all_model_overview) + 1]] <- model_overview_row(
-    model_id = model_id, outcome = outcome, predictor = predictor,
-    roi = roi, window = window, family = family, kind = "full", mod = full_mod
-  )
+  all_fixed_effects[[length(all_fixed_effects) + 1]] <-
+    fixed_effects_rows(model_id, "base", base_mod)
 
-  all_fixed_effects[[length(all_fixed_effects) + 1]] <- fixed_effects_rows(model_id, "base", base_mod)
-  all_fixed_effects[[length(all_fixed_effects) + 1]] <- fixed_effects_rows(model_id, "full", full_mod)
+  all_fixed_effects[[length(all_fixed_effects) + 1]] <-
+    fixed_effects_rows(model_id, "full", full_mod)
 
-  # anova(base, full) returns a data frame with rows base/full; we want a single-row comparison summary
-  # Columns often include: Df, AIC, BIC, logLik, deviance, Chisq, Chi Df, Pr(>Chisq)
+  # ----------------------------------------------------------------------------
+  # Likelihood Ratio Test (robust extraction)
+  # ----------------------------------------------------------------------------
+
   cmp_row <- as.data.frame(cmp)
 
-# lme4/stats anova tables vary a bit: df column may be "Df" or "Chi Df"
-df_col <- if ("Chi Df" %in% colnames(cmp_row)) "Chi Df" else if ("Df" %in% colnames(cmp_row)) "Df" else NA_character_
+  # Different R versions label df column differently
+  df_col <- if ("Chi Df" %in% colnames(cmp_row)) {
+    "Chi Df"
+  } else if ("Df" %in% colnames(cmp_row)) {
+    "Df"
+  } else {
+    NA_character_
+  }
 
-ok_two_rows <- nrow(cmp_row) >= 2
-has_chisq <- "Chisq" %in% colnames(cmp_row)
-has_p <- "Pr(>Chisq)" %in% colnames(cmp_row)
-has_df <- !is.na(df_col)
+  ok_two_rows <- nrow(cmp_row) >= 2
+  has_chisq   <- "Chisq" %in% colnames(cmp_row)
+  has_p       <- "Pr(>Chisq)" %in% colnames(cmp_row)
+  has_df      <- !is.na(df_col)
 
-if (ok_two_rows && has_chisq && has_df) {
-  lrt_stat <- as.numeric(cmp_row$Chisq[2])
-  lrt_df   <- as.numeric(cmp_row[[df_col]][2])
-  lrt_p    <- if (has_p) as.numeric(cmp_row$`Pr(>Chisq)`[2]) else NA_real_
-} else {
-  # Fallback: compute LRT from log-likelihoods
-  ll0 <- as.numeric(logLik(base_mod))
-  ll1 <- as.numeric(logLik(full_mod))
-  df0 <- attr(logLik(base_mod), "df")
-  df1 <- attr(logLik(full_mod), "df")
+  if (ok_two_rows && has_chisq && has_df) {
 
-  lrt_stat <- 2 * (ll1 - ll0)
-  lrt_df <- df1 - df0
-  lrt_p <- if (is.finite(lrt_stat) && lrt_df > 0) stats::pchisq(lrt_stat, df = lrt_df, lower.tail = FALSE) else NA_real_
+    # Standard extraction from anova table
+    lrt_stat <- as.numeric(cmp_row$Chisq[2])
+    lrt_df   <- as.numeric(cmp_row[[df_col]][2])
+    lrt_p    <- if (has_p) as.numeric(cmp_row$`Pr(>Chisq)`[2]) else NA_real_
+
+  } else {
+
+    # Fallback: compute LRT manually from log-likelihoods
+    ll0 <- as.numeric(logLik(base_mod))
+    ll1 <- as.numeric(logLik(full_mod))
+
+    df0 <- attr(logLik(base_mod), "df")
+    df1 <- attr(logLik(full_mod), "df")
+
+    lrt_stat <- 2 * (ll1 - ll0)
+    lrt_df   <- df1 - df0
+    lrt_p    <- if (is.finite(lrt_stat) && lrt_df > 0) {
+      stats::pchisq(lrt_stat, df = lrt_df, lower.tail = FALSE)
+    } else {
+      NA_real_
+    }
+  }
+
+  delta_aic    <- AIC(full_mod) - AIC(base_mod)
+  delta_bic    <- BIC(full_mod) - BIC(base_mod)
+  delta_loglik <- as.numeric(logLik(full_mod) - logLik(base_mod))
+
+  # ----------------------------------------------------------------------------
+  # Store LRT summary row
+  # ----------------------------------------------------------------------------
+
+  all_lrt[[length(all_lrt) + 1]] <- tibble(
+    model_id      = model_id,
+    outcome       = outcome,
+    predictor     = predictor,
+    roi           = roi,
+    window        = window,
+    family        = family,
+    n_used        = nrow(df_fit),
+    lrt_chisq     = lrt_stat,
+    lrt_df        = lrt_df,
+    lrt_p         = lrt_p,
+    delta_AIC     = delta_aic,
+    delta_BIC     = delta_bic,
+    delta_logLik  = delta_loglik
+  )
+
 }
 
-delta_aic    <- AIC(full_mod) - AIC(base_mod)
-delta_bic    <- BIC(full_mod) - BIC(base_mod)
-delta_loglik <- as.numeric(logLik(full_mod) - logLik(base_mod))
-
-all_lrt[[length(all_lrt) + 1]] <- tibble(
-  model_id = model_id,
-  outcome = outcome,
-  predictor = predictor,
-  roi = roi,
-  window = window,
-  family = family,
-  n_used = nrow(df_fit),
-  lrt_chisq = as.numeric(lrt_stat),
-  lrt_df = as.numeric(lrt_df),
-  lrt_p = as.numeric(lrt_p),
-  delta_AIC = as.numeric(delta_aic),
-  delta_BIC = as.numeric(delta_bic),
-  delta_logLik = as.numeric(delta_loglik)
-)
-
-
-}
 
 models_df <- bind_rows(all_model_overview) %>%
   arrange(outcome, family, window, roi, kind, model_id)
