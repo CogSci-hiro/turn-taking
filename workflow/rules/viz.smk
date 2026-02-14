@@ -135,6 +135,25 @@ rule fig_erp_topos:
         """
 
 
+rule fig_tfr_topos:
+    input:
+        config="workflow/config.yaml"
+    output:
+        alpha_duration=FIG_ROOT + "/supp/F_tfr_topo_alpha_duration.tif",
+        alpha_latency=FIG_ROOT + "/supp/F_tfr_topo_alpha_latency.tif",
+        beta_duration=FIG_ROOT + "/supp/F_tfr_topo_beta_duration.tif",
+        beta_latency=FIG_ROOT + "/supp/F_tfr_topo_beta_latency.tif",
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
+    shell:
+        r"""
+        set -euo pipefail
+        python -m turntaking.cli.main viz-tfr-topos --config "{input.config}"
+        """
+
+
 rule fig_tfr_topomaps:
     input:
         config="workflow/config.yaml"
