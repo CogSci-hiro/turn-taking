@@ -13,7 +13,6 @@ from lxml import etree
 import matplotlib.pyplot as plt
 import mne
 
-SLOT_SCALE = 2.8
 
 
 # =============================================================================
@@ -277,7 +276,7 @@ def export_topomap_svg(
     contours: int = 6,
     fig_size_in: tuple[float, float] = (20, 20),  # bigger default
     dpi: int = _DEFAULT_DPI,
-    title_fontsize: int = 200,
+    title_fontsize: int = 50,
     marker_size: float = 9.0,
 ) -> None:
     """
@@ -352,8 +351,8 @@ def export_colorbar_svg(
     label: str = "t value",
     fig_size_in: tuple[float, float] = (10, 90),  # match topo height
     dpi: int = _DEFAULT_DPI,
-    tick_fontsize: int = 300,
-    label_fontsize: int = 300,
+    tick_fontsize: int = 30,
+    label_fontsize: int = 30,
 ) -> None:
     out_svg.parent.mkdir(parents=True, exist_ok=True)
 
@@ -478,6 +477,93 @@ def _find_by_id(root: etree._Element, element_id: str) -> etree._Element:
     if not el:
         raise KeyError(f"Could not find element with id={element_id!r} in template SVG.")
     return el[0]
+
+# =============================================================================
+#                     ########################################
+#                     #          P-TEXT SVG EXPORT           #
+#                     ########################################
+# =============================================================================
+def export_ptext_svg(
+    *,
+    text: str,
+    out_svg: Path,
+    fig_size_in: tuple[float, float],
+    fontsize_pt: float = 10.0,
+    fontweight: str = "normal",
+    ha: str = "center",
+    va: str = "center",
+) -> None:
+    """
+    Export a small, deterministic SVG snippet containing centered p-value text.
+
+    This exporter is intended for template-driven composition where the template
+    slot (typically a <rect> anchor) defines the final physical size. Therefore:
+
+    - The exported SVG canvas size is fixed (no tight bbox).
+    - Typography is authored in points and scales naturally with the canvas size.
+    - The compose step should only translate the snippet into place (no scaling).
+
+    Parameters
+    ----------
+    text
+        Text to render (e.g., "Cluster p = 0.013" or "p < 0.001").
+    out_svg
+        Output SVG path.
+    fig_size_in
+        Matplotlib figure size in inches. In the recommended template-driven
+        workflow, compute this from the template slot bbox as:
+
+            fig_size_in = (slot_width_px / 96, slot_height_px / 96)
+
+    fontsize_pt
+        Font size in points.
+    fontweight
+        Matplotlib font weight (e.g., "normal", "bold").
+    ha
+        Horizontal alignment for the text.
+    va
+        Vertical alignment for the text.
+
+    Usage example
+    -------------
+        slot_bboxes = read_template_slot_bboxes(Path("ERP-timeline.svg"))
+        x, y, w, h = slot_bboxes["slot_dur_cluster_ptext_1"]
+        fig_size_in = (_svg_units_to_inches(w), _svg_units_to_inches(h))
+
+        export_ptext_svg(
+            text="Cluster p = 0.013",
+            out_svg=Path("parts/dur_cluster_ptext_1.svg"),
+            fig_size_in=fig_size_in,
+            fontsize_pt=10.0,
+            fontweight="normal",
+        )
+    """
+    out_svg.parent.mkdir(parents=True, exist_ok=True)
+
+    # Fixed-canvas export (no bbox_inches='tight') for deterministic sizing.
+    fig, ax = plt.subplots(figsize=fig_size_in, dpi=_DEFAULT_DPI)
+    ax.set_axis_off()
+    ax.set_xlim(0.0, 1.0)
+    ax.set_ylim(0.0, 1.0)
+
+    ax.text(
+        0.5,
+        0.5,
+        text,
+        ha=ha,
+        va=va,
+        fontsize=fontsize_pt,
+        fontweight=fontweight,
+    )
+
+    fig.subplots_adjust(left=0.0, right=1.0, bottom=0.0, top=1.0)
+
+    fig.savefig(
+        out_svg,
+        format="svg",
+        transparent=True,
+    )
+    plt.close(fig)
 
 
 def read_template_slot_bboxes(template_svg: Path) -> dict[str, tuple[float, float, float, float]]:

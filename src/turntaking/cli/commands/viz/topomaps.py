@@ -14,6 +14,15 @@ from turntaking.viz.svg_pipeline import (
     export_topomap_svg,
 )
 from turntaking.analysis.io.cluster import read_cluster_outputs
+from turntaking.viz.svg_pipeline import (
+    ClusterOverlay,
+    compose_svg_from_template,
+    export_colorbar_svg,
+    export_topomap_svg,
+    export_ptext_svg,
+    read_template_slot_bboxes,
+    _svg_units_to_inches,
+)
 
 
 # =============================================================================
@@ -130,17 +139,33 @@ def run(args: argparse.Namespace, cfg) -> None:
     Generate ERP topomaps from cluster-test outputs and compose into a template SVG.
 
     Layout (fixed timestamps):
-    - Duration: -700 ms, -100 ms
-    - Latency:  -1000 ms, -700 ms, -300 ms
+    - Duration: -700 ms, -100 ms  -> slot_dur_tw1, slot_dur_tw2
+    - Latency:  -1000 ms, -700 ms, -300 ms -> slot_lat_tw1..3
 
-    Key idea:
+    Also exports p-text snippets into rect-anchored slots:
+    - slot_dur_cluster_ptext_1
+    - slot_dur_cluster_ptext_2
+    - slot_lat_cluster_ptext
+
+    Key ideas
+    ---------
     - Build a global (time x channel) significance mask from all clusters with p <= threshold.
-    - Slice both t-values and mask at the desired timestamps, guaranteeing synchronization.
+    - Slice both t-values and mask at desired timestamps (synchronized).
+    - Export-time sizing is template-driven (slot bbox -> figsize_in) so typography is correct.
+    - Compose step does placement only (no visual scaling logic).
     """
     from turntaking.analysis.io.cluster import read_cluster_outputs
+    from turntaking.viz.svg_pipeline import (
+        compose_svg_from_template,
+        export_colorbar_svg,
+        export_ptext_svg,
+        export_topomap_svg,
+        read_template_slot_bboxes,
+        _svg_units_to_inches,
+    )
 
-    duration_label_times_ms = [-700, -100]
-    latency_label_times_ms = [-1000, -700, -300]
+    duration_label_times_ms: list[int] = [-700, -100]
+    latency_label_times_ms: list[int] = [-1000, -700, -300]
 
     topomaps_config = cfg.viz.erp_topomaps
 
@@ -150,6 +175,33 @@ def run(args: argparse.Namespace, cfg) -> None:
 
     parts_directory.mkdir(parents=True, exist_ok=True)
     output_svg_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # -------------------------------------------------------------------------
+    # Local helpers
+    # -------------------------------------------------------------------------
+    def _nearest_time_index(times_s: np.ndarray, target_ms: float) -> int:
+        target_s = float(target_ms) / 1000.0
+        return int(np.argmin(np.abs(times_s - target_s)))
+
+    def _fig_size_from_slot(
+        slot_bboxes: dict[str, tuple[float, float, float, float]],
+        slot_id: str,
+    ) -> tuple[float, float]:
+        _x, _y, w, h = slot_bboxes[slot_id]
+        return (_svg_units_to_inches(w), _svg_units_to_inches(h))
+
+    def _format_p(p: float | None) -> str:
+        if p is None:
+            return "n.s."
+        if p < 0.001:
+            return "p < 0.001"
+        return f"p = {p:.3f}"
+
+    def _min_p_overall(p_values: np.ndarray, p_threshold: float) -> float | None:
+        candidates = [float(p) for p in np.asarray(p_values).ravel() if float(p) <= float(p_threshold)]
+        if len(candidates) == 0:
+            return None
+        return float(min(candidates))
 
     # -------------------------------------------------------------------------
     # Load Info (must match the channel set/order used for cluster stats)
@@ -171,12 +223,8 @@ def run(args: argparse.Namespace, cfg) -> None:
     metadata_latency: dict = dict(latency_result.metadata or {})
 
     # -------------------------------------------------------------------------
-    # Time axis (assumes _times_from_metadata exists and is correct)
+    # Time axes reconstructed from metadata
     # -------------------------------------------------------------------------
-    def _nearest_time_index(times_s: np.ndarray, target_ms: float) -> int:
-        target_s = float(target_ms) / 1000.0
-        return int(np.argmin(np.abs(times_s - target_s)))
-
     times_duration_s = _times_from_metadata(metadata_duration)
     times_latency_s = _times_from_metadata(metadata_latency)
 
@@ -196,7 +244,7 @@ def run(args: argparse.Namespace, cfg) -> None:
         )
 
     # -------------------------------------------------------------------------
-    # Load arrays
+    # Arrays
     # -------------------------------------------------------------------------
     p_value_threshold: float = float(topomaps_config.p_threshold)
 
@@ -240,7 +288,7 @@ def run(args: argparse.Namespace, cfg) -> None:
     )
 
     # -------------------------------------------------------------------------
-    # Helper: minimum p among clusters active at a given time index
+    # Minimum p among clusters active at a given time index
     # -------------------------------------------------------------------------
     def _min_p_at_time_index(
         cluster_list: list[tuple[np.ndarray, ...]],
@@ -276,20 +324,9 @@ def run(args: argparse.Namespace, cfg) -> None:
         topo_vector = t_values_duration[time_index]
         mask_vector = sig_mask_duration[time_index]
 
-        min_p = _min_p_at_time_index(
-            cluster_list=clusters_duration,
-            p_values=p_values_duration,
-            time_index=time_index,
-            p_threshold=p_value_threshold,
-        )
-        if min_p is None:
-            title = f"{label_time_ms:+d} ms"
-        else:
-            title = f"{label_time_ms:+d} ms"
-
         topomap_by_slot[slot_id] = topo_vector
         mask_by_slot[slot_id] = mask_vector
-        title_by_slot[slot_id] = title
+        title_by_slot[slot_id] = f"{label_time_ms:+d} ms"
 
     # Latency slots
     for slot_number, label_time_ms in enumerate(latency_label_times_ms, start=1):
@@ -299,20 +336,9 @@ def run(args: argparse.Namespace, cfg) -> None:
         topo_vector = t_values_latency[time_index]
         mask_vector = sig_mask_latency[time_index]
 
-        min_p = _min_p_at_time_index(
-            cluster_list=clusters_latency,
-            p_values=p_values_latency,
-            time_index=time_index,
-            p_threshold=p_value_threshold,
-        )
-        if min_p is None:
-            title = f"{label_time_ms:+d} ms"
-        else:
-            title = f"{label_time_ms:+d} ms"
-
         topomap_by_slot[slot_id] = topo_vector
         mask_by_slot[slot_id] = mask_vector
-        title_by_slot[slot_id] = title
+        title_by_slot[slot_id] = f"{label_time_ms:+d} ms"
 
     # -------------------------------------------------------------------------
     # Shared symmetric color scale across all exported maps
@@ -321,9 +347,16 @@ def run(args: argparse.Namespace, cfg) -> None:
     vlim = (-absolute_max_value, absolute_max_value)
 
     # -------------------------------------------------------------------------
-    # Export SVG parts
+    # Template-driven sizing
+    # -------------------------------------------------------------------------
+    slot_bboxes = read_template_slot_bboxes(template_svg_path)
+
+    # -------------------------------------------------------------------------
+    # Export TOPOMAP SVG parts (export-time sizing from template slot)
     # -------------------------------------------------------------------------
     for slot_id, topo_vector in topomap_by_slot.items():
+        fig_size_in = _fig_size_from_slot(slot_bboxes, slot_id)
+
         export_topomap_svg(
             data=topo_vector,
             info=info,
@@ -333,19 +366,63 @@ def run(args: argparse.Namespace, cfg) -> None:
             contours=6,
             show_sensors=False,
             title=title_by_slot.get(slot_id, None),
+            fig_size_in=fig_size_in,
         )
 
+    # -------------------------------------------------------------------------
+    # Export COLORBAR SVG part (export-time sizing from template slot)
+    # -------------------------------------------------------------------------
     export_colorbar_svg(
         out_svg=parts_directory / "colorbar.svg",
         vlim=vlim,
         label="t value",
+        fig_size_in=_fig_size_from_slot(slot_bboxes, "slot_colorbar"),
     )
 
     # -------------------------------------------------------------------------
-    # Compose final SVG
+    # Export P-TEXT SVG parts (rect slots, export-time sizing)
     # -------------------------------------------------------------------------
-    slot_to_snippet = {slot: parts_directory / f"{slot}.svg" for slot in topomap_by_slot.keys()}
+    dur_tw1_time_index = _nearest_time_index(times_duration_s, duration_label_times_ms[0])
+    dur_tw2_time_index = _nearest_time_index(times_duration_s, duration_label_times_ms[1])
+
+    dur_p_1 = _min_p_at_time_index(
+        cluster_list=clusters_duration,
+        p_values=p_values_duration,
+        time_index=dur_tw1_time_index,
+        p_threshold=p_value_threshold,
+    )
+    dur_p_2 = _min_p_at_time_index(
+        cluster_list=clusters_duration,
+        p_values=p_values_duration,
+        time_index=dur_tw2_time_index,
+        p_threshold=p_value_threshold,
+    )
+
+    lat_p = _min_p_overall(p_values_latency, p_value_threshold)
+
+    ptext_by_slot: dict[str, str] = {
+        "slot_dur_cluster_ptext_1": _format_p(dur_p_1),
+        "slot_dur_cluster_ptext_2": _format_p(dur_p_2),
+        "slot_lat_cluster_ptext": _format_p(lat_p),
+    }
+
+    for slot_id, text in ptext_by_slot.items():
+        fig_size_in = _fig_size_from_slot(slot_bboxes, slot_id)
+
+        export_ptext_svg(
+            text=text,
+            out_svg=parts_directory / f"{slot_id}.svg",
+            fig_size_in=fig_size_in,
+            fontsize_pt=10.0,
+            fontweight="normal",
+        )
+
+    # -------------------------------------------------------------------------
+    # Compose final SVG (placement only; no scaling logic)
+    # -------------------------------------------------------------------------
+    slot_to_snippet: dict[str, Path] = {slot: parts_directory / f"{slot}.svg" for slot in topomap_by_slot.keys()}
     slot_to_snippet["slot_colorbar"] = parts_directory / "colorbar.svg"
+    slot_to_snippet.update({slot: parts_directory / f"{slot}.svg" for slot in ptext_by_slot.keys()})
 
     compose_svg_from_template(
         template_svg=template_svg_path,
@@ -353,4 +430,21 @@ def run(args: argparse.Namespace, cfg) -> None:
         out_svg=output_svg_path,
     )
 
+def _fig_size_from_slot(slot_bboxes: dict[str, tuple[float, float, float, float]], slot_id: str) -> tuple[float, float]:
+    _x, _y, w, h = slot_bboxes[slot_id]
+    return (_svg_units_to_inches(w), _svg_units_to_inches(h))
 
+
+def _format_p(p: float | None) -> str:
+    if p is None:
+        return "n.s."
+    if p < 0.001:
+        return "p < 0.001"
+    return f"p = {p:.3f}"
+
+
+def _min_p_overall(p_values: np.ndarray, p_threshold: float) -> float | None:
+    candidates = [float(p) for p in np.asarray(p_values).ravel() if float(p) <= float(p_threshold)]
+    if len(candidates) == 0:
+        return None
+    return float(min(candidates))

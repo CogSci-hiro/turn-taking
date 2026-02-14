@@ -4,13 +4,13 @@
     <g transform="matrix(2,0,0,2,0,0)">
         <rect x="263.934" y="695.982" width="3180.13" height="1293.79" style="fill:white;"/>
     </g>
-    <g id="lat_cluster_ptext" transform="matrix(1,0,0,1,4732.83,1153.89)">
+    <g id="slot_lat_cluster_ptext" transform="matrix(1,0,0,1,4732.83,1153.89)">
         <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
     </g>
-    <g id="dur_cluster_ptext_2" transform="matrix(1,0,0,1,4732.83,108.165)">
+    <g id="slot_dur_cluster_ptext_2" transform="matrix(1,0,0,1,4731.83,108.165)">
         <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
     </g>
-    <g id="dur_cluster_ptext_1" transform="matrix(1,0,0,1,205.609,108.165)">
+    <g id="slot_dur_cluster_ptext_1" transform="matrix(1,0,0,1,205.609,108.165)">
         <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
     </g>
     <g id="slot_colorbar" transform="matrix(1,0,0,1,81.6284,-23.5693)">
