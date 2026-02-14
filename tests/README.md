@@ -44,7 +44,11 @@ The test resolves paths using:
 2. Global reference root (`TURNTAKING_REFERENCE_ROOT` env var, or `reference_root` in spec)
 3. Per-item values in `comparisons`
 
-If `TURNTAKING_REFERENCE_SPEC` is unset, invalid, or points to a missing file, the test fails.
+If `TURNTAKING_REFERENCE_SPEC` is unset, the test uses this default:
+
+- `/Users/hiro/PycharmProjects/turn-taking-working/dev/reference_spec.json`
+
+If the selected spec path is invalid or missing, the test fails.
 
 ### Supported artifact types
 
@@ -217,8 +221,9 @@ pytest -q tests/turntaking/analysis/test_reference_regression.py
   - The `actual` path in JSON does not exist.
 - Failure: `Reference artifact is missing`
   - The inferred or overridden reference path does not exist.
-- Failure: `TURNTAKING_REFERENCE_SPEC is required`
-  - Environment variable was not set.
+- Failure: `Reference spec does not exist`
+  - `TURNTAKING_REFERENCE_SPEC` points to a missing file, or the default file
+    `/Users/hiro/PycharmProjects/turn-taking-working/dev/reference_spec.json` is missing.
 - Failure: `Reference spec is not valid JSON`
   - JSON syntax is invalid.
 - Failure: `Reference spec must include at least one comparison`
@@ -235,5 +240,5 @@ pytest -q tests/turntaking/analysis/test_reference_regression.py
 1. Run pipeline to generate current outputs.
 2. Save/collect trusted reference outputs.
 3. Write `dev/reference_spec.json`.
-4. Run pytest with `TURNTAKING_REFERENCE_SPEC`.
+4. Run pytest (with `TURNTAKING_REFERENCE_SPEC` if you want a non-default spec path).
 5. If it fails, inspect which `name` failed and why.

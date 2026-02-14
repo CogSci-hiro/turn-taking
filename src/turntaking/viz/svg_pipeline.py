@@ -570,3 +570,23 @@ def _find_slot_rect(slot_g: etree._Element) -> tuple[float, float, float, float]
             if w > 0 and h > 0:
                 return x, y, w, h
     return None
+
+
+def _find_first_image_bbox(slot_g: etree._Element) -> tuple[float, float, float, float, str | None] | None:
+    """
+    Return (x, y, width, height, transform) from the first <image> inside slot_g.
+    """
+    for el in slot_g.iter():
+        if etree.QName(el).localname != "image":
+            continue
+
+        x = _parse_svg_length(el.get("x")) or 0.0
+        y = _parse_svg_length(el.get("y")) or 0.0
+        w = _parse_svg_length(el.get("width")) or 0.0
+        h = _parse_svg_length(el.get("height")) or 0.0
+        transform = el.get("transform")
+
+        if w > 0 and h > 0:
+            return x, y, w, h, transform
+
+    return None

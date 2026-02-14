@@ -18,16 +18,12 @@ from .reference_compare import (
 DEFAULT_MAX_ABS_ERROR = 1e-6
 DEFAULT_MEAN_ABS_ERROR = 1e-8
 DEFAULT_MIN_PEARSON_R = 0.999
+DEFAULT_REFERENCE_SPEC_PATH = Path("/Users/hiro/PycharmProjects/turn-taking-working/dev/reference_spec.json")
 
 
 def _load_reference_spec_from_env() -> dict:
     spec_path = os.getenv("TURNTAKING_REFERENCE_SPEC")
-    assert spec_path, (
-        "TURNTAKING_REFERENCE_SPEC is required. "
-        "Point it to a JSON file with reference comparisons."
-    )
-
-    path = Path(spec_path)
+    path = Path(spec_path) if spec_path else DEFAULT_REFERENCE_SPEC_PATH
     assert path.exists(), f"Reference spec does not exist: {path}"
 
     try:
