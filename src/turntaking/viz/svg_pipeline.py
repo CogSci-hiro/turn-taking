@@ -311,7 +311,7 @@ def export_topomap_svg(
     if mask is not None and np.any(mask):
         mask_params = dict(
             marker="o",
-            markerfacecolor="none",
+            markerfacecolor="gray",
             markeredgecolor="black",
             markersize=marker_size,
             linewidth=0,  # important: no “connecting” outline lines
