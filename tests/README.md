@@ -150,11 +150,6 @@ Create a JSON file (for example: `dev/reference_spec.json`) like this:
         "mean_abs_error": 0.002,
         "min_pearson_r": 0.98
       }
-    },
-    {
-      "name": "duration_scores_from_custom_reference_file",
-      "actual": "decoding/erp/duration/scores.npy",
-      "reference": "custom/duration_scores_v2.npy"
     }
   ]
 }
@@ -184,7 +179,11 @@ Required keys in each comparison object:
 
 - `name`
 - `actual`
-- `reference`
+
+Optional keys in each comparison object:
+
+- `reference` (if provided, this file must exist)
+- `tolerances`
 
 ## How to run with your spec
 
