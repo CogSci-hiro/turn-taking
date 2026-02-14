@@ -19,6 +19,7 @@ DEFAULT_MAX_ABS_ERROR = 1e-6
 DEFAULT_MEAN_ABS_ERROR = 1e-8
 DEFAULT_MIN_PEARSON_R = 0.999
 DEFAULT_REFERENCE_SPEC_PATH = Path("/Users/hiro/PycharmProjects/turn-taking-working/dev/reference_spec.json")
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
 
 
 def _load_reference_spec_from_env() -> dict:
@@ -36,7 +37,14 @@ def _load_reference_spec_from_env() -> dict:
 
 
 def _load_snakemake_out_dir() -> Path:
-    config_path = Path(os.getenv("TURNTAKING_SNAKEMAKE_CONFIG", "workflow/config.yaml"))
+    config_env = os.getenv("TURNTAKING_SNAKEMAKE_CONFIG")
+    if config_env:
+        config_path = Path(config_env)
+        if not config_path.is_absolute():
+            config_path = PROJECT_ROOT / config_path
+    else:
+        config_path = PROJECT_ROOT / "workflow/config.yaml"
+
     assert config_path.exists(), f"Snakemake config not found: {config_path}"
 
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
