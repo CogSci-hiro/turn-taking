@@ -8,7 +8,7 @@
 ✅ done
 
 ## Before submission
-🔄 make LMM table
+✅ make LMM table
 - plot latency effect + hist
 - verify Ethics
 ✅ make ERP topo selected time
