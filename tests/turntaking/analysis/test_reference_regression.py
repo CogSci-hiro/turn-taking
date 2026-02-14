@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+"""Data-driven regression test entrypoint for reference artifact checks."""
+
 import json
 import os
 from pathlib import Path
 
 import pytest
 
-from tests.reference_compare import (
+from .reference_compare import (
     SimilarityThresholds,
     assert_similarity,
     load_supported_artifact,

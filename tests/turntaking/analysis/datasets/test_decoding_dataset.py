@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Tests for decoding dataset assembly from split epoch groups."""
+
 from pathlib import Path
 
 import numpy as np
@@ -12,6 +14,7 @@ from turntaking.analysis.datasets.decoding_dataset import (
 
 
 class _FakeEpochs:
+    # Small stand-in for mne.Epochs to keep this unit test pure and fast.
     def __init__(self, data: np.ndarray, times: np.ndarray):
         self._data = np.asarray(data)
         self.times = np.asarray(times)

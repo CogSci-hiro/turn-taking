@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Tests for low-level table/array/HDF5 serialization helpers."""
+
 import json
 
 import h5py

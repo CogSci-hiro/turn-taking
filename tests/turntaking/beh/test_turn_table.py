@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Tests for behavioral turn-table construction from TSV metadata."""
+
 import pandas as pd
 import pytest
 

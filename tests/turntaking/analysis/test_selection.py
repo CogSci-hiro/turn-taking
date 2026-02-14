@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Tests for metadata-driven epoch selection and median splitting."""
+
 import pandas as pd
 import pytest
 
@@ -56,6 +58,7 @@ def test_split_epochs_median_duration_labels_and_order(sample_epochs):
 
 
 def sample_epochs_no_metadata():
+    # Minimal helper used only for negative-path testing.
     import mne
     import numpy as np
 

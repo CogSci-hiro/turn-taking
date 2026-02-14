@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Reusable helpers for numerical similarity checks against reference artifacts."""
+
 from dataclasses import dataclass
 from pathlib import Path
 

@@ -6,6 +6,15 @@ This suite is designed to satisfy three goals:
 2. Compare run outputs against reference artifacts with explicit numeric tolerances.
 3. Keep every test self-documenting by including a short "what/why" docstring.
 
+## Layout
+
+Tests now mirror the source package shape under `src/turntaking`:
+
+- `tests/turntaking/analysis/...`
+- `tests/turntaking/beh/...`
+- `tests/turntaking/config/...`
+- `tests/turntaking/stats/...`
+
 ## Running Tests
 
 ```bash
@@ -14,7 +23,7 @@ pytest -q
 
 ## Reference Result Similarity Checks
 
-`tests/test_reference_regression.py` is data-driven and activated by an environment variable:
+`tests/turntaking/analysis/test_reference_regression.py` is data-driven and activated by an environment variable:
 
 ```bash
 TURNTAKING_REFERENCE_SPEC=/absolute/path/to/reference_spec.json pytest -q

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+"""Reference-metric unit tests for analysis regression tooling."""
+
 import numpy as np
 import pytest
 
-from tests.reference_compare import (
+from .reference_compare import (
     SimilarityThresholds,
     assert_similarity,
     compare_arrays,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Tests for decoding score and feature-cache I/O contracts."""
+
 import numpy as np
 import pytest
 

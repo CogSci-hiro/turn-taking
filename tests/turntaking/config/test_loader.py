@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Tests for strict YAML-to-dataclass config loading."""
+
 from pathlib import Path
 
 import pytest

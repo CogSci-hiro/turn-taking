@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Tests for ERP/decoding cluster output serialization and loading."""
+
 import numpy as np
 import pandas as pd
 import pytest
