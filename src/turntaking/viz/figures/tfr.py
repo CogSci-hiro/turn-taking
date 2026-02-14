@@ -10,6 +10,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from mpl_toolkits.axes_grid1 import inset_locator
 
+from .erp import plot_stat_topomaps_grid
+
 from .._style import (
     FACE_COLOR,
     FONT_SIZE,
@@ -166,88 +168,140 @@ def plot_tfr_topo(duration_alpha_t: np.ndarray, duration_beta_t: np.ndarray,
 
 
 
+# =============================================================================
+#                     ########################################
+#                     #          TFR TOPO WRAPPERS           #
+#                     ########################################
+# =============================================================================
+def plot_tfr_topo_alpha_duration(
+    t_values: np.ndarray,
+    p_values: np.ndarray,
+    clusters: List[Tuple],
+    info: mne.Info,
+    data_tmin: float,
+    tmin: float,
+    tmax: float,
+    step_ms: float,
+    p_threshold: float = 0.01,
+    *,
+    max_cols: int = 10,
+    figure_profile: str = "jneuro_2col",
+    save_basepath: str | Path | None = None,
+) -> plt.Figure:
+    mask = _get_mask(t_values, p_values, clusters, p_threshold)
+    lim_val = float(np.max(np.abs(t_values)))
+    return plot_stat_topomaps_grid(
+        stat=t_values,
+        mask=mask,
+        info=info,
+        data_tmin=data_tmin,
+        tmin=tmin,
+        tmax=tmax,
+        step_ms=step_ms,
+        title="TFR topographies (Alpha, Duration)",
+        lim_val=lim_val,
+        max_cols=max_cols,
+        figure_profile=figure_profile,
+        save_basepath=save_basepath,
+    )
 
-def plot_tfr_electrode_time_course(long_list: List[mne.Evoked], short_list: List[mne.Evoked],
-                                   fast_list: List[mne.Evoked], slow_list: List[mne.Evoked],
-                                   xmin: float = -1500, xmax: float = 500,
-                                   ymin: float = -1.3, ymax: float = 1.6) -> plt.Figure:
-    """
-    Plot time course of TFR amplitudes for Fz and Pz for duration/latency comparison for a given frequency band
 
-    Note: subject mean is subtracted before plotting
+def plot_tfr_topo_alpha_latency(
+    t_values: np.ndarray,
+    p_values: np.ndarray,
+    clusters: List[Tuple],
+    info: mne.Info,
+    data_tmin: float,
+    tmin: float,
+    tmax: float,
+    step_ms: float,
+    p_threshold: float = 0.01,
+    *,
+    max_cols: int = 10,
+    figure_profile: str = "jneuro_2col",
+    save_basepath: str | Path | None = None,
+) -> plt.Figure:
+    mask = _get_mask(t_values, p_values, clusters, p_threshold)
+    lim_val = float(np.max(np.abs(t_values)))
+    return plot_stat_topomaps_grid(
+        stat=t_values,
+        mask=mask,
+        info=info,
+        data_tmin=data_tmin,
+        tmin=tmin,
+        tmax=tmax,
+        step_ms=step_ms,
+        title="TFR topographies (Alpha, Latency)",
+        lim_val=lim_val,
+        max_cols=max_cols,
+        figure_profile=figure_profile,
+        save_basepath=save_basepath,
+    )
 
-    Parameters
-    ----------
-    long_list
-        list of subject evoked for long condition
 
-    short_list
-        list of subject evoked for short condition
+def plot_tfr_topo_beta_duration(
+    t_values: np.ndarray,
+    p_values: np.ndarray,
+    clusters: List[Tuple],
+    info: mne.Info,
+    data_tmin: float,
+    tmin: float,
+    tmax: float,
+    step_ms: float,
+    p_threshold: float = 0.01,
+    *,
+    max_cols: int = 10,
+    figure_profile: str = "jneuro_2col",
+    save_basepath: str | Path | None = None,
+) -> plt.Figure:
+    mask = _get_mask(t_values, p_values, clusters, p_threshold)
+    lim_val = float(np.max(np.abs(t_values)))
+    return plot_stat_topomaps_grid(
+        stat=t_values,
+        mask=mask,
+        info=info,
+        data_tmin=data_tmin,
+        tmin=tmin,
+        tmax=tmax,
+        step_ms=step_ms,
+        title="TFR topographies (Beta, Duration)",
+        lim_val=lim_val,
+        max_cols=max_cols,
+        figure_profile=figure_profile,
+        save_basepath=save_basepath,
+    )
 
-    fast_list
-        list of subject evoked for fast condition
 
-    slow_list
-        list of subject evoked for slow condition
-
-    xmin: float
-        x limit minimum to plot
-
-    xmax: float
-        x limit maximum to plot
-
-    ymin: float
-        y limit minimum to plot
-
-    ymax: float
-        y limit maximum to plot
-
-    Returns
-    -------
-    plt.Figure
-        figure
-    """
-
-    electrode_1 = "FC4"
-    electrode_2 = "Pz"
-    fig, axes = plt.subplots(2, 2, figsize=(20, 10))
-
-    # Duration FC6
-    _plot_selection_electrode_time_course(long_list, short_list, axes[0, 0], electrode=electrode_1,
-                                          label_1="long", label_2="short",
-                                          color_1=DURATION_COLOR_1, color_2=DURATION_COLOR_2,
-                                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, reverse=False, average=True,
-                                          title="Duration", xlabel="Time (ms)",
-                                          y_large_label=electrode_1,
-                                          ylabel=f"Power ($\mu V^2$)")
-
-    # Duration Pz
-    _plot_selection_electrode_time_course(long_list, short_list, axes[1, 0], electrode=electrode_2,
-                                          label_1="long", label_2="short",
-                                          color_1=DURATION_COLOR_1, color_2=DURATION_COLOR_2,
-                                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, reverse=False, average=True,
-                                          title=None, xlabel="Time (ms)",
-                                          y_large_label=electrode_2,
-                                          ylabel=f"Power ($\mu V^2$)")
-
-    # Latency FC6
-    _plot_selection_electrode_time_course(fast_list, slow_list, axes[0, 1], electrode=electrode_1,
-                                          label_1="fast", label_2="slow",
-                                          color_1=LATENCY_COLOR_1, color_2=LATENCY_COLOR_2,
-                                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, reverse=False, average=True,
-                                          title="Latency", xlabel="Time (ms)", ylabel="Power ($\mu V^2$)")
-
-    # Latency Pz
-    _plot_selection_electrode_time_course(fast_list, slow_list, axes[1, 1], electrode=electrode_2,
-                                          label_1="fast", label_2="slow",
-                                          color_1=LATENCY_COLOR_1, color_2=LATENCY_COLOR_2,
-                                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, reverse=False, average=True,
-                                          title=None, xlabel="Time (ms)", ylabel="Power ($\mu V^2$)")
-
-    return fig
-
-################################################################
-#                           DECODING                           #
-################################################################
+def plot_tfr_topo_beta_latency(
+    t_values: np.ndarray,
+    p_values: np.ndarray,
+    clusters: List[Tuple],
+    info: mne.Info,
+    data_tmin: float,
+    tmin: float,
+    tmax: float,
+    step_ms: float,
+    p_threshold: float = 0.01,
+    *,
+    max_cols: int = 10,
+    figure_profile: str = "jneuro_2col",
+    save_basepath: str | Path | None = None,
+) -> plt.Figure:
+    mask = _get_mask(t_values, p_values, clusters, p_threshold)
+    lim_val = float(np.max(np.abs(t_values)))
+    return plot_stat_topomaps_grid(
+        stat=t_values,
+        mask=mask,
+        info=info,
+        data_tmin=data_tmin,
+        tmin=tmin,
+        tmax=tmax,
+        step_ms=step_ms,
+        title="TFR topographies (Beta, Latency)",
+        lim_val=lim_val,
+        max_cols=max_cols,
+        figure_profile=figure_profile,
+        save_basepath=save_basepath,
+    )
 
 

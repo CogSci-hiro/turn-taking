@@ -15,7 +15,7 @@ from .figures.erp import (
     plot_latency_erp_with_histograms,
     plot_topo_selection,
 )
-from .figures.tfr import plot_tfr_electrode_time_course, plot_tfr_topo
+from .figures.tfr import plot_tfr_topo
 from .figures.decoding import plot_decoding
 from ._io import plot_colorbar
 
@@ -27,7 +27,6 @@ __all__ = [
     "plot_latency_erp_with_histograms",
     "plot_joint_erps",
     "plot_tfr_topo",
-    "plot_tfr_electrode_time_course",
     "plot_decoding",
     "plot_colorbar",
 ]

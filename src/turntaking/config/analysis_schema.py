@@ -33,6 +33,45 @@ class VizErpTopomapsSection:
 
 
 @dataclass(frozen=True)
+class VizTfrToposSection:
+    alpha_duration_cluster_hdf5: Path
+    alpha_latency_cluster_hdf5: Path
+    beta_duration_cluster_hdf5: Path
+    beta_latency_cluster_hdf5: Path
+    info_source_fif: Path
+
+    out_alpha_duration: Path
+    out_alpha_latency: Path
+    out_beta_duration: Path
+    out_beta_latency: Path
+
+    tmin_s: float
+    tmax_s: float
+    step_ms: float
+    max_cols: int = 10
+    p_threshold: float = 0.01
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "VizTfrToposSection":
+        return cls(
+            alpha_duration_cluster_hdf5=Path(raw["alpha_duration_cluster_hdf5"]),
+            alpha_latency_cluster_hdf5=Path(raw["alpha_latency_cluster_hdf5"]),
+            beta_duration_cluster_hdf5=Path(raw["beta_duration_cluster_hdf5"]),
+            beta_latency_cluster_hdf5=Path(raw["beta_latency_cluster_hdf5"]),
+            info_source_fif=Path(raw["info_source_fif"]),
+            out_alpha_duration=Path(raw["out_alpha_duration"]),
+            out_alpha_latency=Path(raw["out_alpha_latency"]),
+            out_beta_duration=Path(raw["out_beta_duration"]),
+            out_beta_latency=Path(raw["out_beta_latency"]),
+            tmin_s=float(raw["tmin_s"]),
+            tmax_s=float(raw["tmax_s"]),
+            step_ms=float(raw["step_ms"]),
+            max_cols=int(raw.get("max_cols", 10)),
+            p_threshold=float(raw.get("p_threshold", 0.01)),
+        )
+
+
+@dataclass(frozen=True)
 class VizTfrTopomapsSection:
     """
     Config for the composed TFR topomap figure assembled from SVG parts.
@@ -129,6 +168,7 @@ class VizBehaviorSection:
 class VizSection:
     erp_timecourse: VizErpTimecourseSection
     erp_topo: VizErpTopoSection
+    tfr_topos: VizTfrToposSection
     behavior: VizBehaviorSection
     erp_topomaps: VizErpTopomapsSection
     tfr_topomaps: VizTfrTopomapsSection
@@ -447,12 +487,36 @@ class TurntakingConfig:
             n_duration_maps=int(tfr_topomaps_d.get("n_duration_maps", 2)),
             n_latency_maps=int(tfr_topomaps_d.get("n_latency_maps", 3)),
         )
+
+        tfr_topos_d = _require_mapping(
+            _require_key(viz_d, "tfr_topos", "viz"),
+            "viz.tfr_topos",
+        )
+
+        tfr_topos = VizTfrToposSection(
+            alpha_duration_cluster_hdf5=Path(_require_key(tfr_topos_d, "alpha_duration_cluster_hdf5", "viz.tfr_topos")),
+            alpha_latency_cluster_hdf5=Path(_require_key(tfr_topos_d, "alpha_latency_cluster_hdf5", "viz.tfr_topos")),
+            beta_duration_cluster_hdf5=Path(_require_key(tfr_topos_d, "beta_duration_cluster_hdf5", "viz.tfr_topos")),
+            beta_latency_cluster_hdf5=Path(_require_key(tfr_topos_d, "beta_latency_cluster_hdf5", "viz.tfr_topos")),
+            info_source_fif=Path(_require_key(tfr_topos_d, "info_source_fif", "viz.tfr_topos")),
+            out_alpha_duration=Path(_require_key(tfr_topos_d, "out_alpha_duration", "viz.tfr_topos")),
+            out_alpha_latency=Path(_require_key(tfr_topos_d, "out_alpha_latency", "viz.tfr_topos")),
+            out_beta_duration=Path(_require_key(tfr_topos_d, "out_beta_duration", "viz.tfr_topos")),
+            out_beta_latency=Path(_require_key(tfr_topos_d, "out_beta_latency", "viz.tfr_topos")),
+            tmin_s=float(_require_key(tfr_topos_d, "tmin_s", "viz.tfr_topos")),
+            tmax_s=float(_require_key(tfr_topos_d, "tmax_s", "viz.tfr_topos")),
+            step_ms=float(_require_key(tfr_topos_d, "step_ms", "viz.tfr_topos")),
+            max_cols=int(tfr_topos_d.get("max_cols", 10)),
+            p_threshold=float(tfr_topos_d.get("p_threshold", 0.01)),
+        )
+
         viz = VizSection(
             erp_timecourse=erp_timecourse,
             erp_topo=erp_topo,
             behavior=behavior,
             erp_topomaps=erp_topomaps,
             tfr_topomaps=tfr_topomaps,
+            tfr_topos=tfr_topos
         )
 
         return TurntakingConfig(
