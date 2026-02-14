@@ -85,6 +85,42 @@ If your Snakemake `io.out_dir` is `/Users/hiro/.../workflow/results/current` and
 - actual: `decoding/erp/duration/scores.npy`
 - inferred reference: `decoding/erp/duration/scores.npy` under `reference_root`
 
+## Full reference data checklist
+
+Important rule:
+
+- The test requires reference files for every item in `comparisons`.
+- If a comparison is listed and the inferred/overridden reference file is missing, the test fails.
+
+Recommended full list (default practical setup):
+
+- `decoding/erp/duration/scores.npy`
+- `decoding/erp/duration/times.npy`
+- `decoding/erp/latency/scores.npy`
+- `decoding/erp/latency/times.npy`
+- `erp/duration/offsets.csv`
+- `erp/latency/offsets.csv`
+- `beh/turn_table.csv`
+
+So if your `reference_root` is:
+
+- `/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference`
+
+then expected files are:
+
+- `/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/decoding/erp/duration/scores.npy`
+- `/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/decoding/erp/duration/times.npy`
+- `/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/decoding/erp/latency/scores.npy`
+- `/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/decoding/erp/latency/times.npy`
+- `/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/erp/duration/offsets.csv`
+- `/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/erp/latency/offsets.csv`
+- `/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/beh/turn_table.csv`
+
+Notes:
+
+- Supported formats in this test are currently `.npy` and `.csv` only.
+- Files like `.hdf5` are not compared unless you extend `load_supported_artifact`.
+
 ## Spec file format
 
 Create a JSON file (for example: `dev/reference_spec.json`) like this:

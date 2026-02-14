@@ -471,19 +471,45 @@ def compose_svg_from_template(
     for slot_id, snippet_path in slot_to_snippet.items():
         slot_g = _find_by_id(template_root, slot_id)
 
-        # Clear current placeholder children
+        # Read slot bounds from placeholder rect (recommended template convention)
+        slot_rect = _find_slot_rect(slot_g)
+
+        # Clear placeholder children
         for child in list(slot_g):
             slot_g.remove(child)
 
         snippet_root = _load_svg_root(snippet_path)
 
-        # IMPORTANT: keep <defs> and prefix ids uniquely per slot
+        # Keep <defs> etc. (do NOT strip defs)
         snippet_children = _snippet_children_with_defs(snippet_root, slot_id=slot_id)
 
-        wrapper = etree.Element(f"{{{_SVG_NS}}}g")
+        # Embed snippet as its own <svg> so its viewBox is respected (fixes shift + size)
+        embedded_svg = etree.Element(f"{{{_SVG_NS}}}svg")
+
+        view_box = snippet_root.get("viewBox")
+        if view_box is not None:
+            embedded_svg.set("viewBox", view_box)
+
+        embedded_svg.set("preserveAspectRatio", "xMidYMid meet")
+
+        if slot_rect is not None:
+            x, y, w, h = slot_rect
+            embedded_svg.set("x", str(x))
+            embedded_svg.set("y", str(y))
+            embedded_svg.set("width", str(w))
+            embedded_svg.set("height", str(h))
+        else:
+            # Fallback: at least keep the snippet's own size; template won't scale it.
+            # If you see this, add a <rect> placeholder inside each slot group in the template.
+            if snippet_root.get("width") is not None:
+                embedded_svg.set("width", snippet_root.get("width"))
+            if snippet_root.get("height") is not None:
+                embedded_svg.set("height", snippet_root.get("height"))
+
         for child in snippet_children:
-            wrapper.append(child)
-        slot_g.append(wrapper)
+            embedded_svg.append(child)
+
+        slot_g.append(embedded_svg)
 
     out_svg.write_text(
         etree.tostring(
@@ -494,3 +520,18 @@ def compose_svg_from_template(
         ).decode("utf-8"),
         encoding="utf-8",
     )
+
+
+def _find_slot_rect(slot_g: etree._Element) -> tuple[float, float, float, float] | None:
+    """
+    Return (x, y, width, height) from the first <rect> found inside the slot group.
+    """
+    for el in slot_g.iter():
+        if etree.QName(el).localname == "rect":
+            x = float(el.get("x", "0"))
+            y = float(el.get("y", "0"))
+            w = float(el.get("width", "0"))
+            h = float(el.get("height", "0"))
+            if w > 0 and h > 0:
+                return x, y, w, h
+    return None
