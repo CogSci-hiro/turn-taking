@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -28,8 +29,7 @@ class SimilarityReport:
     shape: tuple[int, ...]
 
 
-def compare_arrays(actual: np.ndarray, reference: np.ndarray) -> SimilarityReport:
-    """Compute stable similarity metrics used by regression tests."""
+def _numeric_similarity(actual: np.ndarray, reference: np.ndarray) -> SimilarityReport:
     actual = np.asarray(actual, dtype=float)
     reference = np.asarray(reference, dtype=float)
 
@@ -55,9 +55,57 @@ def compare_arrays(actual: np.ndarray, reference: np.ndarray) -> SimilarityRepor
     )
 
 
+def compare_arrays(actual: Any, reference: Any) -> SimilarityReport:
+    """Compute similarity metrics for numeric arrays or mixed-type DataFrames."""
+    if isinstance(actual, pd.DataFrame) or isinstance(reference, pd.DataFrame):
+        if not isinstance(actual, pd.DataFrame) or not isinstance(reference, pd.DataFrame):
+            raise ValueError("Both artifacts must be DataFrames when one artifact is a DataFrame.")
+
+        if list(actual.columns) != list(reference.columns):
+            raise ValueError(
+                f"CSV column mismatch: actual={list(actual.columns)}, reference={list(reference.columns)}"
+            )
+        if actual.shape != reference.shape:
+            raise ValueError(f"Shape mismatch: actual={actual.shape}, reference={reference.shape}")
+
+        numeric_cols: list[str] = []
+        non_numeric_cols: list[str] = []
+        for col in actual.columns:
+            is_num = pd.api.types.is_numeric_dtype(actual[col]) and pd.api.types.is_numeric_dtype(reference[col])
+            if is_num:
+                numeric_cols.append(col)
+            else:
+                non_numeric_cols.append(col)
+
+        for col in non_numeric_cols:
+            if not actual[col].equals(reference[col]):
+                raise ValueError(f"Non-numeric column mismatch in '{col}'.")
+
+        if not numeric_cols:
+            return SimilarityReport(
+                max_abs_error=0.0,
+                mean_abs_error=0.0,
+                pearson_r=1.0,
+                shape=actual.shape,
+            )
+
+        report = _numeric_similarity(
+            actual[numeric_cols].to_numpy(dtype=float),
+            reference[numeric_cols].to_numpy(dtype=float),
+        )
+        return SimilarityReport(
+            max_abs_error=report.max_abs_error,
+            mean_abs_error=report.mean_abs_error,
+            pearson_r=report.pearson_r,
+            shape=actual.shape,
+        )
+
+    return _numeric_similarity(np.asarray(actual), np.asarray(reference))
+
+
 def assert_similarity(
-    actual: np.ndarray,
-    reference: np.ndarray,
+    actual: Any,
+    reference: Any,
     thresholds: SimilarityThresholds,
 ) -> SimilarityReport:
     """Assert actual results are numerically close to reference within configured tolerances."""
@@ -68,11 +116,11 @@ def assert_similarity(
     return report
 
 
-def load_supported_artifact(path: Path) -> np.ndarray:
-    """Load an artifact from `.npy` or `.csv` into a NumPy array for cross-run comparison."""
+def load_supported_artifact(path: Path) -> np.ndarray | pd.DataFrame:
+    """Load an artifact from `.npy` or `.csv` for cross-run comparison."""
     suffix = path.suffix.lower()
     if suffix == ".npy":
         return np.asarray(np.load(path))
     if suffix == ".csv":
-        return pd.read_csv(path).to_numpy()
+        return pd.read_csv(path)
     raise ValueError(f"Unsupported artifact extension for similarity comparison: {suffix}")

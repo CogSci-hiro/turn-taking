@@ -516,22 +516,21 @@ def compose_svg_from_template(
     for slot_id, snippet_path in slot_to_snippet.items():
         slot_g = _find_by_id(template_root, slot_id)
 
-        anchor = _find_first_image_bbox(slot_g)
+        anchor = _find_slot_rect(slot_g)
         if anchor is None:
             raise RuntimeError(
-                f"Slot {slot_id!r} has no <image> anchor with width/height. "
-                "Add a placeholder <image> to define the slot bounds."
+                f"Slot {slot_id!r} has no <rect> anchor with width/height. "
+                "Add an invisible <rect x= y= width= height=> inside each slot group."
             )
         x, y, w, h, anchor_transform = anchor
 
-        # Clear existing children (removes the anchor image too — that's fine)
+        # Clear existing children
         for child in list(slot_g):
             slot_g.remove(child)
 
         snippet_root = _load_svg_root(snippet_path)
         snippet_children = _snippet_children_with_defs(snippet_root, slot_id=slot_id)
 
-        # Wrap in a <g> so we can preserve anchor's transform
         wrapper_g = etree.Element(f"{{{_SVG_NS}}}g")
         if anchor_transform is not None:
             wrapper_g.set("transform", anchor_transform)
@@ -546,8 +545,6 @@ def compose_svg_from_template(
         embedded_svg.set("y", str(y))
         embedded_svg.set("width", str(w))
         embedded_svg.set("height", str(h))
-
-        # Center snippet within the anchor box
         embedded_svg.set("preserveAspectRatio", "xMidYMid meet")
 
         for child in snippet_children:
@@ -567,19 +564,26 @@ def compose_svg_from_template(
     )
 
 
-def _find_slot_rect(slot_g: etree._Element) -> tuple[float, float, float, float] | None:
+def _find_slot_rect(slot_g: etree._Element) -> tuple[float, float, float, float, str | None] | None:
     """
-    Return (x, y, width, height) from the first <rect> found inside the slot group.
+    Return (x, y, width, height, transform) from the first <rect> inside slot_g.
+    Handles 'px' etc. Also returns the rect's own transform (if any).
     """
     for el in slot_g.iter():
-        if etree.QName(el).localname == "rect":
-            x = float(el.get("x", "0"))
-            y = float(el.get("y", "0"))
-            w = float(el.get("width", "0"))
-            h = float(el.get("height", "0"))
-            if w > 0 and h > 0:
-                return x, y, w, h
+        if etree.QName(el).localname != "rect":
+            continue
+
+        x = _parse_svg_length(el.get("x")) or 0.0
+        y = _parse_svg_length(el.get("y")) or 0.0
+        w = _parse_svg_length(el.get("width")) or 0.0
+        h = _parse_svg_length(el.get("height")) or 0.0
+        transform = el.get("transform")
+
+        if w > 0 and h > 0:
+            return x, y, w, h, transform
+
     return None
+
 
 
 
