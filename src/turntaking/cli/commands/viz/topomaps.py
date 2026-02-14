@@ -169,12 +169,24 @@ def run(args: argparse.Namespace, cfg) -> None:
 
     topomaps_config = cfg.viz.erp_topomaps
 
-    template_svg_path: Path = Path(topomaps_config.template_svg)
-    parts_directory: Path = Path(topomaps_config.parts_dir)
-    output_svg_path: Path = Path(topomaps_config.out_svg)
+    template_svg_path: Path = Path(args.template) if getattr(args, "template", None) else Path(
+        topomaps_config.template_svg)
 
-    parts_directory.mkdir(parents=True, exist_ok=True)
-    output_svg_path.parent.mkdir(parents=True, exist_ok=True)
+    parts_directory: Path
+    if getattr(args, "parts_dir", None):
+        parts_directory = Path(args.parts_dir)
+    elif topomaps_config.parts_dir is not None:
+        parts_directory = Path(topomaps_config.parts_dir)
+    else:
+        raise ValueError("No parts_dir provided. Pass --parts-dir or set viz.erp_topomaps.parts_dir in config.")
+
+    output_svg_path: Path
+    if getattr(args, "out_svg", None):
+        output_svg_path = Path(args.out_svg)
+    elif topomaps_config.out_svg is not None:
+        output_svg_path = Path(topomaps_config.out_svg)
+    else:
+        raise ValueError("No out_svg provided. Pass --out-svg or set viz.erp_topomaps.out_svg in config.")
 
     # -------------------------------------------------------------------------
     # Local helpers

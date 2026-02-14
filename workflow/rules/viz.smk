@@ -195,11 +195,16 @@ rule fig_erp_topomap_svg:
         template="workflow/templates/ERP-timeline.svg",
         config="workflow/config.yaml",
     output:
-        svg="workflow/results/F_erp_topomap.svg",
+        svg=FIG_ROOT + "/main/F_erp_topomap.svg",
     params:
-        parts_dir="workflow/results/parts_erp_topomap"
+        parts_dir=FIG_ROOT + "/main/parts_erp_topomap"
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
     shell:
         r"""
+        set -euo pipefail
         python -m turntaking.cli.main viz-topomaps \
           --config "{input.config}" \
           --template "{input.template}" \
