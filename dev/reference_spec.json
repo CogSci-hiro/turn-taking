@@ -1,5 +1,5 @@
 {
-  "reference_root": "/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference",
+  "reference_root": "/Volumes/work-4T/turn-taking-new/ref",
   "global_tolerances": {
     "max_abs_error": 0.01,
     "mean_abs_error": 0.001,

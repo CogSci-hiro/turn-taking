@@ -29,6 +29,47 @@ _SVG_NS: str = "http://www.w3.org/2000/svg"
 _XLINK_NS: str = "http://www.w3.org/1999/xlink"
 
 
+_SVG_NS: str = "http://www.w3.org/2000/svg"
+
+_LENGTH_RE = re.compile(r"^\s*([0-9]*\.?[0-9]+)\s*([a-z%]*)\s*$", re.IGNORECASE)
+
+
+def _parse_svg_length(value: str | None) -> float | None:
+    if value is None:
+        return None
+    m = _LENGTH_RE.match(value)
+    if m is None:
+        return None
+    return float(m.group(1))
+
+
+def _find_first_image_bbox(slot_g: etree._Element) -> tuple[float, float, float, float] | None:
+    """
+    Return (x, y, width, height) from the first <image> element inside slot_g.
+    """
+    for el in slot_g.iter():
+        if etree.QName(el).localname != "image":
+            continue
+        x = _parse_svg_length(el.get("x")) or 0.0
+        y = _parse_svg_length(el.get("y")) or 0.0
+        w = _parse_svg_length(el.get("width")) or 0.0
+        h = _parse_svg_length(el.get("height")) or 0.0
+        if w > 0 and h > 0:
+            return x, y, w, h
+    return None
+
+
+def _ensure_viewbox(snippet_root: etree._Element) -> str | None:
+    vb = snippet_root.get("viewBox")
+    if vb:
+        return vb
+    w = _parse_svg_length(snippet_root.get("width"))
+    h = _parse_svg_length(snippet_root.get("height"))
+    if w is None or h is None or w <= 0 or h <= 0:
+        return None
+    return f"0 0 {w} {h}"
+
+
 def _rewrite_ids_inplace(root: etree._Element, *, prefix: str) -> None:
     """
     Prefix all SVG ids in `root` and update url(#...) / href references.
@@ -220,7 +261,7 @@ def export_topomap_svg(
     title: str | None = None,
     show_sensors: bool = False,
     contours: int = 6,
-    fig_size_in: tuple[float, float] = (3.2, 3.2),  # bigger default
+    fig_size_in: tuple[float, float] = (8.2, 8.2),  # bigger default
     dpi: int = _DEFAULT_DPI,
     title_fontsize: int = 16,
     marker_size: float = 9.0,
@@ -295,7 +336,7 @@ def export_colorbar_svg(
     vlim: tuple[float, float],
     cmap: str = _DEFAULT_CMAP,
     label: str = "t value",
-    fig_size_in: tuple[float, float] = (0.8, 3.2),  # match topo height
+    fig_size_in: tuple[float, float] = (2.4, 9.6),  # match topo height
     dpi: int = _DEFAULT_DPI,
     tick_fontsize: int = 12,
     label_fontsize: int = 13,
@@ -471,40 +512,34 @@ def compose_svg_from_template(
     for slot_id, snippet_path in slot_to_snippet.items():
         slot_g = _find_by_id(template_root, slot_id)
 
-        # Read slot bounds from placeholder rect (recommended template convention)
-        slot_rect = _find_slot_rect(slot_g)
+        anchor_bbox = _find_first_image_bbox(slot_g)
+        if anchor_bbox is None:
+            raise RuntimeError(
+                f"Slot {slot_id!r} has no <image> anchor with x/y/width/height. "
+                "Add a placeholder <image> (or switch to rect-based bounds)."
+            )
+        x, y, w, h = anchor_bbox
 
-        # Clear placeholder children
+        # Clear existing children (removes the anchor image too — that’s fine)
         for child in list(slot_g):
             slot_g.remove(child)
 
         snippet_root = _load_svg_root(snippet_path)
-
-        # Keep <defs> etc. (do NOT strip defs)
         snippet_children = _snippet_children_with_defs(snippet_root, slot_id=slot_id)
 
-        # Embed snippet as its own <svg> so its viewBox is respected (fixes shift + size)
         embedded_svg = etree.Element(f"{{{_SVG_NS}}}svg")
 
-        view_box = snippet_root.get("viewBox")
+        view_box = _ensure_viewbox(snippet_root)
         if view_box is not None:
             embedded_svg.set("viewBox", view_box)
 
-        embedded_svg.set("preserveAspectRatio", "xMidYMid meet")
+        embedded_svg.set("x", str(x))
+        embedded_svg.set("y", str(y))
+        embedded_svg.set("width", str(w))
+        embedded_svg.set("height", str(h))
 
-        if slot_rect is not None:
-            x, y, w, h = slot_rect
-            embedded_svg.set("x", str(x))
-            embedded_svg.set("y", str(y))
-            embedded_svg.set("width", str(w))
-            embedded_svg.set("height", str(h))
-        else:
-            # Fallback: at least keep the snippet's own size; template won't scale it.
-            # If you see this, add a <rect> placeholder inside each slot group in the template.
-            if snippet_root.get("width") is not None:
-                embedded_svg.set("width", snippet_root.get("width"))
-            if snippet_root.get("height") is not None:
-                embedded_svg.set("height", snippet_root.get("height"))
+        # This is the center-to-center magic
+        embedded_svg.set("preserveAspectRatio", "xMidYMid meet")
 
         for child in snippet_children:
             embedded_svg.append(child)
