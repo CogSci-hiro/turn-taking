@@ -516,42 +516,39 @@ def compose_svg_from_template(
     for slot_id, snippet_path in slot_to_snippet.items():
         slot_g = _find_by_id(template_root, slot_id)
 
-        # Clear existing children
+        # Your template uses a <circle> placeholder inside each slot group
+        bbox = _find_slot_circle_bbox(slot_g)
+        if bbox is None:
+            raise RuntimeError(
+                f"Slot {slot_id!r} has no <circle> anchor (cx/cy/r). "
+                "Add a placeholder circle or change the anchor finder."
+            )
+        x, y, w, h = bbox
+
+        # Clear existing children (removes the circle placeholder too)
         for child in list(slot_g):
             slot_g.remove(child)
 
         snippet_root = _load_svg_root(snippet_path)
         snippet_children = _snippet_children_with_defs(snippet_root, slot_id=slot_id)
 
-        # Ensure viewBox exists (your helper already tries)
-        view_box = _ensure_viewbox(snippet_root)
-        vb = _parse_viewbox(view_box)
-        if vb is None:
-            raise RuntimeError(f"Snippet {snippet_path} has no usable viewBox; cannot center robustly.")
-        x0, y0, vw, vh = vb
-
-        # Embedded snippet SVG in its own coordinate system
         embedded_svg = etree.Element(f"{{{_SVG_NS}}}svg")
-        embedded_svg.set("viewBox", view_box)
 
-        # IMPORTANT:
-        # Set width/height in *viewBox units* (unitless). This avoids pt/px mismatch.
-        embedded_svg.set("width", str(vw))
-        embedded_svg.set("height", str(vh))
+        view_box = _ensure_viewbox(snippet_root)
+        if view_box is not None:
+            embedded_svg.set("viewBox", view_box)
+
+        # Place snippet into the circle's bounding box in slot-local coordinates
+        embedded_svg.set("x", str(x))
+        embedded_svg.set("y", str(y))
+        embedded_svg.set("width", str(w))
+        embedded_svg.set("height", str(h))
         embedded_svg.set("preserveAspectRatio", "xMidYMid meet")
 
         for child in snippet_children:
             embedded_svg.append(child)
 
-        # Center snippet so that its viewBox center maps to (0, 0) in the slot group
-        cx = x0 + vw / 2.0
-        cy = y0 + vh / 2.0
-
-        wrapper_g = etree.Element(f"{{{_SVG_NS}}}g")
-        wrapper_g.set("transform", f"translate({-cx},{-cy})")
-
-        wrapper_g.append(embedded_svg)
-        slot_g.append(wrapper_g)
+        slot_g.append(embedded_svg)
 
     out_svg.write_text(
         etree.tostring(
@@ -608,4 +605,29 @@ def _parse_viewbox(vb: str | None) -> tuple[float, float, float, float] | None:
     if w <= 0 or h <= 0:
         return None
     return x0, y0, w, h
+
+
+def _find_slot_circle_bbox(slot_g: etree._Element) -> tuple[float, float, float, float] | None:
+    """
+    Use the first <circle> in the slot group as an anchor.
+
+    Returns
+    -------
+    (x, y, width, height) where the box is the circle's bounding box:
+        x = cx - r
+        y = cy - r
+        width = 2r
+        height = 2r
+    """
+    for el in slot_g.iter():
+        if etree.QName(el).localname != "circle":
+            continue
+
+        cx = _parse_svg_length(el.get("cx")) or 0.0
+        cy = _parse_svg_length(el.get("cy")) or 0.0
+        r = _parse_svg_length(el.get("r")) or 0.0
+        if r > 0:
+            return (cx - r, cy - r, 2.0 * r, 2.0 * r)
+
+    return None
 
