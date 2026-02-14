@@ -16,6 +16,7 @@ FIG_MAIN = [
     str(out_dir() / "figures" / "main" / "fig4_tfr_topomaps.png"),
     str(out_dir() / "figures" / "main" / "fig5_decoding.png"),
     str(out_dir() / "figures" / "main" / "F_erp_topomap.tif"),
+    str(out_dir() / "figures" / "main" / "F_tfr_topomap.tif"),
 ]
 
 FIG_SUPP = [
@@ -235,3 +236,25 @@ rule fig_erp_topomap_tif:
           --dpi 300
         """
 
+
+rule fig_tfr_topomap_svg:
+    input:
+        template="workflow/templates/TF-timeline.svg",
+        config="workflow/config.yaml",
+    output:
+        svg=FIG_ROOT + "/main/F_tfr_topomap.svg",
+    params:
+        parts_dir=FIG_ROOT + "/main/parts_tfr_topomap"
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
+    shell:
+        r"""
+        set -euo pipefail
+        python -m turntaking.cli.main viz-tfr-topomaps \
+          --config "{input.config}" \
+          --template "{input.template}" \
+          --parts-dir "{params.parts_dir}" \
+          --out-svg "{output.svg}"
+        """

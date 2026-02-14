@@ -147,3 +147,11 @@ viz:
     p_threshold: 0.05
     n_duration_maps: 2
     n_latency_maps: 3
+  tfr_topomaps:
+    template_svg: "workflow/templates/TF-timeline.svg"
+    info_source_fif: "/Volumes/work-4T/turn-taking-new/tfr/duration/alpha/difference_ave.fif"
+    alpha_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/tfr/duration/alpha/cluster_results.hdf5"
+    beta_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/tfr/duration/beta/cluster_results.hdf5"
+    p_threshold: 0.05
+    n_duration_maps: 2
+    n_latency_maps: 3

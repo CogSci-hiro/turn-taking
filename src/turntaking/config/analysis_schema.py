@@ -31,6 +31,39 @@ class VizErpTopomapsSection:
     n_duration_maps: int = 2
     n_latency_maps: int = 3
 
+
+@dataclass(frozen=True)
+class VizTfrTopomapsSection:
+    """
+    Config for the composed TFR topomap figure assembled from SVG parts.
+
+    Usage example
+    -------------
+        viz:
+          tfr_topomaps:
+            template_svg: "workflow/templates/EF-timeline.svg"
+            info_source_fif: "/path/to/tfr/.../difference_ave.fif"
+            alpha_cluster_hdf5: "/path/to/.../alpha/cluster_results.hdf5"
+            beta_cluster_hdf5: "/path/to/.../beta/cluster_results.hdf5"
+            p_threshold: 0.05
+            n_duration_maps: 2
+            n_latency_maps: 3
+    """
+    template_svg: Path
+
+    # Optional outputs if you want config fallback (Snakemake/CLI should override)
+    out_svg: Optional[Path] = None
+    parts_dir: Optional[Path] = None
+
+    info_source_fif: Path = Path(".")
+    alpha_cluster_hdf5: Path = Path(".")
+    beta_cluster_hdf5: Path = Path(".")
+
+    p_threshold: float = 0.05
+    n_duration_maps: int = 2
+    n_latency_maps: int = 3
+
+
 @dataclass(frozen=True)
 class VizErpTimecourseSection:
     duration_long_fif: Path
@@ -98,6 +131,7 @@ class VizSection:
     erp_topo: VizErpTopoSection
     behavior: VizBehaviorSection
     erp_topomaps: VizErpTopomapsSection
+    tfr_topomaps: VizTfrTopomapsSection
 
     @classmethod
     def from_dict(cls, raw: dict) -> "VizSection":
@@ -396,11 +430,29 @@ class TurntakingConfig:
             max_cols=int(erp_topo_d.get("max_cols", 10)),
             p_threshold=float(erp_topo_d.get("p_threshold", 0.01)),
         )
+
+        tfr_topomaps_d = _require_mapping(
+            _require_key(viz_d, "tfr_topomaps", "viz"),
+            "viz.tfr_topomaps",
+        )
+
+        tfr_topomaps = VizTfrTopomapsSection(
+            template_svg=Path(_require_key(tfr_topomaps_d, "template_svg", "viz.tfr_topomaps")),
+            out_svg=Path(tfr_topomaps_d["out_svg"]) if "out_svg" in tfr_topomaps_d else None,
+            parts_dir=Path(tfr_topomaps_d["parts_dir"]) if "parts_dir" in tfr_topomaps_d else None,
+            info_source_fif=Path(_require_key(tfr_topomaps_d, "info_source_fif", "viz.tfr_topomaps")),
+            alpha_cluster_hdf5=Path(_require_key(tfr_topomaps_d, "alpha_cluster_hdf5", "viz.tfr_topomaps")),
+            beta_cluster_hdf5=Path(_require_key(tfr_topomaps_d, "beta_cluster_hdf5", "viz.tfr_topomaps")),
+            p_threshold=float(tfr_topomaps_d.get("p_threshold", 0.05)),
+            n_duration_maps=int(tfr_topomaps_d.get("n_duration_maps", 2)),
+            n_latency_maps=int(tfr_topomaps_d.get("n_latency_maps", 3)),
+        )
         viz = VizSection(
             erp_timecourse=erp_timecourse,
             erp_topo=erp_topo,
             behavior=behavior,
             erp_topomaps=erp_topomaps,
+            tfr_topomaps=tfr_topomaps,
         )
 
         return TurntakingConfig(
