@@ -4,32 +4,41 @@
     <g transform="matrix(2,0,0,2,0,0)">
         <rect x="263.934" y="695.982" width="3180.13" height="1293.79" style="fill:white;"/>
     </g>
-    <g id="slot_lat_ptext" transform="matrix(1,0,0,1,4382.87,1725.91)">
-        <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+    <g id="slot_lat_ptext">
     </g>
-    <g id="slot_lat_ptext1" serif:id="slot_lat_ptext" transform="matrix(1,0,0,1,4382.87,3079.08)">
-        <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+    <g id="slot_lat_ptext1" serif:id="slot_lat_ptext">
     </g>
-    <g id="slot_dur_ptext" transform="matrix(1,0,0,1,4382.87,1451.51)">
-        <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+    <g id="slot_dur_ptext">
     </g>
-    <g id="slot_colorbar" transform="matrix(1,0,0,1,4903.65,2195.36)">
-        <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(1,0,0,1,-34.0248,0)">
+        <g id="slot_colorbar">
+            <rect x="6517.34" y="1900.28" width="280.308" height="1566.15" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
-    <g id="slot_lat_tw3" transform="matrix(1,0,0,1,3485.64,3079.08)">
-        <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(3.40508,0,0,3.40508,-779.226,1796.6)">
+        <g id="slot_lat_tw3">
+            <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
-    <g id="slot_lat_tw2" transform="matrix(1,0,0,1,1802.44,3079.08)">
-        <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(3.40508,0,0,3.40508,-2439.78,1796.6)">
+        <g id="slot_lat_tw2">
+            <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
-    <g id="slot_lat_tw1" transform="matrix(1,0,0,1,119.227,3079.08)">
-        <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(3.40508,0,0,3.40508,-4100.34,1796.6)">
+        <g id="slot_lat_tw1">
+            <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
-    <g id="slot_dur_tw2" transform="matrix(1,0,0,1,3421.21,1478.84)">
-        <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(3.40508,0,0,3.40508,-1087.8,320.547)">
+        <g id="slot_dur_tw2">
+            <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
-    <g id="slot_dur_tw1" transform="matrix(1,0,0,1,501.296,1478.84)">
-        <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(3.40508,0,0,3.40508,-3791.76,320.547)">
+        <g id="slot_dur_tw1">
+            <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
     <g transform="matrix(2,0,0,2,0,-176.38)">
         <g id="Lines" transform="matrix(1,0,0,1,0,173.447)">

@@ -13,6 +13,8 @@ from lxml import etree
 import matplotlib.pyplot as plt
 import mne
 
+SLOT_SCALE = 2.8
+
 
 # =============================================================================
 #                     ########################################
@@ -20,12 +22,20 @@ import mne
 #                     ########################################
 # =============================================================================
 _DEFAULT_CMAP: str = "RdBu_r"
-_DEFAULT_TOPO_FIGSIZE_IN: tuple[float, float] = (2.2, 2.2)
+_DEFAULT_TOPO_FIGSIZE_IN: tuple[float, float] = (5, 5)
 _DEFAULT_DPI: int = 300
 _DEFAULT_PAD_INCHES: float = 0.0
 
 
 _SVG_NS: str = "http://www.w3.org/2000/svg"
+_SVG_PX_PER_IN: float = 96.0  # SVG/CSS px per inch (template user units)
+
+
+def _svg_units_to_inches(units: float) -> float:
+    """Convert SVG user units (CSS px) to inches assuming 96 px/in."""
+    return float(units) / _SVG_PX_PER_IN
+
+
 _XLINK_NS: str = "http://www.w3.org/1999/xlink"
 
 
@@ -265,9 +275,9 @@ def export_topomap_svg(
     title: str | None = None,
     show_sensors: bool = False,
     contours: int = 6,
-    fig_size_in: tuple[float, float] = (8.2, 8.2),  # bigger default
+    fig_size_in: tuple[float, float] = (20, 20),  # bigger default
     dpi: int = _DEFAULT_DPI,
-    title_fontsize: int = 16,
+    title_fontsize: int = 50,
     marker_size: float = 9.0,
 ) -> None:
     """
@@ -340,10 +350,10 @@ def export_colorbar_svg(
     vlim: tuple[float, float],
     cmap: str = _DEFAULT_CMAP,
     label: str = "t value",
-    fig_size_in: tuple[float, float] = (4, 30),  # match topo height
+    fig_size_in: tuple[float, float] = (10, 90),  # match topo height
     dpi: int = _DEFAULT_DPI,
-    tick_fontsize: int = 12,
-    label_fontsize: int = 13,
+    tick_fontsize: int = 30,
+    label_fontsize: int = 30,
 ) -> None:
     out_svg.parent.mkdir(parents=True, exist_ok=True)
 
@@ -470,6 +480,48 @@ def _find_by_id(root: etree._Element, element_id: str) -> etree._Element:
     return el[0]
 
 
+def read_template_slot_bboxes(template_svg: Path) -> dict[str, tuple[float, float, float, float]]:
+    """
+    Read slot bounding boxes from a template SVG.
+
+    A *slot* is a <g> element with an id that starts with ``slot_``. Inside that group,
+    this function looks for either:
+
+    - a <circle cx cy r> placeholder (preferred for square slots), or
+    - a <rect x y width height> placeholder (preferred for rectangular slots).
+
+    Returns
+    -------
+    dict
+        Mapping ``slot_id -> (x, y, width, height)`` in template user units (CSS px).
+
+    Usage example
+    -------------
+        slot_bboxes = read_template_slot_bboxes(Path("ERP-timeline.svg"))
+        # Convert a square slot to a Matplotlib figure size in inches:
+        x, y, w, h = slot_bboxes["slot_dur_tw1"]
+        fig_size_in = (_svg_units_to_inches(w), _svg_units_to_inches(h))
+    """
+    root = _load_svg_root(template_svg)
+    slot_bboxes: dict[str, tuple[float, float, float, float]] = {}
+
+    # Find all <g id="slot_*">
+    for el in root.xpath('//*[@id]'):
+        el_id = el.get("id")
+        if not el_id or not el_id.startswith("slot_"):
+            continue
+        if etree.QName(el).localname != "g":
+            continue
+
+        bbox = _find_slot_anchor_bbox(el)
+        if bbox is None:
+            continue
+        slot_bboxes[el_id] = bbox
+
+    return slot_bboxes
+
+
+
 def _strip_outer_svg(snippet_root: etree._Element) -> list[etree._Element]:
     children: list[etree._Element] = []
     for child in snippet_root:
@@ -516,12 +568,13 @@ def compose_svg_from_template(
     for slot_id, snippet_path in slot_to_snippet.items():
         slot_g = _find_by_id(template_root, slot_id)
 
-        # Your template uses a <circle> placeholder inside each slot group
-        bbox = _find_slot_circle_bbox(slot_g)
+        # Anchor placeholder inside each slot group (circle or rect)
+        bbox = _find_slot_anchor_bbox(slot_g)
         if bbox is None:
             raise RuntimeError(
-                f"Slot {slot_id!r} has no <circle> anchor (cx/cy/r). "
-                "Add a placeholder circle or change the anchor finder."
+                f"Slot {slot_id!r} has no <circle> or <rect> anchor. "
+                "Add a placeholder <circle cx cy r> or <rect x y width height>, "
+                "or change the anchor finder."
             )
         x, y, w, h = bbox
 
@@ -630,4 +683,36 @@ def _find_slot_circle_bbox(slot_g: etree._Element) -> tuple[float, float, float,
             return (cx - r, cy - r, 2.0 * r, 2.0 * r)
 
     return None
+
+
+def _find_slot_anchor_bbox(
+    slot_g: etree._Element,
+) -> tuple[float, float, float, float] | None:
+    """
+    Find a slot anchor in a template <g> element.
+
+    This supports two anchor styles:
+
+    1) A <circle cx cy r> placeholder (recommended for square topomap slots).
+       The anchor bbox is the circle's bounding box (cx-r, cy-r, 2r, 2r).
+
+    2) A <rect x y width height> placeholder (recommended for colorbars / text).
+       The anchor bbox is the rectangle box (x, y, width, height).
+
+    Notes
+    -----
+    - If both are present, <circle> wins.
+    - We intentionally ignore transforms on the placeholder element. If your template
+      uses transforms for anchors, prefer authoring anchors in slot-local coordinates.
+    """
+    bbox = _find_slot_circle_bbox(slot_g)
+    if bbox is not None:
+        return bbox
+
+    rect = _find_slot_rect(slot_g)
+    if rect is None:
+        return None
+
+    x, y, w, h, _transform = rect
+    return (x, y, w, h)
 
