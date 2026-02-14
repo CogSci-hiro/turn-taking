@@ -215,23 +215,23 @@ def export_topomap_svg(
     info: mne.Info,
     out_svg: Path,
     vlim: tuple[float, float],
-    cmap: str = "RdBu_r",
-    mask: np.ndarray | None = None,  # shape (n_channels,), True where cluster channels are
+    cmap: str = _DEFAULT_CMAP,
+    mask: np.ndarray | None = None,
     title: str | None = None,
     show_sensors: bool = False,
     contours: int = 6,
-    fig_size_in: tuple[float, float] = (2.2, 2.2),
-    dpi: int = 300,
-    pad_inches: float = 0.0,
-    overlays: Sequence[ClusterOverlay] = (),  # kept for compatibility; mask is preferred
+    fig_size_in: tuple[float, float] = (3.2, 3.2),  # bigger default
+    dpi: int = _DEFAULT_DPI,
+    title_fontsize: int = 16,
+    marker_size: float = 9.0,
 ) -> None:
     """
-    Export a single topomap SVG.
+    Export a single topomap as a stable-size SVG for template placement.
 
-    Correctness-first behavior:
-    - If `mask` is provided, draw electrode markers via MNE's built-in masking.
-      This avoids private coord helpers and channel-name roundtrips.
-    - Contours default to 6 (so it looks like a real topomap).
+    Key choices:
+    - No bbox_inches="tight" => stable canvas size (prevents drift/offset in template).
+    - Axes occupy a fixed rectangle so the head is centered.
+    - Title is drawn at a fixed position in figure coordinates.
     """
     data = np.asarray(data, dtype=float)
     if data.ndim != 1:
@@ -248,16 +248,19 @@ def export_topomap_svg(
 
     out_svg.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=fig_size_in, dpi=dpi)
+    fig = plt.figure(figsize=fig_size_in, dpi=dpi)
+    # Fixed axes box (left, bottom, width, height) in figure fraction
+    # Tweaking these is the main “centering” control.
+    ax = fig.add_axes([0.08, 0.06, 0.84, 0.84])  # big and centered
 
     mask_params = None
     if mask is not None and np.any(mask):
         mask_params = dict(
-            marker="o",  # shape
-            markerfacecolor="gray",  # hollow
-            markeredgecolor="black",  # edge color
-            markersize=5.0,
-            linewidth=0,  # IMPORTANT: no outline lines
+            marker="o",
+            markerfacecolor="none",
+            markeredgecolor="black",
+            markersize=marker_size,
+            linewidth=0,  # important: no “connecting” outline lines
         )
 
     mne.viz.plot_topomap(
@@ -275,11 +278,14 @@ def export_topomap_svg(
         mask_params=mask_params,
     )
 
-    if title is not None:
-        ax.set_title(title, fontsize=14)
-
     ax.set_axis_off()
-    fig.savefig(out_svg, format="svg", bbox_inches="tight", pad_inches=pad_inches)
+
+    if title is not None:
+        # Title in figure coords (stable; not affected by bbox/tight)
+        fig.text(0.5, 0.98, title, ha="center", va="top", fontsize=title_fontsize)
+
+    # IMPORTANT: stable canvas, no tight bbox
+    fig.savefig(out_svg, format="svg", transparent=True)
     plt.close(fig)
 
 
@@ -289,35 +295,23 @@ def export_colorbar_svg(
     vlim: tuple[float, float],
     cmap: str = _DEFAULT_CMAP,
     label: str = "t value",
-    fig_size_in: tuple[float, float] = (0.45, 2.2),
+    fig_size_in: tuple[float, float] = (0.8, 3.2),  # match topo height
     dpi: int = _DEFAULT_DPI,
-    tick_fontsize: int = 10,
-    label_fontsize: int = 11,
+    tick_fontsize: int = 12,
+    label_fontsize: int = 13,
 ) -> None:
-    """
-    Export a standalone colorbar SVG that matches the shared `vlim` and `cmap`.
-
-    Usage example
-    -------------
-        export_colorbar_svg(
-            out_svg=Path("parts/colorbar.svg"),
-            vlim=(-8.0, 8.0),
-            label="t value",
-        )
-    """
     out_svg.parent.mkdir(parents=True, exist_ok=True)
 
-    fig, ax = plt.subplots(figsize=fig_size_in)
-    ax.set_axis_off()
+    fig = plt.figure(figsize=fig_size_in, dpi=dpi)
+    ax = fig.add_axes([0.35, 0.08, 0.25, 0.84])  # a tall bar centered
 
-    # Create a dummy mappable for the colorbar
     norm = plt.Normalize(vmin=vlim[0], vmax=vlim[1])
     mappable = plt.cm.ScalarMappable(norm=norm, cmap=plt.get_cmap(cmap))
-    cbar = fig.colorbar(mappable, ax=ax, fraction=1.0, pad=0.0)
+    cbar = fig.colorbar(mappable, cax=ax)
     cbar.ax.tick_params(labelsize=tick_fontsize)
     cbar.set_label(label, fontsize=label_fontsize)
 
-    fig.savefig(out_svg, format="svg", bbox_inches="tight", pad_inches=0.0, dpi=dpi)
+    fig.savefig(out_svg, format="svg", transparent=True)
     plt.close(fig)
 
 
@@ -435,7 +429,7 @@ def _strip_outer_svg(snippet_root: etree._Element) -> list[etree._Element]:
     children: list[etree._Element] = []
     for child in snippet_root:
         tag = etree.QName(child).localname
-        if tag in {"defs", "metadata", "title", "desc"}:
+        if tag in {"metadata", "title", "desc"}:
             continue
         children.append(child)
     return children

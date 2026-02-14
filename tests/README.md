@@ -38,8 +38,11 @@ The reference regression test compares two files per item:
 - `actual`: output produced by your current code run
 - `reference`: trusted baseline output (previous run, published result, or manually approved output)
 
-You provide these file paths in a JSON spec file and point the test to it with
-`TURNTAKING_REFERENCE_SPEC`.
+The test resolves paths using:
+
+1. Snakemake output root (`io.out_dir` from `workflow/config.yaml`, or from `TURNTAKING_SNAKEMAKE_CONFIG`)
+2. Global reference root (`TURNTAKING_REFERENCE_ROOT` env var, or `reference_root` in spec)
+3. Per-item values in `comparisons`
 
 If `TURNTAKING_REFERENCE_SPEC` is unset, invalid, or points to a missing file, the test fails.
 
@@ -76,28 +79,42 @@ Example:
 - Reference output:  
   `/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/duration_scores.npy`
 
+If your Snakemake `io.out_dir` is `/Users/hiro/.../workflow/results/current` and your
+`reference_root` is `/Users/hiro/.../workflow/results/reference`, then:
+
+- actual: `decoding/erp/duration/scores.npy`
+- inferred reference: `decoding/erp/duration/scores.npy` under `reference_root`
+
 ## Spec file format
 
 Create a JSON file (for example: `dev/reference_spec.json`) like this:
 
 ```json
 {
+  "reference_root": "/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference",
+  "global_tolerances": {
+    "max_abs_error": 0.01,
+    "mean_abs_error": 0.001,
+    "min_pearson_r": 0.99
+  },
   "comparisons": [
     {
       "name": "duration_scores",
-      "actual": "/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/current/duration_scores.npy",
-      "reference": "/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/duration_scores.npy",
-      "max_abs_error": 0.01,
-      "mean_abs_error": 0.001,
-      "min_pearson_r": 0.99
+      "actual": "decoding/erp/duration/scores.npy"
     },
     {
       "name": "latency_offsets",
-      "actual": "/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/current/latency_offsets.csv",
-      "reference": "/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference/latency_offsets.csv",
-      "max_abs_error": 0.02,
-      "mean_abs_error": 0.002,
-      "min_pearson_r": 0.98
+      "actual": "erp/latency/offsets.csv",
+      "tolerances": {
+        "max_abs_error": 0.02,
+        "mean_abs_error": 0.002,
+        "min_pearson_r": 0.98
+      }
+    },
+    {
+      "name": "duration_scores_from_custom_reference_file",
+      "actual": "decoding/erp/duration/scores.npy",
+      "reference": "custom/duration_scores_v2.npy"
     }
   ]
 }
@@ -106,11 +123,22 @@ Create a JSON file (for example: `dev/reference_spec.json`) like this:
 Field meanings:
 
 - `name`: label shown in failures
-- `actual`: current output file path
-- `reference`: baseline output file path
-- `max_abs_error`: max allowed absolute pointwise error
-- `mean_abs_error`: max allowed mean absolute error
-- `min_pearson_r`: minimum allowed Pearson correlation
+- `reference_root` (global): base directory for all reference files
+- `global_tolerances` (global): defaults for all comparisons
+- `actual`: path to current output file
+  - if absolute: used as-is
+  - if relative: resolved as `<snakemake_out_dir>/<actual>`
+- `reference` (optional per item): reference path override
+  - if omitted: inferred as `<reference_root>/<actual relative to snakemake out_dir>`
+  - if relative: resolved as `<reference_root>/<reference>`
+- `tolerances` (optional per item): per-file override values
+
+Tolerance precedence:
+
+1. `comparisons[i].tolerances.*`
+2. legacy top-level per-item fields (`max_abs_error`, `mean_abs_error`, `min_pearson_r`)
+3. `global_tolerances.*`
+4. hard defaults in test code (`1e-6`, `1e-8`, `0.999`)
 
 Required keys in each comparison object:
 
@@ -131,18 +159,36 @@ TURNTAKING_REFERENCE_SPEC=/Users/hiro/PycharmProjects/turn-taking-working/dev/re
 pytest -q tests/turntaking/analysis/test_reference_regression.py
 ```
 
+Custom Snakemake config path:
+
+```bash
+TURNTAKING_REFERENCE_SPEC=/Users/hiro/PycharmProjects/turn-taking-working/dev/reference_spec.json \
+TURNTAKING_SNAKEMAKE_CONFIG=/Users/hiro/PycharmProjects/turn-taking-working/workflow/config.yaml \
+pytest -q tests/turntaking/analysis/test_reference_regression.py
+```
+
+Override reference root without editing spec:
+
+```bash
+TURNTAKING_REFERENCE_SPEC=/Users/hiro/PycharmProjects/turn-taking-working/dev/reference_spec.json \
+TURNTAKING_REFERENCE_ROOT=/Users/hiro/PycharmProjects/turn-taking-working/workflow/results/reference \
+pytest -q tests/turntaking/analysis/test_reference_regression.py
+```
+
 ## Troubleshooting
 
 - Failure: `Actual artifact is missing`
   - The `actual` path in JSON does not exist.
 - Failure: `Reference artifact is missing`
-  - The `reference` path in JSON does not exist.
+  - The inferred or overridden reference path does not exist.
 - Failure: `TURNTAKING_REFERENCE_SPEC is required`
   - Environment variable was not set.
 - Failure: `Reference spec is not valid JSON`
   - JSON syntax is invalid.
 - Failure: `Reference spec must include at least one comparison`
   - `comparisons` is empty or missing.
+- Failure: `Cannot infer reference path because actual path is outside Snakemake out_dir`
+  - Use a relative `actual` or provide explicit `reference` for that item.
 - Failure: `Shape mismatch`
   - Files contain different array/table shapes.
 - Failure on correlation/error thresholds
