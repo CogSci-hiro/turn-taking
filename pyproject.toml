@@ -14,7 +14,9 @@ dependencies = [
   "numpy",
   "pandas",
   "pyarrow >= 14.0",
-  "seaborn"
+  "seaborn",
+  "cairosvg",
+  "pillow"
 ]
 
 [project.optional-dependencies]

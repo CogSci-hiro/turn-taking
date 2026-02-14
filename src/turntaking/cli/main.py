@@ -33,6 +33,7 @@ import turntaking.cli.commands.viz.erp_topo as cmd_viz_erp_topo
 import turntaking.cli.commands.turn_table as cmd_beh_turn_table
 import turntaking.cli.commands.viz.decoding as cmd_viz_decoding
 import turntaking.cli.commands.viz.topomaps as cmd_viz_topomaps
+import turntaking.cli.commands.viz.svg_to_tif as cmd_viz_svg_to_tif
 
 _COMMANDS = {"erp": cmd_erp,
              "tfr": cmd_tfr,
@@ -45,7 +46,8 @@ _COMMANDS = {"erp": cmd_erp,
              "viz-erp-topo": cmd_viz_erp_topo,
              "viz-topomaps": cmd_viz_topomaps,
              "viz-decoding": cmd_viz_decoding,
-             "beh-turn-table": cmd_beh_turn_table}
+             "beh-turn-table": cmd_beh_turn_table,
+             "viz-svg-to-tiff": cmd_viz_svg_to_tif}
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
