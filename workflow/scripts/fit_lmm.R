@@ -233,16 +233,17 @@ outcomes <- tibble(
   outcome = c("self_duration", "latency"),
   base_covariates = c(
     # Predict self_duration from interaction-relevant nuisances
-    "latency + other_duration + run",
+    "latency + other_duration",  # + run",
     # Predict latency similarly, plus self_duration
-    "self_duration + other_duration + run"
+    "self_duration + other_duration"  # + run"
   )
 )
 
 grid <- tidyr::crossing(outcomes, predictors) %>%
   mutate(
     # Include baseline_erp_* only for erp-family predictors (since only erp baseline exists in the table)
-    include_neural_baseline = (family == "erp")
+    # include_neural_baseline = (family == "erp")  keep this in case we want to add baseline
+    include_neural_baseline = FALSE
   )
 
 # ================================================================================================
@@ -321,7 +322,7 @@ for (i in seq_len(nrow(grid))) {
   vars_needed <- c(
     outcome,
     "subject",
-    "run",
+    #"run",
     "self_duration",
     "other_duration",
     "latency",
