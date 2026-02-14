@@ -29,7 +29,7 @@ Run only reference similarity test:
 pytest -q tests/turntaking/analysis/test_reference_regression.py
 ```
 
-If `TURNTAKING_REFERENCE_SPEC` is not set, the reference test is skipped (this is expected).
+This reference test is strict: it fails if required inputs are missing.
 
 ## Reference similarity: what to provide
 
@@ -40,6 +40,8 @@ The reference regression test compares two files per item:
 
 You provide these file paths in a JSON spec file and point the test to it with
 `TURNTAKING_REFERENCE_SPEC`.
+
+If `TURNTAKING_REFERENCE_SPEC` is unset, invalid, or points to a missing file, the test fails.
 
 ### Supported artifact types
 
@@ -53,6 +55,7 @@ Rules:
 - `actual` and `reference` must have the same shape.
 - For `.csv`, column order must match exactly.
 - For `.csv`, values should be numeric.
+- The spec must contain at least one comparison item.
 
 ## Where to put your files
 
@@ -109,6 +112,12 @@ Field meanings:
 - `mean_abs_error`: max allowed mean absolute error
 - `min_pearson_r`: minimum allowed Pearson correlation
 
+Required keys in each comparison object:
+
+- `name`
+- `actual`
+- `reference`
+
 ## How to run with your spec
 
 ```bash
@@ -128,6 +137,12 @@ pytest -q tests/turntaking/analysis/test_reference_regression.py
   - The `actual` path in JSON does not exist.
 - Failure: `Reference artifact is missing`
   - The `reference` path in JSON does not exist.
+- Failure: `TURNTAKING_REFERENCE_SPEC is required`
+  - Environment variable was not set.
+- Failure: `Reference spec is not valid JSON`
+  - JSON syntax is invalid.
+- Failure: `Reference spec must include at least one comparison`
+  - `comparisons` is empty or missing.
 - Failure: `Shape mismatch`
   - Files contain different array/table shapes.
 - Failure on correlation/error thresholds
