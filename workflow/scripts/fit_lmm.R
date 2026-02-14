@@ -5,6 +5,7 @@ suppressPackageStartupMessages({
   library(readr)
   library(dplyr)
   library(tibble)
+  library(tidyr)
   library(purrr)
   library(stringr)
   library(lme4)
@@ -301,8 +302,39 @@ for (i in seq_len(nrow(grid))) {
   formula_base <- as.formula(formula_base_str)
   formula_full <- as.formula(formula_full_str)
 
+  vars_needed <- c(
+  outcome,
+  "subject",
+  "run",
+  "self_duration", "other_duration", "latency",
+  predictor
+)
+if (isTRUE(row$include_neural_baseline[[1]])) {
+  vars_needed <- c(vars_needed, baseline_roi)
+}
+
+df_fit <- df %>%
+  dplyr::select(all_of(unique(vars_needed))) %>%
+  tidyr::drop_na()
+
+  vars_needed <- c(
+  outcome,
+  "subject",
+  "run",
+  "self_duration", "other_duration", "latency",
+  predictor
+)
+
+if (isTRUE(row$include_neural_baseline[[1]])) {
+  vars_needed <- c(vars_needed, baseline_roi)
+}
+
+df_fit <- df %>%
+  dplyr::select(all_of(unique(vars_needed))) %>%
+  tidyr::drop_na()
+
   res <- fit_pair(
-    data = df,
+    data = df_fit,
     model_id = model_id,
     formula_base = formula_base,
     formula_full = formula_full,
@@ -314,6 +346,15 @@ for (i in seq_len(nrow(grid))) {
   base_mod <- res$base
   full_mod <- res$full
   cmp <- res$cmp
+
+
+  # ---- Did the predictor actually appear in the full model? ----
+full_terms <- names(lme4::fixef(full_mod))
+predictor_in_full <- predictor %in% full_terms
+
+if (!predictor_in_full) {
+  message("Predictor term dropped from full model: ", model_id)
+}
 
   all_model_overview[[length(all_model_overview) + 1]] <- model_overview_row(
     model_id = model_id, outcome = outcome, predictor = predictor,
@@ -331,21 +372,33 @@ for (i in seq_len(nrow(grid))) {
   # Columns often include: Df, AIC, BIC, logLik, deviance, Chisq, Chi Df, Pr(>Chisq)
   cmp_row <- as.data.frame(cmp)
 
-has_lrt_cols <- all(c("Chisq", "Chi Df", "Pr(>Chisq)") %in% colnames(cmp_row))
-has_basic_cols <- all(c("AIC", "BIC", "logLik") %in% colnames(cmp_row))
+# lme4/stats anova tables vary a bit: df column may be "Df" or "Chi Df"
+df_col <- if ("Chi Df" %in% colnames(cmp_row)) "Chi Df" else if ("Df" %in% colnames(cmp_row)) "Df" else NA_character_
+
 ok_two_rows <- nrow(cmp_row) >= 2
+has_chisq <- "Chisq" %in% colnames(cmp_row)
+has_p <- "Pr(>Chisq)" %in% colnames(cmp_row)
+has_df <- !is.na(df_col)
 
-lrt_stat <- if (has_lrt_cols && ok_two_rows) as.numeric(cmp_row$Chisq[2]) else NA_real_
-lrt_df   <- if (has_lrt_cols && ok_two_rows) as.numeric(cmp_row$`Chi Df`[2]) else NA_real_
-lrt_p    <- if (has_lrt_cols && ok_two_rows) as.numeric(cmp_row$`Pr(>Chisq)`[2]) else NA_real_
+if (ok_two_rows && has_chisq && has_df) {
+  lrt_stat <- as.numeric(cmp_row$Chisq[2])
+  lrt_df   <- as.numeric(cmp_row[[df_col]][2])
+  lrt_p    <- if (has_p) as.numeric(cmp_row$`Pr(>Chisq)`[2]) else NA_real_
+} else {
+  # Fallback: compute LRT from log-likelihoods
+  ll0 <- as.numeric(logLik(base_mod))
+  ll1 <- as.numeric(logLik(full_mod))
+  df0 <- attr(logLik(base_mod), "df")
+  df1 <- attr(logLik(full_mod), "df")
 
-delta_aic    <- if (has_basic_cols && ok_two_rows) as.numeric(cmp_row$AIC[2] - cmp_row$AIC[1]) else NA_real_
-delta_bic    <- if (has_basic_cols && ok_two_rows) as.numeric(cmp_row$BIC[2] - cmp_row$BIC[1]) else NA_real_
-delta_loglik <- if (has_basic_cols && ok_two_rows) as.numeric(cmp_row$logLik[2] - cmp_row$logLik[1]) else NA_real_
-
-if (!has_lrt_cols) {
-  message("No LRT columns from anova() for: ", model_id, " (likely NA-driven row mismatch or non-nested fit)")
+  lrt_stat <- 2 * (ll1 - ll0)
+  lrt_df <- df1 - df0
+  lrt_p <- if (is.finite(lrt_stat) && lrt_df > 0) stats::pchisq(lrt_stat, df = lrt_df, lower.tail = FALSE) else NA_real_
 }
+
+delta_aic    <- AIC(full_mod) - AIC(base_mod)
+delta_bic    <- BIC(full_mod) - BIC(base_mod)
+delta_loglik <- as.numeric(logLik(full_mod) - logLik(base_mod))
 
 all_lrt[[length(all_lrt) + 1]] <- tibble(
   model_id = model_id,
@@ -354,14 +407,15 @@ all_lrt[[length(all_lrt) + 1]] <- tibble(
   roi = roi,
   window = window,
   family = family,
-  n_used = nobs(full_mod),
-  lrt_chisq = lrt_stat,
-  lrt_df = lrt_df,
-  lrt_p = lrt_p,
-  delta_AIC = delta_aic,
-  delta_BIC = delta_bic,
-  delta_logLik = delta_loglik
+  n_used = nrow(df_fit),
+  lrt_chisq = as.numeric(lrt_stat),
+  lrt_df = as.numeric(lrt_df),
+  lrt_p = as.numeric(lrt_p),
+  delta_AIC = as.numeric(delta_aic),
+  delta_BIC = as.numeric(delta_bic),
+  delta_logLik = as.numeric(delta_loglik)
 )
+
 
 }
 
