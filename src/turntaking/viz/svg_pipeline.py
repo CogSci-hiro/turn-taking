@@ -197,7 +197,7 @@ class ClusterOverlay:
     marker: str = "o"
     markersize: float = 10.0
     markeredgecolor: str = "black"
-    markerfacecolor: str = "none"
+    markerfacecolor: str = "gray"
     markeredgewidth: float = 1.5
 
 
@@ -276,7 +276,7 @@ def export_topomap_svg(
     contours: int = 6,
     fig_size_in: tuple[float, float] = (20, 20),  # bigger default
     dpi: int = _DEFAULT_DPI,
-    title_fontsize: int = 10,
+    title_fontsize: int = 20,
     marker_size: float = 9.0,
 ) -> None:
     """
@@ -351,8 +351,8 @@ def export_colorbar_svg(
     label: str = "t value",
     fig_size_in: tuple[float, float] = (10, 90),  # match topo height
     dpi: int = _DEFAULT_DPI,
-    tick_fontsize: int = 50,
-    label_fontsize: int = 50,
+    tick_fontsize: int = 60,
+    label_fontsize: int = 0,
 ) -> None:
     out_svg.parent.mkdir(parents=True, exist_ok=True)
 
