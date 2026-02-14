@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Sequence
+from typing import Sequence, Optional
 
 import pandas as pd
 import mne
@@ -13,6 +13,93 @@ from .constants import (
 from .eeg_features import compute_run_eeg_features
 from .schema import MixedEffectTableParams
 from turntaking.analysis.selection import select_epochs
+
+
+_FINAL_COLUMNS: list[str] = [
+    "tw1_erp_anterior",
+    "tw1_erp_posterior",
+    "tw2_erp_anterior",
+    "tw2_erp_posterior",
+    "tw1_alpha_anterior",
+    "tw1_alpha_posterior",
+    "tw2_alpha_anterior",
+    "tw2_alpha_posterior",
+    "tw1_beta_anterior",
+    "tw1_beta_posterior",
+    "tw2_beta_anterior",
+    "tw2_beta_posterior",
+    "baseline_erp_anterior",
+    "baseline_erp_posterior",
+    "timestamp",
+    "self_duration",
+    "other_duration",
+    "latency",
+    "subject",
+    "run",
+]
+
+_ERP_RENAME_MAP: dict[str, str] = {
+    "tw1_mean_anterior": "tw1_erp_anterior",
+    "tw1_mean_posterior": "tw1_erp_posterior",
+    "tw2_mean_anterior": "tw2_erp_anterior",
+    "tw2_mean_posterior": "tw2_erp_posterior",
+    "baseline_mean_anterior": "baseline_erp_anterior",
+    "baseline_mean_posterior": "baseline_erp_posterior",
+}
+
+def _rename_and_select_columns(df: pd.DataFrame, *, source_path: Path) -> pd.DataFrame:
+    renamed = df.rename(columns=_ERP_RENAME_MAP).copy()
+    missing = [c for c in _FINAL_COLUMNS if c not in renamed.columns]
+    if missing:
+        raise RuntimeError(
+            "Mixed-effect table is missing required columns after rename.\n"
+            f"Source: {source_path}\n"
+            f"Missing: {missing}"
+        )
+    return renamed.loc[:, _FINAL_COLUMNS].copy()
+
+
+
+# =============================================================================
+#                     ########################################
+#                     #          OUTPUT SCHEMA (R)           #
+#                     ########################################
+# =============================================================================
+# Column names expected by downstream R mixed-effects models (and matching legacy output intent).
+_TARGET_COLUMNS: tuple[str, ...] = (
+    "tw1_erp_anterior",
+    "tw1_erp_posterior",
+    "tw2_erp_anterior",
+    "tw2_erp_posterior",
+    "tw1_alpha_anterior",
+    "tw1_alpha_posterior",
+    "tw2_alpha_anterior",
+    "tw2_alpha_posterior",
+    "tw1_beta_anterior",
+    "tw1_beta_posterior",
+    "tw2_beta_anterior",
+    "tw2_beta_posterior",
+    "baseline_erp_anterior",
+    "baseline_erp_posterior",
+    "timestamp",
+    "self_duration",
+    "other_duration",
+    "latency",
+    "subject",
+    "run",
+)
+
+_EEG_COLUMN_RENAME: dict[str, str] = {
+    # ERP means
+    "tw1_mean_anterior": "tw1_erp_anterior",
+    "tw1_mean_posterior": "tw1_erp_posterior",
+    "tw2_mean_anterior": "tw2_erp_anterior",
+    "tw2_mean_posterior": "tw2_erp_posterior",
+    # Baseline ERP means
+    "baseline_mean_anterior": "baseline_erp_anterior",
+    "baseline_mean_posterior": "baseline_erp_posterior",
+}
+
 
 
 def make_mixed_effect_table(
@@ -100,6 +187,7 @@ def make_mixed_effect_table(
         out["run"] = run
 
         out = _drop_unwanted_columns(out)
+        out = _rename_and_select_columns(out, source_path=epoch_file)
 
         df_list.append(out)
 

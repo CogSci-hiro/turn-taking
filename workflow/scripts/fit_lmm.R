@@ -152,9 +152,9 @@ df <- readr::read_csv(opt$in_path, show_col_types = FALSE)
 
 required_cols <- c(
   "subject", "run",
-  "self_duration", "other_duration", "latency", "abs_diff",
-  "baseline_mean_anterior", "baseline_mean_posterior",
-  "tw1_mean_anterior", "tw1_mean_posterior", "tw2_mean_anterior", "tw2_mean_posterior",
+  "self_duration", "other_duration", "latency",
+  "baseline_erp_anterior", "baseline_erp_posterior",
+  "tw1_erp_anterior", "tw1_erp_posterior", "tw2_erp_anterior", "tw2_erp_posterior",
   "tw1_alpha_anterior", "tw1_alpha_posterior", "tw2_alpha_anterior", "tw2_alpha_posterior",
   "tw1_beta_anterior", "tw1_beta_posterior", "tw2_beta_anterior", "tw2_beta_posterior"
 )
@@ -198,8 +198,8 @@ if (isTRUE(opt$zscore)) {
 # Predictors come directly from the columns
 predictors <- tibble(
   predictor = c(
-    "tw1_mean_anterior", "tw1_mean_posterior",
-    "tw2_mean_anterior", "tw2_mean_posterior",
+    "tw1_erp_anterior", "tw1_erp_posterior",
+    "tw2_erp_anterior", "tw2_erp_posterior",
     "tw1_alpha_anterior", "tw1_alpha_posterior",
     "tw2_alpha_anterior", "tw2_alpha_posterior",
     "tw1_beta_anterior", "tw1_beta_posterior",
@@ -209,7 +209,7 @@ predictors <- tibble(
   mutate(
     window = if_else(str_detect(predictor, "^tw1_"), "tw1", "tw2"),
     family = case_when(
-      str_detect(predictor, "_mean_") ~ "mean",
+      str_detect(predictor, "_erp_") ~ "erp",
       str_detect(predictor, "_alpha_") ~ "alpha",
       str_detect(predictor, "_beta_") ~ "beta",
       TRUE ~ "unknown"
@@ -220,8 +220,8 @@ predictors <- tibble(
       TRUE ~ "unknown"
     ),
     baseline_roi = case_when(
-      roi == "anterior" ~ "baseline_mean_anterior",
-      roi == "posterior" ~ "baseline_mean_posterior",
+      roi == "anterior" ~ "baseline_erp_anterior",
+      roi == "posterior" ~ "baseline_erp_posterior",
       TRUE ~ NA_character_
     )
   )
@@ -232,16 +232,16 @@ outcomes <- tibble(
   outcome = c("self_duration", "latency"),
   base_covariates = c(
     # Predict self_duration from interaction-relevant nuisances
-    "latency + other_duration + abs_diff + run",
+    "latency + other_duration + run",
     # Predict latency similarly, plus self_duration
-    "self_duration + other_duration + abs_diff + run"
+    "self_duration + other_duration + run"
   )
 )
 
 grid <- tidyr::crossing(outcomes, predictors) %>%
   mutate(
-    # Include baseline_mean_* only for mean-family predictors (since only mean baseline exists in the table)
-    include_neural_baseline = (family == "mean")
+    # Include baseline_erp_* only for erp-family predictors (since only erp baseline exists in the table)
+    include_neural_baseline = (family == "erp")
   )
 
 # ================================================================================================
@@ -330,28 +330,39 @@ for (i in seq_len(nrow(grid))) {
   # anova(base, full) returns a data frame with rows base/full; we want a single-row comparison summary
   # Columns often include: Df, AIC, BIC, logLik, deviance, Chisq, Chi Df, Pr(>Chisq)
   cmp_row <- as.data.frame(cmp)
-  # The LRT stats are on the second row in lme4::anova(model1, model2)
-  lrt_stat <- cmp_row$Chisq[2]
-  lrt_df <- cmp_row$`Chi Df`[2]
-  lrt_p <- cmp_row$`Pr(>Chisq)`[2]
-  delta_aic <- cmp_row$AIC[2] - cmp_row$AIC[1]
-  delta_bic <- cmp_row$BIC[2] - cmp_row$BIC[1]
-  delta_loglik <- cmp_row$logLik[2] - cmp_row$logLik[1]
 
-  all_lrt[[length(all_lrt) + 1]] <- tibble(
-    model_id = model_id,
-    outcome = outcome,
-    predictor = predictor,
-    roi = roi,
-    window = window,
-    family = family,
-    lrt_chisq = as.numeric(lrt_stat),
-    lrt_df = as.numeric(lrt_df),
-    lrt_p = as.numeric(lrt_p),
-    delta_AIC = as.numeric(delta_aic),
-    delta_BIC = as.numeric(delta_bic),
-    delta_logLik = as.numeric(delta_loglik)
-  )
+has_lrt_cols <- all(c("Chisq", "Chi Df", "Pr(>Chisq)") %in% colnames(cmp_row))
+has_basic_cols <- all(c("AIC", "BIC", "logLik") %in% colnames(cmp_row))
+ok_two_rows <- nrow(cmp_row) >= 2
+
+lrt_stat <- if (has_lrt_cols && ok_two_rows) as.numeric(cmp_row$Chisq[2]) else NA_real_
+lrt_df   <- if (has_lrt_cols && ok_two_rows) as.numeric(cmp_row$`Chi Df`[2]) else NA_real_
+lrt_p    <- if (has_lrt_cols && ok_two_rows) as.numeric(cmp_row$`Pr(>Chisq)`[2]) else NA_real_
+
+delta_aic    <- if (has_basic_cols && ok_two_rows) as.numeric(cmp_row$AIC[2] - cmp_row$AIC[1]) else NA_real_
+delta_bic    <- if (has_basic_cols && ok_two_rows) as.numeric(cmp_row$BIC[2] - cmp_row$BIC[1]) else NA_real_
+delta_loglik <- if (has_basic_cols && ok_two_rows) as.numeric(cmp_row$logLik[2] - cmp_row$logLik[1]) else NA_real_
+
+if (!has_lrt_cols) {
+  message("No LRT columns from anova() for: ", model_id, " (likely NA-driven row mismatch or non-nested fit)")
+}
+
+all_lrt[[length(all_lrt) + 1]] <- tibble(
+  model_id = model_id,
+  outcome = outcome,
+  predictor = predictor,
+  roi = roi,
+  window = window,
+  family = family,
+  n_used = nobs(full_mod),
+  lrt_chisq = lrt_stat,
+  lrt_df = lrt_df,
+  lrt_p = lrt_p,
+  delta_AIC = delta_aic,
+  delta_BIC = delta_bic,
+  delta_logLik = delta_loglik
+)
+
 }
 
 models_df <- bind_rows(all_model_overview) %>%
