@@ -258,3 +258,29 @@ rule fig_tfr_topomap_svg:
           --parts-dir "{params.parts_dir}" \
           --out-svg "{output.svg}"
         """
+
+
+rule fig_tfr_topomap_tif:
+    input:
+        svg=FIG_ROOT + "/main/F_tfr_topomap.svg",
+        config="workflow/config.yaml",
+    output:
+        tif=FIG_ROOT + "/main/F_tfr_topomap.tif",
+    shell:
+        r"""
+        set -euo pipefail
+
+        # Make sure Python can locate libcairo on macOS (brew)
+        if [ -d /opt/homebrew/lib ]; then
+          export DYLD_LIBRARY_PATH="/opt/homebrew/lib:${{DYLD_LIBRARY_PATH:-}}"
+        fi
+        if [ -d /usr/local/lib ]; then
+          export DYLD_LIBRARY_PATH="/usr/local/lib:${{DYLD_LIBRARY_PATH:-}}"
+        fi
+
+        python -m turntaking.cli.main viz-svg-to-tiff \
+          --config "{input.config}" \
+          --in-svg "{input.svg}" \
+          --out-tif "{output.tif}" \
+          --dpi 300
+        """
