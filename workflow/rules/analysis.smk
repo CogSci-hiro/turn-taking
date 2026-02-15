@@ -65,19 +65,16 @@ rule erp:
 
 rule tfr:
     input:
-        config="workflow/config.yaml"
+        configfile=CONFIGFILE
     output:
-        # Per contrast × band core files
-        expand(TFR_ROOT + "/{contrast}/{band}/difference_ave.fif", contrast=CONTRASTS, band=BANDS),
-        expand(TFR_ROOT + "/{contrast}/{band}/induced-data.npy", contrast=CONTRASTS, band=BANDS),
-        expand(TFR_ROOT + "/{contrast}/{band}/n_trials.csv", contrast=CONTRASTS, band=BANDS),
-        expand(TFR_ROOT + "/{contrast}/{band}/metadata.hdf5", contrast=CONTRASTS, band=BANDS),
-
-        # Condition-specific averages (2 per contrast × band)
-        expand(TFR_ROOT + "/duration/{band}/long_ave.fif", band=BANDS),
-        expand(TFR_ROOT + "/duration/{band}/short_ave.fif", band=BANDS),
-        expand(TFR_ROOT + "/latency/{band}/fast_ave.fif", band=BANDS),
-        expand(TFR_ROOT + "/latency/{band}/slow_ave.fif", band=BANDS),
+        expand(f"{TFR_ROOT}/{{contrast}}/{{band}}/difference_ave.fif", contrast=CONTRASTS, band=BANDS),
+        expand(f"{TFR_ROOT}/{{contrast}}/{{band}}/induced-data.npy", contrast=CONTRASTS, band=BANDS),
+        expand(f"{TFR_ROOT}/{{contrast}}/{{band}}/n_trials.csv", contrast=CONTRASTS, band=BANDS),
+        expand(f"{TFR_ROOT}/{{contrast}}/{{band}}/metadata.hdf5", contrast=CONTRASTS, band=BANDS),
+        expand(f"{TFR_ROOT}/duration/{{band}}/long_ave.fif", band=BANDS),
+        expand(f"{TFR_ROOT}/duration/{{band}}/short_ave.fif", band=BANDS),
+        expand(f"{TFR_ROOT}/latency/{{band}}/fast_ave.fif", band=BANDS),
+        expand(f"{TFR_ROOT}/latency/{{band}}/slow_ave.fif", band=BANDS),
     threads:
         heavy_threads()
     resources:
