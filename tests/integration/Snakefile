@@ -1,0 +1,82 @@
+from pathlib import Path
+import yaml
+
+assert "test_config" in config, "Pass --config test_config=/abs/path/to/runtime_test_config.yaml"
+TEST_CONFIG = Path(config["test_config"]).resolve()
+assert TEST_CONFIG.exists(), f"Missing runtime config file: {TEST_CONFIG}"
+assert "python_exe" in config, "Pass --config python_exe=/abs/path/to/python"
+PYTHON_EXE = config["python_exe"]
+REPO_ROOT = Path(config.get("repo_root", Path.cwd())).resolve()
+SRC_DIR = REPO_ROOT / "src"
+
+cfg = yaml.safe_load(TEST_CONFIG.read_text(encoding="utf-8"))
+OUT = Path(cfg["io"]["out_dir"])
+
+
+rule erp_all:
+    output:
+        str(OUT / "erp" / "duration" / "evoked-data.npy"),
+        str(OUT / "erp" / "latency" / "evoked-data.npy"),
+        str(OUT / "erp" / "duration" / "offsets.csv"),
+        str(OUT / "erp" / "latency" / "offsets.csv"),
+    shell:
+        "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main erp --config '{TEST_CONFIG}'"
+
+
+rule tfr_all:
+    output:
+        str(OUT / "tfr" / "duration" / "alpha" / "induced-data.npy"),
+        str(OUT / "tfr" / "latency" / "alpha" / "induced-data.npy"),
+        str(OUT / "tfr" / "duration" / "alpha" / "n_trials.csv"),
+        str(OUT / "tfr" / "latency" / "alpha" / "n_trials.csv"),
+    shell:
+        "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main tfr --config '{TEST_CONFIG}'"
+
+
+rule mixed_all:
+    output:
+        str(OUT / "mixed_effect" / "table.csv")
+    shell:
+        "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main mixed-effect --config '{TEST_CONFIG}'"
+
+
+rule erp_cluster_all:
+    input:
+        str(OUT / "erp" / "duration" / "evoked-data.npy"),
+        str(OUT / "erp" / "latency" / "evoked-data.npy"),
+        str(OUT / "erp" / "duration" / "difference_ave.fif"),
+        str(OUT / "erp" / "latency" / "difference_ave.fif"),
+    output:
+        str(OUT / "stats" / "erp" / "duration" / "cluster_results.hdf5"),
+        str(OUT / "stats" / "erp" / "duration" / "cluster_summary.csv"),
+        str(OUT / "stats" / "erp" / "latency" / "cluster_results.hdf5"),
+        str(OUT / "stats" / "erp" / "latency" / "cluster_summary.csv"),
+    shell:
+        "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main cluster --config '{TEST_CONFIG}' --kind erp --contrast duration && "
+        "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main cluster --config '{TEST_CONFIG}' --kind erp --contrast latency"
+
+
+rule tfr_cluster_all:
+    input:
+        str(OUT / "tfr" / "duration" / "alpha" / "induced-data.npy"),
+        str(OUT / "tfr" / "latency" / "alpha" / "induced-data.npy"),
+        str(OUT / "tfr" / "duration" / "beta" / "induced-data.npy"),
+        str(OUT / "tfr" / "latency" / "beta" / "induced-data.npy"),
+        str(OUT / "tfr" / "duration" / "alpha" / "difference_ave.fif"),
+        str(OUT / "tfr" / "latency" / "alpha" / "difference_ave.fif"),
+        str(OUT / "tfr" / "duration" / "beta" / "difference_ave.fif"),
+        str(OUT / "tfr" / "latency" / "beta" / "difference_ave.fif"),
+    output:
+        str(OUT / "stats" / "tfr" / "duration" / "alpha" / "cluster_results.hdf5"),
+        str(OUT / "stats" / "tfr" / "duration" / "alpha" / "cluster_summary.csv"),
+        str(OUT / "stats" / "tfr" / "latency" / "alpha" / "cluster_results.hdf5"),
+        str(OUT / "stats" / "tfr" / "latency" / "alpha" / "cluster_summary.csv"),
+        str(OUT / "stats" / "tfr" / "duration" / "beta" / "cluster_results.hdf5"),
+        str(OUT / "stats" / "tfr" / "duration" / "beta" / "cluster_summary.csv"),
+        str(OUT / "stats" / "tfr" / "latency" / "beta" / "cluster_results.hdf5"),
+        str(OUT / "stats" / "tfr" / "latency" / "beta" / "cluster_summary.csv"),
+    shell:
+        "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main cluster --config '{TEST_CONFIG}' --kind tfr --contrast duration --band alpha && "
+        "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main cluster --config '{TEST_CONFIG}' --kind tfr --contrast latency --band alpha && "
+        "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main cluster --config '{TEST_CONFIG}' --kind tfr --contrast duration --band beta && "
+        "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main cluster --config '{TEST_CONFIG}' --kind tfr --contrast latency --band beta"

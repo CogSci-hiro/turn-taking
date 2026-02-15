@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for ERP/decoding cluster output serialization and loading."""
 

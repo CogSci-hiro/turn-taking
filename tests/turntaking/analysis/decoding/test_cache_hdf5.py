@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for decoding feature-cache config parsing and IO closure wiring."""
 
