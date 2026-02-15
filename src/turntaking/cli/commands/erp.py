@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from turntaking.analysis.datasets.evoked_dataset import build_evoked_dataset
-from turntaking.analysis.io.erp import write_erp_outputs
+from turntaking.analysis.erp.io import save_erp_results
 from turntaking.analysis.selection import SelectionParams
 
 
@@ -142,25 +142,29 @@ def _expand_epoch_paths_from_config(cfg: Any) -> list[Path]:
     return paths
 
 
-def run(args: argparse.Namespace, cfg: Any) -> None:
-    # 1) Epoch files: CLI override or config expansion
+def _resolve_epoch_paths(args: argparse.Namespace, cfg: Any) -> list[Path]:
     if args.epochs_glob:
         epoch_paths = [Path(p) for p in sorted(glob.glob(args.epochs_glob)) if Path(p).is_file()]
         if len(epoch_paths) == 0:
             raise RuntimeError(f"No files matched --epochs-glob: {args.epochs_glob}")
-    else:
-        epoch_paths = _expand_epoch_paths(cfg)
+        return epoch_paths
+    return _expand_epoch_paths(cfg)
 
-    # 2) Output dir: CLI override or cfg.io.out_dir
+
+def _resolve_base_out_dir(args: argparse.Namespace, cfg: Any) -> Path:
     base_out_dir = Path(args.out_dir) if args.out_dir else (Path(cfg.io.out_dir) / "erp")
     base_out_dir.mkdir(parents=True, exist_ok=True)
+    return base_out_dir
 
-    # 3) Contrasts: CLI override or cfg.analysis.contrasts
+
+def _resolve_contrasts(args: argparse.Namespace, cfg: Any) -> list[str]:
     contrasts = [args.contrast] if args.contrast else list(cfg.analysis.contrasts)
     if len(contrasts) == 0:
         raise RuntimeError("analysis.contrasts is empty and no --contrast override was provided.")
+    return contrasts
 
-    # 4) Selection thresholds: CLI override or cfg.constraints.*
+
+def _resolve_selection_params(args: argparse.Namespace, cfg: Any) -> SelectionParams:
     min_latency = args.min_latency if args.min_latency is not None else float(cfg.constraints.min_latency)
     max_latency = args.max_latency if args.max_latency is not None else float(cfg.constraints.max_latency)
     min_self_duration = (
@@ -168,34 +172,51 @@ def run(args: argparse.Namespace, cfg: Any) -> None:
         if args.min_response_duration is not None
         else float(cfg.constraints.min_response_duration)
     )
-
-    selection_params = SelectionParams(
+    return SelectionParams(
         min_latency=min_latency,
         max_latency=max_latency,
-        min_self_duration=min_self_duration,  # maps to epochs.metadata["self_duration"]
+        min_self_duration=min_self_duration,
     )
 
-    # 5) Run for each contrast (config-driven default)
+
+def _run_single_contrast(
+    *,
+    contrast: str,
+    base_out_dir: Path,
+    epoch_paths: list[Path],
+    selection_params: SelectionParams,
+) -> None:
+    out_dir = base_out_dir / contrast
+    out_dir.mkdir(parents=True, exist_ok=True)
+    result = build_evoked_dataset(
+        epoch_paths=epoch_paths,
+        kind="erp",
+        contrast=contrast,
+        selection_params=selection_params,
+    )
+    save_erp_results(
+        out_dir,
+        contrast=contrast,
+        evokeds_cond_1=result.evokeds_cond_1,
+        evokeds_cond_2=result.evokeds_cond_2,
+        evokeds_difference=result.evokeds_difference,
+        evoked_data=result.evoked_data,
+        n_trials=result.n_trials,
+        results=result.results,
+        offsets=result.offsets,
+        overwrite=True,
+    )
+
+
+def run(args: argparse.Namespace, cfg: Any) -> None:
+    epoch_paths = _resolve_epoch_paths(args, cfg)
+    base_out_dir = _resolve_base_out_dir(args, cfg)
+    contrasts = _resolve_contrasts(args, cfg)
+    selection_params = _resolve_selection_params(args, cfg)
     for contrast in contrasts:
-        out_dir = base_out_dir / str(contrast)
-        out_dir.mkdir(parents=True, exist_ok=True)
-
-        result = build_evoked_dataset(
-            epoch_paths=epoch_paths,
-            kind="erp",
+        _run_single_contrast(
             contrast=str(contrast),
+            base_out_dir=base_out_dir,
+            epoch_paths=epoch_paths,
             selection_params=selection_params,
-        )
-
-        write_erp_outputs(
-            out_dir,
-            contrast=contrast,
-            evokeds_cond_1=result.evokeds_cond_1,
-            evokeds_cond_2=result.evokeds_cond_2,
-            evokeds_difference=result.evokeds_difference,
-            evoked_data=result.evoked_data,
-            n_trials=result.n_trials,
-            results=result.results,
-            offsets=result.offsets,
-            overwrite=True,
         )
