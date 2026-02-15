@@ -309,7 +309,7 @@ rule fig_erp_latency_with_hist:
     input:
         config="workflow/config.yaml"
     output:
-        fig=FIG_ROOT + "/supp" + "/figS4_erp_timecourse_with_hist.png"
+        fig=FIG_ROOT + "/main" + "/F_erp_timecourse_hist.tif"
     shell:
         r"""
         python -m turntaking.cli.main viz-erp-latency-hist --config "{input.config}"
