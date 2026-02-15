@@ -9,8 +9,10 @@ from turntaking.analysis.erp.core import (
 )
 from turntaking.analysis.erp.io import (
     load_epochs,
+    read_cluster_outputs,
     run_erp_analysis,
     save_erp_results,
+    write_cluster_outputs,
 )
 from turntaking.analysis.erp.outputs import (
     ErpConditionNames,
@@ -30,4 +32,6 @@ __all__ = [
     "load_epochs",
     "run_erp_analysis",
     "save_erp_results",
+    "write_cluster_outputs",
+    "read_cluster_outputs",
 ]

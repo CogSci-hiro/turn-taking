@@ -10,7 +10,7 @@ from typing import Any, Literal
 from turntaking.analysis.decoding.dataset import DecodingDatasetParams
 from turntaking.analysis.io.decoding import save_decoding_scores
 from turntaking.analysis.decoding.run_decoding import DecodingRunParams, run_group_decoding
-from turntaking.analysis.io.epochs import load_subject_epochs
+from turntaking.analysis.utils.epochs import load_subject_epochs
 from turntaking.analysis.selection import SelectionParams
 
 Contrast = Literal["latency", "duration"]

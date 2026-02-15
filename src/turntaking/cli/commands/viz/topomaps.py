@@ -13,7 +13,7 @@ from turntaking.viz.svg_pipeline import (
     export_colorbar_svg,
     export_topomap_svg,
 )
-from turntaking.analysis.io.cluster import read_cluster_outputs
+from turntaking.analysis.erp.io import read_cluster_outputs
 from turntaking.viz.svg_pipeline import (
     ClusterOverlay,
     compose_svg_from_template,
@@ -154,7 +154,7 @@ def run(args: argparse.Namespace, cfg) -> None:
     - Export-time sizing is template-driven (slot bbox -> figsize_in) so typography is correct.
     - Compose step does placement only (no visual scaling logic).
     """
-    from turntaking.analysis.io.cluster import read_cluster_outputs
+    from turntaking.analysis.erp.io import read_cluster_outputs
     from turntaking.viz.svg_pipeline import (
         compose_svg_from_template,
         export_colorbar_svg,
