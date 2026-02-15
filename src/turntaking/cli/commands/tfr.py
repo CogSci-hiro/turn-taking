@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from turntaking.analysis.datasets.evoked_dataset import build_evoked_dataset
-from turntaking.analysis.io.tfr import write_tfr_outputs
+from turntaking.analysis.tfr.io import write_tfr_outputs
 from turntaking.analysis.selection import SelectionParams
 
 _SUBJECT_RE = re.compile(r"(sub-\d{3})")
