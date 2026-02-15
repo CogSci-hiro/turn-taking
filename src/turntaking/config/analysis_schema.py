@@ -21,6 +21,9 @@ class VizErpHistSection:
     duration_short_fif: Path
     latency_fast_fif: Path
     latency_slow_fif: Path
+
+    hist_table_csv: Path  # NEW, required
+
     out_base: Path
     xlim_ms: Tuple[float, float]
     ylim_uv: Tuple[float, float]
@@ -32,10 +35,12 @@ class VizErpHistSection:
             duration_short_fif=Path(raw["duration_short_fif"]),
             latency_fast_fif=Path(raw["latency_fast_fif"]),
             latency_slow_fif=Path(raw["latency_slow_fif"]),
+            hist_table_csv=Path(raw["hist_table_csv"]),  # NEW
             out_base=Path(raw["out_base"]),
             xlim_ms=(float(raw["xlim_ms"][0]), float(raw["xlim_ms"][1])),
             ylim_uv=(float(raw["ylim_uv"][0]), float(raw["ylim_uv"][1])),
         )
+
 
 
 @dataclass(frozen=True)

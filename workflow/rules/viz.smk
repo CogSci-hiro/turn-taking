@@ -307,7 +307,8 @@ rule fig_tfr_topomap_tif:
 
 rule fig_erp_latency_with_hist:
     input:
-        config="workflow/config.yaml"
+        config="workflow/config.yaml",
+        ixed_table=config["viz"]["erp_hist"]["hist_table_csv"],
     output:
         fig=FIG_ROOT + "/main" + "/F_erp_timecourse_hist.tif"
     shell:

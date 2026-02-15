@@ -14,6 +14,9 @@ from turntaking.viz.figures.erp import plot_latency_erp_with_histograms
 import numpy as np
 import pandas as pd
 
+import numpy as np
+import pandas as pd
+
 
 def _require_columns(df: pd.DataFrame, required: list[str], where: str) -> None:
     missing = [c for c in required if c not in df.columns]
@@ -21,26 +24,24 @@ def _require_columns(df: pd.DataFrame, required: list[str], where: str) -> None:
         raise KeyError(f"Missing columns in {where}: {missing}. Available: {list(df.columns)}")
 
 
-def _make_latency_hist_df(turn_table: pd.DataFrame) -> pd.DataFrame:
-    """
-    Create histogram dataframe with columns: latency, condition.
+def _make_latency_hist_df_subject_median(mixed_table: pd.DataFrame) -> pd.DataFrame:
+    required = {"subject", "latency"}
+    missing = sorted(required - set(mixed_table.columns))
+    if missing:
+        raise KeyError(f"mixed_effect table is missing columns: {missing}. Available: {list(mixed_table.columns)}")
 
-    Expects a 'latency' column in seconds (float).
-    Uses median split into fast/slow.
-    """
-    _require_columns(turn_table, ["latency"], where="turn_table_csv")
+    df = mixed_table[["subject", "latency"]].copy()
+    df["subject"] = df["subject"].astype(str)
+    df["latency"] = pd.to_numeric(df["latency"], errors="coerce").astype(float)
+    df = df[np.isfinite(df["latency"])]
 
-    latency = pd.to_numeric(turn_table["latency"], errors="coerce").astype(float)
-    latency = latency[np.isfinite(latency)]
+    if df.empty:
+        raise ValueError("No finite latency values in mixed_effect/table.csv after cleaning.")
 
-    if latency.empty:
-        raise ValueError("No finite latency values found in turn_table_csv.")
+    subj_med = df.groupby("subject", sort=False)["latency"].transform("median")
+    df["condition"] = np.where(df["latency"] <= subj_med, "fast", "slow")
 
-    cutoff = float(latency.median())
-    condition = np.where(latency <= cutoff, "fast", "slow")
-
-    return pd.DataFrame({"latency": latency.to_numpy(dtype=float), "condition": condition})
-
+    return df[["latency", "condition"]].reset_index(drop=True)
 
 
 # =============================================================================
@@ -89,8 +90,8 @@ def run(args: argparse.Namespace, cfg) -> None:
     fast_list = mne.read_evokeds(sec.latency_fast_fif, condition=None)
     slow_list = mne.read_evokeds(sec.latency_slow_fif, condition=None)
 
-    turn_table = pd.read_csv(cfg.viz.behavior.turn_table_csv)
-    hist_df = _make_latency_hist_df(turn_table)
+    mixed_table = pd.read_csv(cfg.viz.erp_hist.hist_table_csv)
+    hist_df = _make_latency_hist_df_subject_median(mixed_table)
 
     plot_latency_erp_with_histograms(
         fast_list=fast_list,

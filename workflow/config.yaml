@@ -179,5 +179,6 @@ viz:
     latency_fast_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/fast_ave.fif"
     latency_slow_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/slow_ave.fif"
     out_base: "/Volumes/work-4T/turn-taking-new/figures/main/F_erp_timecourse_hist.tif"
+    hist_table_csv: "/Volumes/work-4T/turn-taking-new/mixed_effect/table.csv"
     xlim_ms: [ -1500, 500 ]
     ylim_uv: [ -2.8, 1.9 ]
