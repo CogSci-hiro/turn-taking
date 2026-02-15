@@ -1,12 +1,9 @@
 paths:
   workdir: "/Users/hiro/PycharmProjects/turn-taking-working"
   epoch_dir: "/Volumes/work-4T/hyperscanning/derived/eeg/epochs"
-  beh_dir: "/Volumes/work-4T/hyperscanning/derived/beh/metadata_wide_window"
-  out_dir: "/Volumes/work-4T/turn-taking-new"
-io:
-  epoch_dir: "/Volumes/work-4T/hyperscanning/derived/eeg/epochs"
   epoch_pattern: "{subject}_task-{task}_run-{run}_epochs-epo.fif"
-  out_dir: "/Volumes/work-4T/turn-taking-new"
+  beh_dir: "/Volumes/work-4T/hyperscanning/derived/beh/metadata_wide_window"
+  out_dir: "/Volumes/work-4T/turn-taking-testing"
 dataset:
   subjects:
     mode: "from_epochs"
@@ -29,19 +26,18 @@ dataset:
   - 8
   invalid_subject_run:
   - - "sub-004"
-    - '1'
+    - 1
   - - "sub-004"
-    - '2'
+    - 2
   - - "sub-027"
-    - '8'
+    - 8
   - - "sub-028"
-    - '8'
+    - 8
   - - "sub-015"
-    - '3'
+    - 3
 constraints:
   min_latency: -1.0
   max_latency: 1.0
-  min_response_duration: 0.01
 analysis:
   contrasts:
   - "duration"
@@ -50,11 +46,10 @@ analysis:
   - "alpha"
   - "beta"
   erp:
-    left_margin: 0.2
-    right_margin: 0.5
     sfreq: 512
     n_permutations: 1000
-    threshold: null
+    threshold:
+      type: automatic
   tfr:
     left_margin: 0.2
     right_margin: 0.5
