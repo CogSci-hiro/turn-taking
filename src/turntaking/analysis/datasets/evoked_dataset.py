@@ -13,208 +13,369 @@ from turntaking.analysis.selection import Contrast, SelectionParams, select_epoc
 Kind = Literal["erp", "tfr"]
 
 
-# =============================================================================
-# Band definitions
-# =============================================================================
-_BAND_LIMITS_HZ: dict[str, tuple[float, float]] = {
-    "alpha": (8.0, 12.0),
-    "beta": (13.0, 30.0),
-}
+@dataclass(frozen=True)
+class EvokedDatasetRaw:
+    """Raw per-subject epoch groups after selection/splitting/equalization."""
+
+    subject_ids: list[str]
+    cond1_epochs: list[np.ndarray]
+    cond2_epochs: list[np.ndarray]
+    cond1_metadata: list[pd.DataFrame]
+    cond2_metadata: list[pd.DataFrame]
+    times: np.ndarray
+    ch_names: list[str]
+    labels: dict[str, str]
+    infos: list[mne.Info]
 
 
-def _band_limits_hz(band: str) -> tuple[float, float]:
-    """
-    Return frequency limits for a predefined frequency band.
-
-    Parameters
-    ----------
-    band : str
-        Name of the frequency band.
-
-    Returns
-    -------
-    tuple of float
-        (l_freq, h_freq) in Hz.
-
-    Raises
-    ------
-    ValueError
-        If the band is not defined in `_BAND_LIMITS_HZ`.
-
-    Notes
-    -----
-    This function enforces explicit band definitions to avoid silent
-    mismatches between analysis configuration and implementation.
-    """
-    if band not in _BAND_LIMITS_HZ:
-        raise ValueError(
-            f"Unknown band={band!r}. Known: {sorted(_BAND_LIMITS_HZ.keys())}. "
-            "Add it to _BAND_LIMITS_HZ or wire config-based bands."
-        )
-    return _BAND_LIMITS_HZ[band]
-
-
-def _compute_induced_envelope_epochs(
-    epochs: mne.BaseEpochs,
-    *,
-    band: str,
-) -> np.ndarray:
-    """
-    Compute band-limited induced envelope per epoch using Hilbert transform.
-
-    Parameters
-    ----------
-    epochs : mne.BaseEpochs
-        Epoched data.
-    band : str
-        Frequency band name (must exist in `_BAND_LIMITS_HZ`).
-
-    Returns
-    -------
-    np.ndarray
-        Array of shape (n_epochs, n_channels, n_times)
-        containing the Hilbert envelope of the band-passed signal.
-
-    Notes
-    -----
-    Processing steps:
-        1. Band-pass filter (FIR, zero-phase).
-        2. Apply analytic Hilbert transform.
-        3. Extract amplitude envelope.
-
-    This returns *induced* activity (no phase locking across trials).
-    """
-    l_freq, h_freq = _band_limits_hz(band)
-
-    epochs = epochs.copy()
-
-    # Bandpass
-    epochs.filter(
-        l_freq=l_freq,
-        h_freq=h_freq,
-        method="fir",
-        phase="zero",
-        fir_design="firwin",
-        verbose="ERROR",
-    )
-
-    # Hilbert envelope
-    epochs.apply_hilbert(envelope=True)
-
-    return epochs.get_data()  # (E, C, T)
-
-
-def _induced_evoked_from_epochs(
-    epochs: mne.BaseEpochs,
-    *,
-    band: str,
-    comment: str,
-) -> mne.Evoked:
-    """
-    Convert induced envelope data into an ERP-like Evoked object.
-
-    Parameters
-    ----------
-    epochs : mne.BaseEpochs
-        Epoched data.
-    band : str
-        Frequency band name.
-    comment : str
-        Label stored in the Evoked object.
-
-    Returns
-    -------
-    mne.Evoked
-        Evoked object with data shape (n_channels, n_times).
-
-    Notes
-    -----
-    The envelope is computed per epoch and then averaged:
-
-        mean_env(c, t) = mean_e envelope(e, c, t)
-
-    This preserves channel/time structure while discarding
-    phase-locked information.
-    """
-    env = _compute_induced_envelope_epochs(epochs, band=band)  # (E,C,T)
-    mean_env = env.mean(axis=0)  # (C, T)
-
-    evoked = mne.EvokedArray(
-        mean_env,
-        info=epochs.info.copy(),
-        tmin=float(epochs.times[0]),
-        comment=comment,
-    )
-    return evoked
-
-
-def _stable_sort_key(path: Path) -> tuple:
-    """
-    Construct a deterministic sort key for epoch file paths.
-
-    Parameters
-    ----------
-    path : Path
-        Path to epoch file.
-
-    Returns
-    -------
-    tuple
-        Sorting key based on (task, run, filename).
-
-    Notes
-    -----
-    Ensures consistent concatenation order across subjects.
-    """
-    info = parse_epochs_filepath(path)
-
-    run = getattr(info, "run", None)
-    run_key = str(run) if run is not None else ""
-
-    task = getattr(info, "task", None)
-    task_key = str(task) if task is not None else ""
-
-    return task_key, run_key, path.name
-
-
-# =============================================================================
-# Dataset result (reused for ERP and induced-TFR)
-# =============================================================================
 @dataclass(frozen=True)
 class EvokedDatasetResult:
-    """
-    Container for subject-level evoked dataset outputs.
-
-    Attributes
-    ----------
-    evokeds_cond_1 : list of mne.Evoked
-        Per-subject Evoked objects for condition 1.
-    evokeds_cond_2 : list of mne.Evoked
-        Per-subject Evoked objects for condition 2.
-    evokeds_difference : list of mne.Evoked
-        Per-subject difference wave (cond_1 - cond_2).
-    evoked_data : np.ndarray
-        Array of shape (n_subjects, 3, n_channels, n_times),
-        ordered as [cond_1, cond_2, diff].
-    n_trials : pd.DataFrame
-        Per-subject trial counts.
-    offsets : pd.DataFrame
-        Concatenated metadata table for selected epochs.
-    results : Mapping[str, Any]
-        Metadata dictionary describing the dataset.
-    """
+    """Container for subject-level ERP/TFR evoked outputs."""
 
     evokeds_cond_1: list[mne.Evoked]
     evokeds_cond_2: list[mne.Evoked]
     evokeds_difference: list[mne.Evoked]
-
-    # (N,3,C,T) order [cond_1, cond_2, diff]
     evoked_data: np.ndarray
     n_trials: pd.DataFrame
     offsets: pd.DataFrame
-
-    # Metadata payload (written as metadata.hdf5)
     results: Mapping[str, Any]
+
+
+def _stable_sort_key(path: Path) -> tuple[str, str, str]:
+    info = parse_epochs_filepath(path)
+    run_key = "" if getattr(info, "run", None) is None else str(info.run)
+    task_key = "" if getattr(info, "task", None) is None else str(info.task)
+    return task_key, run_key, path.name
+
+
+def _group_paths_by_subject(epoch_paths: list[Path]) -> dict[str, list[Path]]:
+    grouped: dict[str, list[Path]] = defaultdict(list)
+    for path in epoch_paths:
+        info = parse_epochs_filepath(path)
+        grouped[info.subject].append(path)
+    for subject, paths in grouped.items():
+        grouped[subject] = sorted(paths, key=_stable_sort_key)
+    return dict(grouped)
+
+
+def _load_subject_epochs(paths: list[Path], *, sfreq: float | None) -> mne.BaseEpochs:
+    epochs_list = [load_epochs(path) for path in paths]
+    epochs = epochs_list[0] if len(epochs_list) == 1 else mne.concatenate_epochs(epochs_list)
+    if sfreq is not None:
+        epochs = epochs.copy().resample(float(sfreq))
+    return epochs
+
+
+def _split_subject_epochs(
+    epochs: mne.BaseEpochs,
+    *,
+    contrast: Contrast,
+    selection_params: SelectionParams,
+) -> tuple[mne.BaseEpochs, mne.BaseEpochs, dict[str, str]]:
+    selected = select_epochs(epochs, selection_params)
+    cond1, cond2, labels = split_epochs_median(selected, contrast=contrast)
+    mne.epochs.equalize_epoch_counts([cond1, cond2])
+    return cond1, cond2, labels
+
+
+def _require_metadata(epochs: mne.BaseEpochs) -> pd.DataFrame:
+    if epochs.metadata is None:
+        raise ValueError("epochs.metadata is required for evoked dataset building.")
+    return epochs.metadata.copy()
+
+
+def _assert_times_match(reference: np.ndarray, current: np.ndarray, *, subject: str) -> None:
+    if current.shape != reference.shape or not np.allclose(current, reference, atol=0.0, rtol=0.0):
+        raise ValueError(f"Time axis mismatch for subject={subject}.")
+
+
+def _subject_split_data(
+    grouped_paths: dict[str, list[Path]],
+    *,
+    subject: str,
+    contrast: Contrast,
+    selection_params: SelectionParams,
+    sfreq: float | None,
+) -> tuple[mne.BaseEpochs, mne.BaseEpochs, dict[str, str]]:
+    epochs = _load_subject_epochs(grouped_paths[subject], sfreq=sfreq)
+    return _split_subject_epochs(epochs, contrast=contrast, selection_params=selection_params)
+
+
+def _resolve_labels(
+    labels: dict[str, str] | None,
+    split_labels: dict[str, str],
+    *,
+    subject: str,
+) -> dict[str, str]:
+    if labels is None:
+        return dict(split_labels)
+    if labels != split_labels:
+        raise ValueError(f"Inconsistent split labels for subject={subject}: {split_labels} vs {labels}")
+    return labels
+
+
+def _update_reference_axes(
+    *,
+    reference_ch_names: list[str] | None,
+    reference_times: np.ndarray | None,
+    cond1: mne.BaseEpochs,
+    subject: str,
+) -> tuple[list[str], np.ndarray]:
+    if reference_ch_names is None:
+        next_ch_names = list(cond1.ch_names)
+    elif list(cond1.ch_names) != reference_ch_names:
+        raise ValueError(f"Channel order mismatch for subject={subject}.")
+    else:
+        next_ch_names = reference_ch_names
+    if reference_times is None:
+        next_times = cond1.times.copy()
+    else:
+        _assert_times_match(reference_times, cond1.times, subject=subject)
+        next_times = reference_times
+    return next_ch_names, next_times
+
+
+def _append_subject_arrays(
+    *,
+    cond1: mne.BaseEpochs,
+    cond2: mne.BaseEpochs,
+    cond1_epochs: list[np.ndarray],
+    cond2_epochs: list[np.ndarray],
+    cond1_metadata: list[pd.DataFrame],
+    cond2_metadata: list[pd.DataFrame],
+    infos: list[mne.Info],
+) -> None:
+    cond1_epochs.append(cond1.get_data(copy=True))
+    cond2_epochs.append(cond2.get_data(copy=True))
+    cond1_metadata.append(_require_metadata(cond1))
+    cond2_metadata.append(_require_metadata(cond2))
+    infos.append(cond1.info.copy())
+
+
+def _collect_subject_payloads(
+    *,
+    grouped: dict[str, list[Path]],
+    subject_ids: list[str],
+    contrast: Contrast,
+    selection_params: SelectionParams,
+    sfreq: float | None,
+):
+    cond1_epochs: list[np.ndarray] = []
+    cond2_epochs: list[np.ndarray] = []
+    cond1_metadata: list[pd.DataFrame] = []
+    cond2_metadata: list[pd.DataFrame] = []
+    infos: list[mne.Info] = []
+    labels: dict[str, str] | None = None
+    reference_ch_names: list[str] | None = None
+    reference_times: np.ndarray | None = None
+
+    for subject in subject_ids:
+        cond1, cond2, split_labels = _subject_split_data(
+            grouped,
+            subject=subject,
+            contrast=contrast,
+            selection_params=selection_params,
+            sfreq=sfreq,
+        )
+        labels = _resolve_labels(labels, split_labels, subject=subject)
+        reference_ch_names, reference_times = _update_reference_axes(
+            reference_ch_names=reference_ch_names,
+            reference_times=reference_times,
+            cond1=cond1,
+            subject=subject,
+        )
+        _append_subject_arrays(
+            cond1=cond1,
+            cond2=cond2,
+            cond1_epochs=cond1_epochs,
+            cond2_epochs=cond2_epochs,
+            cond1_metadata=cond1_metadata,
+            cond2_metadata=cond2_metadata,
+            infos=infos,
+        )
+    return cond1_epochs, cond2_epochs, cond1_metadata, cond2_metadata, infos, labels, reference_ch_names, reference_times
+
+
+def _result_computer(kind: Kind, contrast: Contrast, band: str | None):
+    if kind == "erp":
+        from turntaking.analysis.erp.core import compute_evoked_dataset_result
+
+        return lambda raw: compute_evoked_dataset_result(raw, contrast=contrast)
+    if kind == "tfr":
+        from turntaking.analysis.tfr.core import compute_induced_dataset_result
+
+        return lambda raw: compute_induced_dataset_result(raw, band=str(band), contrast=contrast)
+    raise ValueError(f"Unknown kind={kind!r}")
+
+
+def _assert_partial_axes(
+    *,
+    partial: EvokedDatasetResult,
+    subject: str,
+    ch_names_ref: list[str] | None,
+    times_ref: np.ndarray | None,
+) -> tuple[list[str], np.ndarray]:
+    cur_ch_names = list(partial.evokeds_cond_1[0].ch_names)
+    cur_times = partial.evokeds_cond_1[0].times.copy()
+    if ch_names_ref is not None and cur_ch_names != ch_names_ref:
+        raise ValueError(f"Channel order mismatch for subject={subject}.")
+    if times_ref is not None and not np.allclose(cur_times, times_ref, atol=0.0, rtol=0.0):
+        raise ValueError(f"Time axis mismatch for subject={subject}.")
+    return cur_ch_names, cur_times
+
+
+def _stack_evoked_data(
+    evokeds_cond_1: list[mne.Evoked],
+    evokeds_cond_2: list[mne.Evoked],
+    evokeds_difference: list[mne.Evoked],
+) -> np.ndarray:
+    return np.stack(
+        [
+            np.stack([ev.data for ev in evokeds_cond_1], axis=0),
+            np.stack([ev.data for ev in evokeds_cond_2], axis=0),
+            np.stack([ev.data for ev in evokeds_difference], axis=0),
+        ],
+        axis=1,
+    )
+
+
+def _build_results_metadata(
+    *,
+    kind: Kind,
+    contrast: Contrast,
+    band: str | None,
+    cond_1: str,
+    cond_2: str,
+    subjects: list[str],
+    times_ref: np.ndarray,
+    ch_names_ref: list[str],
+    evoked_data: np.ndarray,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "kind": str(kind),
+        "contrast": str(contrast),
+        "cond_1": cond_1,
+        "cond_2": cond_2,
+        "subjects": np.array(subjects, dtype=object),
+        "n_subjects": int(len(subjects)),
+        "times": times_ref,
+        "ch_names": np.array(ch_names_ref, dtype=object),
+        "data_shape": np.array(evoked_data.shape, dtype=int),
+        "difference_definition": f"{cond_1}-{cond_2}",
+    }
+    if kind == "tfr":
+        metadata["band"] = str(band)
+    return metadata
+
+
+def _compute_partials(
+    *,
+    grouped: dict[str, list[Path]],
+    subjects: list[str],
+    contrast: Contrast,
+    selection_params: SelectionParams,
+    sfreq: float | None,
+    compute_result,
+) -> tuple[
+    list[mne.Evoked],
+    list[mne.Evoked],
+    list[mne.Evoked],
+    list[pd.DataFrame],
+    list[pd.DataFrame],
+    str | None,
+    str | None,
+    np.ndarray | None,
+    list[str] | None,
+]:
+    evokeds_cond_1: list[mne.Evoked] = []
+    evokeds_cond_2: list[mne.Evoked] = []
+    evokeds_difference: list[mne.Evoked] = []
+    n_trials_frames: list[pd.DataFrame] = []
+    offsets_frames: list[pd.DataFrame] = []
+    cond_1: str | None = None
+    cond_2: str | None = None
+    times_ref: np.ndarray | None = None
+    ch_names_ref: list[str] | None = None
+
+    for subject in subjects:
+        raw = build_raw_evoked_dataset(
+            grouped[subject],
+            contrast=contrast,
+            selection_params=selection_params,
+            sfreq=sfreq,
+        )
+        partial = compute_result(raw)
+        cur_ch_names, cur_times = _assert_partial_axes(
+            partial=partial,
+            subject=subject,
+            ch_names_ref=ch_names_ref,
+            times_ref=times_ref,
+        )
+        if cond_1 is None:
+            cond_1 = str(partial.results["cond_1"])
+            cond_2 = str(partial.results["cond_2"])
+            ch_names_ref = cur_ch_names
+            times_ref = cur_times
+        evokeds_cond_1.extend(partial.evokeds_cond_1)
+        evokeds_cond_2.extend(partial.evokeds_cond_2)
+        evokeds_difference.extend(partial.evokeds_difference)
+        n_trials_frames.append(partial.n_trials)
+        offsets_frames.append(partial.offsets)
+
+    return (
+        evokeds_cond_1,
+        evokeds_cond_2,
+        evokeds_difference,
+        n_trials_frames,
+        offsets_frames,
+        cond_1,
+        cond_2,
+        times_ref,
+        ch_names_ref,
+    )
+
+
+def build_raw_evoked_dataset(
+    epoch_paths: list[Path],
+    *,
+    contrast: Contrast,
+    selection_params: SelectionParams,
+    sfreq: float | None = None,
+) -> EvokedDatasetRaw:
+    """Build raw split/equalized per-subject epoch arrays for ERP/TFR cores."""
+    if len(epoch_paths) == 0:
+        raise ValueError("No epoch files provided.")
+    grouped = _group_paths_by_subject(epoch_paths)
+    subject_ids = sorted(grouped.keys())
+    (
+        cond1_epochs,
+        cond2_epochs,
+        cond1_metadata,
+        cond2_metadata,
+        infos,
+        labels,
+        reference_ch_names,
+        reference_times,
+    ) = _collect_subject_payloads(
+        grouped=grouped,
+        subject_ids=subject_ids,
+        contrast=contrast,
+        selection_params=selection_params,
+        sfreq=sfreq,
+    )
+    if labels is None or reference_ch_names is None or reference_times is None:
+        raise ValueError("No valid subject data found for evoked dataset building.")
+    return EvokedDatasetRaw(
+        subject_ids=subject_ids,
+        cond1_epochs=cond1_epochs,
+        cond2_epochs=cond2_epochs,
+        cond1_metadata=cond1_metadata,
+        cond2_metadata=cond2_metadata,
+        times=reference_times,
+        ch_names=reference_ch_names,
+        labels=labels,
+        infos=infos,
+    )
 
 
 def build_evoked_dataset(
@@ -227,171 +388,54 @@ def build_evoked_dataset(
     sfreq: float | None = None,
 ) -> EvokedDatasetResult:
     """
-    Construct subject-level ERP or induced-TFR dataset.
-
-    Parameters
-    ----------
-    epoch_paths : list of Path
-        Paths to epoch files (possibly multiple runs per subject).
-    kind : {"erp", "tfr"}
-        Type of analysis.
-    contrast : Contrast
-        Contrast definition used for median split.
-    selection_params : SelectionParams
-        Epoch selection criteria.
-    band : str | None
-        Required if kind="tfr". Frequency band name.
-    sfreq : float | None
-        Optional resampling frequency.
-
-    Returns
-    -------
-    EvokedDatasetResult
-        Structured container with evoked objects and stacked data.
-
-    Notes
-    -----
-    Processing steps per subject:
-        1. Load and concatenate epochs.
-        2. Optional resampling.
-        3. Apply selection.
-        4. Split via median (cond_1 vs cond_2).
-        5. Equalize trial counts.
-        6. Compute evoked averages.
-        7. Compute difference wave (cond_1 - cond_2).
-
-    Cross-subject invariants:
-        - Identical channel ordering.
-        - Identical time axis.
-        - Identical data shapes.
-
-    Data layout:
-        evoked_data shape = (N_subjects, 3, C, T)
-        order = [cond_1, cond_2, difference]
+    Backward-compatible API shim:
+    dataset selection/grouping here, computation delegated to domain cores.
     """
-    if len(epoch_paths) == 0:
-        raise ValueError("No epoch files provided.")
     if kind == "tfr" and band is None:
         raise ValueError("kind='tfr' requires band=...")
-
-    paths_by_subject: dict[str, list[Path]] = defaultdict(list)
-    for path in epoch_paths:
-        info = parse_epochs_filepath(path)
-        paths_by_subject[info.subject].append(path)
-
-    subjects = sorted(paths_by_subject.keys())
-    for subject in subjects:
-        paths_by_subject[subject] = sorted(paths_by_subject[subject], key=_stable_sort_key)
-
-    evokeds_1: list[mne.Evoked] = []
-    evokeds_2: list[mne.Evoked] = []
-    evokeds_diff: list[mne.Evoked] = []
-
-    offsets_rows: list[pd.DataFrame] = []
-    n_trials_rows: list[dict[str, Any]] = []
-
-    labels: dict[str, str] | None = None
-    reference_ch_names: list[str] | None = None
-    reference_times: np.ndarray | None = None
-
-    for subject in subjects:
-        epochs_list = [load_epochs(p) for p in paths_by_subject[subject]]
-        epochs = epochs_list[0] if len(epochs_list) == 1 else mne.concatenate_epochs(epochs_list)
-
-        # Optional resample (useful for induced envelopes, and matches your config pattern)
-        if sfreq is not None:
-            epochs = epochs.copy().resample(float(sfreq))
-
-        epochs_sel = select_epochs(epochs, selection_params)
-        cond1, cond2, split_labels = split_epochs_median(epochs_sel, contrast=contrast)
-        labels = split_labels
-
-        mne.epochs.equalize_epoch_counts([cond1, cond2])
-
-        if kind == "erp":
-            ev1 = cond1.average()
-            ev2 = cond2.average()
-        elif kind == "tfr":
-            assert band is not None
-            ev1 = _induced_evoked_from_epochs(cond1, band=band, comment=split_labels["cond_1"])
-            ev2 = _induced_evoked_from_epochs(cond2, band=band, comment=split_labels["cond_2"])
-        else:
-            raise ValueError(f"Unknown kind={kind!r}")
-
-        evd = ev1.copy()
-        evd.data = ev1.data - ev2.data
-        evd.comment = f"{split_labels['cond_1']}-{split_labels['cond_2']}"
-
-        # Cross-subject invariants
-        if reference_ch_names is None:
-            reference_ch_names = list(ev1.ch_names)
-        elif list(ev1.ch_names) != reference_ch_names:
-            raise ValueError(f"Channel order mismatch for subject={subject}.")
-
-        if reference_times is None:
-            reference_times = ev1.times.copy()
-        else:
-            if ev1.times.shape != reference_times.shape or not np.allclose(ev1.times, reference_times, atol=0.0, rtol=0.0):
-                raise ValueError(f"Time axis mismatch for subject={subject}.")
-
-        evokeds_1.append(ev1)
-        evokeds_2.append(ev2)
-        evokeds_diff.append(evd)
-
-        # Offsets table (kept for parity)
-        md1 = cond1.metadata.copy()
-        md2 = cond2.metadata.copy()
-        md1["condition"] = split_labels["cond_1"]
-        md2["condition"] = split_labels["cond_2"]
-        md = pd.concat([md1, md2], ignore_index=True)
-        md["subject"] = subject
-        offsets_rows.append(md)
-
-        n_trials_rows.append(
-            {
-                "subject": subject,
-                split_labels["cond_1"]: int(len(cond1)),
-                split_labels["cond_2"]: int(len(cond2)),
-            }
-        )
-
-    if labels is None or len(evokeds_1) == 0:
-        raise ValueError("No evokeds computed (maybe selection removed all epochs).")
-
-    # (N,3,C,T) order [cond_1, cond_2, diff]
-    evoked_data = np.stack(
-        [
-            np.stack([ev.data for ev in evokeds_1], axis=0),
-            np.stack([ev.data for ev in evokeds_2], axis=0),
-            np.stack([ev.data for ev in evokeds_diff], axis=0),
-        ],
-        axis=1,
+    grouped = _group_paths_by_subject(epoch_paths)
+    subjects = sorted(grouped.keys())
+    if len(subjects) == 0:
+        raise ValueError("No epoch files provided.")
+    compute_result = _result_computer(kind, contrast, band)
+    (
+        evokeds_cond_1,
+        evokeds_cond_2,
+        evokeds_difference,
+        n_trials_frames,
+        offsets_frames,
+        cond_1,
+        cond_2,
+        times_ref,
+        ch_names_ref,
+    ) = _compute_partials(
+        grouped=grouped,
+        subjects=subjects,
+        contrast=contrast,
+        selection_params=selection_params,
+        sfreq=sfreq,
+        compute_result=compute_result,
     )
-
-    offsets = pd.concat(offsets_rows, ignore_index=True) if offsets_rows else pd.DataFrame()
-    n_trials = pd.DataFrame(n_trials_rows)
-
-    results: dict[str, Any] = {
-        "kind": str(kind),
-        "contrast": str(contrast),
-        "cond_1": labels["cond_1"],
-        "cond_2": labels["cond_2"],
-        "subjects": np.array(subjects, dtype=object),
-        "n_subjects": int(len(subjects)),
-        "times": evokeds_1[0].times,
-        "ch_names": np.array(evokeds_1[0].ch_names, dtype=object),
-        "data_shape": np.array(evoked_data.shape, dtype=int),
-        "difference_definition": f"{labels['cond_1']}-{labels['cond_2']}",
-    }
-    if kind == "tfr":
-        results["band"] = str(band)
-
-    return EvokedDatasetResult(
-        evokeds_cond_1=evokeds_1,
-        evokeds_cond_2=evokeds_2,
-        evokeds_difference=evokeds_diff,
+    if cond_1 is None or cond_2 is None or times_ref is None or ch_names_ref is None:
+        raise ValueError("No evokeds computed (maybe selection removed all epochs).")
+    evoked_data = _stack_evoked_data(evokeds_cond_1, evokeds_cond_2, evokeds_difference)
+    results = _build_results_metadata(
+        kind=kind,
+        contrast=contrast,
+        band=band,
+        cond_1=cond_1,
+        cond_2=cond_2,
+        subjects=subjects,
+        times_ref=times_ref,
+        ch_names_ref=ch_names_ref,
         evoked_data=evoked_data,
-        n_trials=n_trials,
-        offsets=offsets,
+    )
+    return EvokedDatasetResult(
+        evokeds_cond_1=evokeds_cond_1,
+        evokeds_cond_2=evokeds_cond_2,
+        evokeds_difference=evokeds_difference,
+        evoked_data=evoked_data,
+        n_trials=pd.concat(n_trials_frames, ignore_index=True),
+        offsets=pd.concat(offsets_frames, ignore_index=True) if offsets_frames else pd.DataFrame(),
         results=results,
     )
