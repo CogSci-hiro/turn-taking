@@ -99,6 +99,28 @@ def _valid_config_dict() -> dict:
                 "duration_cluster_hdf5": "/out/duration_cluster.h5",
                 "latency_cluster_hdf5": "/out/latency_cluster.h5",
             },
+            "tfr_topomaps": {
+                "template_svg": "workflow/templates/TFR-timeline.svg",
+                "parts_dir": "workflow/results/parts_tfr_topomaps",
+                "out_svg": "workflow/results/F_tfr_topomaps.svg",
+                "info_source_fif": "/out/info.fif",
+                "alpha_cluster_hdf5": "/out/alpha_cluster.h5",
+                "beta_cluster_hdf5": "/out/beta_cluster.h5",
+            },
+            "tfr_topos": {
+                "alpha_duration_cluster_hdf5": "/out/alpha_duration_cluster.h5",
+                "alpha_latency_cluster_hdf5": "/out/alpha_latency_cluster.h5",
+                "beta_duration_cluster_hdf5": "/out/beta_duration_cluster.h5",
+                "beta_latency_cluster_hdf5": "/out/beta_latency_cluster.h5",
+                "info_source_fif": "/out/info.fif",
+                "out_alpha_duration": "/out/alpha_duration.tif",
+                "out_alpha_latency": "/out/alpha_latency.tif",
+                "out_beta_duration": "/out/beta_duration.tif",
+                "out_beta_latency": "/out/beta_latency.tif",
+                "tmin_s": -2.0,
+                "tmax_s": 0.0,
+                "step_ms": 100,
+            },
         },
     }
 
