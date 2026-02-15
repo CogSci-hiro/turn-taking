@@ -317,11 +317,16 @@ class TurntakingConfig:
         d = _require_mapping(d, "root")
 
         # -------------------------------- io ------------------------------
-        io_d = _require_mapping(_require_key(d, "io", "root"), "io")
+        if "io" in d:
+            io_d = _require_mapping(_require_key(d, "io", "root"), "io")
+        elif "paths" in d:
+            io_d = _require_mapping(_require_key(d, "paths", "root"), "paths")
+        else:
+            raise KeyError("Missing required key 'io' (or fallback 'paths') in root.")
         io = IoSection(
-            epoch_dir=Path(_require_key(io_d, "epoch_dir", "io")),
-            epoch_pattern=str(_require_key(io_d, "epoch_pattern", "io")),
-            out_dir=Path(_require_key(io_d, "out_dir", "io")),
+            epoch_dir=Path(_require_key(io_d, "epoch_dir", "io/paths")),
+            epoch_pattern=str(_require_key(io_d, "epoch_pattern", "io/paths")),
+            out_dir=Path(_require_key(io_d, "out_dir", "io/paths")),
         )
 
         # ----------------------------- dataset ----------------------------
