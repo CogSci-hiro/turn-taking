@@ -24,19 +24,44 @@ from snakemake.exceptions import WorkflowError
 # =============================================================================
 # Basic config accessors
 # =============================================================================
+def _io_or_paths() -> Dict:
+    """
+    Return the config section used for filesystem paths.
+
+    Preferred schema:
+      paths.epoch_dir / paths.epoch_pattern / paths.out_dir
+    Backward-compatible fallback:
+      io.epoch_dir / io.epoch_pattern / io.out_dir
+    """
+    if isinstance(config.get("paths"), dict):
+        return dict(config["paths"])
+    if isinstance(config.get("io"), dict):
+        return dict(config["io"])
+    raise WorkflowError("Missing config section: expected top-level 'paths' or 'io'.")
+
+
 def epoch_dir() -> Path:
-    p = Path(config["io"]["epoch_dir"])
+    section = _io_or_paths()
+    if "epoch_dir" not in section:
+        raise WorkflowError("Missing required config key: paths.epoch_dir (or io.epoch_dir).")
+    p = Path(section["epoch_dir"])
     if not p.exists():
-        raise WorkflowError(f"io.epoch_dir does not exist: {p}")
+        raise WorkflowError(f"paths.epoch_dir does not exist: {p}")
     return p
 
 
 def epoch_pattern() -> str:
-    return str(config["io"]["epoch_pattern"])
+    section = _io_or_paths()
+    if "epoch_pattern" not in section:
+        raise WorkflowError("Missing required config key: paths.epoch_pattern (or io.epoch_pattern).")
+    return str(section["epoch_pattern"])
 
 
 def out_dir() -> Path:
-    return Path(config["io"]["out_dir"])
+    section = _io_or_paths()
+    if "out_dir" not in section:
+        raise WorkflowError("Missing required config key: paths.out_dir (or io.out_dir).")
+    return Path(section["out_dir"])
 
 
 def entrypoint() -> Path:
