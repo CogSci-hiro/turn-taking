@@ -4,9 +4,23 @@ from typing import Any, Mapping
 import numpy as np
 import pandas as pd
 
+from turntaking.analysis.utils.io import (
+    ensure_dir_exists,
+    save_array_nd,
+    save_dataframe_csv,
+    save_hdf5_dataset,
+)
+
+__all__ = [
+    "save_table",
+    "save_table_csv",
+    "save_npy",
+    "save_hdf5",
+]
+
 
 def save_table(df: pd.DataFrame, path: Path) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    ensure_dir_exists(path.parent)
     suffix = path.suffix.lower()
     if suffix == ".csv":
         df.to_csv(path, index=False)
@@ -18,77 +32,14 @@ def save_table(df: pd.DataFrame, path: Path) -> None:
 
 def save_table_csv(df: pd.DataFrame, path: Path) -> None:
     """Save a DataFrame as CSV (no index), ensuring parent dirs exist."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(path, index=False)
+    save_dataframe_csv(df, path)
 
 
 def save_npy(arr: np.ndarray, path: Path) -> None:
     """Save a NumPy array as .npy, ensuring parent dirs exist."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    np.save(path, arr)
+    save_array_nd(arr, path)
 
 
 def save_hdf5(path: Path, payload: Mapping[str, Any]) -> None:
-    """
-    Minimal deterministic HDF5 serializer.
-
-    Strategy
-    --------
-    - Scalars -> HDF5 attrs
-    - ndarray -> dataset
-    - list/tuple -> dataset if numeric/string; otherwise JSON bytes
-    - everything else -> JSON bytes
-
-    Notes
-    -----
-    Avoids object dtype failures and NumPy 2.0 `np.string_` pitfalls.
-    """
-    import json
-    import h5py
-
-    def _json_default(obj: Any) -> Any:
-        if isinstance(obj, np.integer):
-            return int(obj)
-        if isinstance(obj, np.floating):
-            return float(obj)
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        if isinstance(obj, (bytes, bytearray)):
-            return {"__bytes__": True, "data": bytes(obj).decode("latin-1")}
-        return str(obj)
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with h5py.File(path, "w") as f:
-        for key, value in payload.items():
-            if value is None:
-                continue
-
-            k = str(key)
-
-            if isinstance(value, np.bytes_):
-                f.create_dataset(k, data=value)
-                continue
-
-            if isinstance(value, np.ndarray):
-                if value.dtype == object:
-                    payload_bytes = json.dumps(
-                        value.tolist(), sort_keys=True, default=_json_default
-                    ).encode("utf-8")
-                    f.create_dataset(k, data=np.bytes_(payload_bytes))
-                else:
-                    f.create_dataset(k, data=value)
-                continue
-
-            if isinstance(value, (list, tuple)):
-                arr = np.asarray(value)
-                if arr.dtype == object:
-                    payload_bytes = json.dumps(
-                        value, sort_keys=True, default=_json_default
-                    ).encode("utf-8")
-                    f.create_dataset(k, data=np.bytes_(payload_bytes))
-                else:
-                    f.create_dataset(k, data=arr)
-                continue
-
-            payload_bytes = json.dumps(value, sort_keys=True, default=_json_default).encode("utf-8")
-            f.create_dataset(k, data=np.bytes_(payload_bytes))
+    """Backward-compatible wrapper around shared HDF5 serialization."""
+    save_hdf5_dataset(path, payload)
