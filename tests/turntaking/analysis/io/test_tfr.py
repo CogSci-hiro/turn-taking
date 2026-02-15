@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from turntaking.analysis.io.tfr import get_tfr_condition_names, write_tfr_outputs
+from turntaking.analysis.tfr.io import get_tfr_condition_names, write_tfr_outputs
 
 
 def _evoked(comment: str) -> mne.Evoked:
