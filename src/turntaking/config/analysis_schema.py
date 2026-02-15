@@ -368,7 +368,7 @@ class TurntakingConfig:
         constraints = ConstraintsSection(
             min_latency=float(_require_key(constraints_d, "min_latency", "constraints")),
             max_latency=float(_require_key(constraints_d, "max_latency", "constraints")),
-            min_response_duration=float(_require_key(constraints_d, "min_response_duration", "constraints")),
+            min_response_duration=float(constraints_d.get("min_response_duration", 0.0)),
         )
 
         # ------------------------------ analysis ---------------------------
@@ -384,8 +384,8 @@ class TurntakingConfig:
 
         erp_d = _require_mapping(_require_key(analysis_d, "erp", "analysis"), "analysis.erp")
         erp = AnalysisErpSection(
-            left_margin=float(_require_key(erp_d, "left_margin", "analysis.erp")),
-            right_margin=float(_require_key(erp_d, "right_margin", "analysis.erp")),
+            left_margin=float(erp_d.get("left_margin", 0.0)),
+            right_margin=float(erp_d.get("right_margin", 0.0)),
             sfreq=int(_require_key(erp_d, "sfreq", "analysis.erp")),
             n_permutations=int(_require_key(erp_d, "n_permutations", "analysis.erp")),
             threshold=erp_d.get("threshold"),
