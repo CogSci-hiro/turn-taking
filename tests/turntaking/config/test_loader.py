@@ -121,6 +121,16 @@ def _valid_config_dict() -> dict:
                 "tmax_s": 0.0,
                 "step_ms": 100,
             },
+            "erp_hist": {
+                "duration_long_fif": "/out/a.fif",
+                "duration_short_fif": "/out/b.fif",
+                "latency_fast_fif": "/out/c.fif",
+                "latency_slow_fif": "/out/d.fif",
+                "hist_table_csv": "/out/erp_hist_table.csv",
+                "out_base": "/out/erp_hist.tif",
+                "xlim_ms": [-1500, 500],
+                "ylim_uv": [-2.8, 1.9],
+            },
         },
     }
 
