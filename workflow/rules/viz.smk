@@ -303,3 +303,14 @@ rule fig_tfr_topomap_tif:
           --out-tif "{output.tif}" \
           --dpi 300
         """
+
+
+rule fig_erp_latency_with_hist:
+    input:
+        config="workflow/config.yaml"
+    output:
+        fig=FIG_ROOT + "/supp" + "/figS4_erp_timecourse_with_hist.png"
+    shell:
+        r"""
+        python -m turntaking.cli.main viz-erp-latency-hist --config "{input.config}"
+        """

@@ -36,6 +36,7 @@ import turntaking.cli.commands.viz.topomaps as cmd_viz_topomaps
 import turntaking.cli.commands.viz.tfr_topo as cmd_viz_tfr_topo
 import turntaking.cli.commands.viz.svg_to_tif as cmd_viz_svg_to_tif
 import turntaking.cli.commands.viz.tfr_topomaps as cmd_viz_tfr_topomaps
+import turntaking.cli.commands.viz.erp_latency_hist as cmd_viz_erp_latency_hist
 
 _COMMANDS = {"erp": cmd_erp,
              "tfr": cmd_tfr,
@@ -51,6 +52,7 @@ _COMMANDS = {"erp": cmd_erp,
              "viz-tfr-topomaps": cmd_viz_tfr_topomaps,
              "viz-decoding": cmd_viz_decoding,
              "beh-turn-table": cmd_beh_turn_table,
+             "viz-erp-latency-hist": cmd_viz_erp_latency_hist,
              "viz-svg-to-tiff": cmd_viz_svg_to_tif}
 
 
