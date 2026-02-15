@@ -16,6 +16,29 @@ def _require_key(d: dict[str, Any], key: str, where: str) -> Any:
 
 
 @dataclass(frozen=True)
+class VizErpHistSection:
+    duration_long_fif: Path
+    duration_short_fif: Path
+    latency_fast_fif: Path
+    latency_slow_fif: Path
+    out_base: Path
+    xlim_ms: Tuple[float, float]
+    ylim_uv: Tuple[float, float]
+
+    @classmethod
+    def from_dict(cls, raw: dict) -> "VizErpHistSection":
+        return cls(
+            duration_long_fif=Path(raw["duration_long_fif"]),
+            duration_short_fif=Path(raw["duration_short_fif"]),
+            latency_fast_fif=Path(raw["latency_fast_fif"]),
+            latency_slow_fif=Path(raw["latency_slow_fif"]),
+            out_base=Path(raw["out_base"]),
+            xlim_ms=(float(raw["xlim_ms"][0]), float(raw["xlim_ms"][1])),
+            ylim_uv=(float(raw["ylim_uv"][0]), float(raw["ylim_uv"][1])),
+        )
+
+
+@dataclass(frozen=True)
 class VizErpTopomapsSection:
     template_svg: Path
 
@@ -172,6 +195,7 @@ class VizSection:
     behavior: VizBehaviorSection
     erp_topomaps: VizErpTopomapsSection
     tfr_topomaps: VizTfrTopomapsSection
+    erp_hist: VizErpHistSection
 
     @classmethod
     def from_dict(cls, raw: dict) -> "VizSection":
@@ -510,13 +534,17 @@ class TurntakingConfig:
             p_threshold=float(tfr_topos_d.get("p_threshold", 0.01)),
         )
 
+        erp_hist_d = _require_mapping(_require_key(viz_d, "erp_hist", "viz"), "viz.erp_hist")
+        erp_hist = VizErpHistSection.from_dict(erp_hist_d)
+
         viz = VizSection(
             erp_timecourse=erp_timecourse,
             erp_topo=erp_topo,
             behavior=behavior,
             erp_topomaps=erp_topomaps,
             tfr_topomaps=tfr_topomaps,
-            tfr_topos=tfr_topos
+            tfr_topos=tfr_topos,
+            erp_hist=erp_hist
         )
 
         return TurntakingConfig(

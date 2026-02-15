@@ -11,6 +11,37 @@ import pandas as pd
 
 from turntaking.viz.figures.erp import plot_latency_erp_with_histograms
 
+import numpy as np
+import pandas as pd
+
+
+def _require_columns(df: pd.DataFrame, required: list[str], where: str) -> None:
+    missing = [c for c in required if c not in df.columns]
+    if missing:
+        raise KeyError(f"Missing columns in {where}: {missing}. Available: {list(df.columns)}")
+
+
+def _make_latency_hist_df(turn_table: pd.DataFrame) -> pd.DataFrame:
+    """
+    Create histogram dataframe with columns: latency, condition.
+
+    Expects a 'latency' column in seconds (float).
+    Uses median split into fast/slow.
+    """
+    _require_columns(turn_table, ["latency"], where="turn_table_csv")
+
+    latency = pd.to_numeric(turn_table["latency"], errors="coerce").astype(float)
+    latency = latency[np.isfinite(latency)]
+
+    if latency.empty:
+        raise ValueError("No finite latency values found in turn_table_csv.")
+
+    cutoff = float(latency.median())
+    condition = np.where(latency <= cutoff, "fast", "slow")
+
+    return pd.DataFrame({"latency": latency.to_numpy(dtype=float), "condition": condition})
+
+
 
 # =============================================================================
 # CLI REGISTRATION
@@ -41,49 +72,29 @@ def add_subparser(subparsers: argparse._SubParsersAction) -> None:
 # Implementation
 # =============================================================================
 
+def _cfg_get(cfg, *keys):
+    cur = cfg
+    for k in keys:
+        if isinstance(cur, dict):
+            cur = cur[k]
+        else:
+            cur = getattr(cur, k)
+    return cur
+
 def run(args: argparse.Namespace, cfg) -> None:
-    out_dir: Path = cfg.io.out_dir
+    sec = cfg.viz.erp_hist
 
-    # 1) Load the evokeds you want to compare (fast vs slow)
-    #
-    # You need to match *your* actual file naming/layout.
-    # Common pattern: store condition-specific evokeds under out_dir/erp/...
-    fast_fif = out_dir / "erp" / "evoked_fast-ave.fif"
-    slow_fif = out_dir / "erp" / "evoked_slow-ave.fif"
+    out_path = Path(args.out) if getattr(args, "out", None) else sec.out_base
 
-    if not fast_fif.exists():
-        raise FileNotFoundError(f"Missing: {fast_fif}")
-    if not slow_fif.exists():
-        raise FileNotFoundError(f"Missing: {slow_fif}")
+    fast_list = mne.read_evokeds(sec.latency_fast_fif, condition=None)
+    slow_list = mne.read_evokeds(sec.latency_slow_fif, condition=None)
 
-    fast_list = mne.read_evokeds(fast_fif, condition=None)
-    slow_list = mne.read_evokeds(slow_fif, condition=None)
+    turn_table = pd.read_csv(cfg.viz.behavior.turn_table_csv)
+    hist_df = _make_latency_hist_df(turn_table)
 
-    # 2) Build the histogram dataframe expected by plot_latency_erp_with_histograms():
-    # must include columns: latency, condition
-    #
-    # Again: adapt to your real table path.
-    turn_table = out_dir / "beh" / "turn_table.csv"
-    if not turn_table.exists():
-        raise FileNotFoundError(f"Missing: {turn_table}")
-
-    df = pd.read_csv(turn_table)
-
-    # Minimal example: median split on latency into 'fast'/'slow'
-    # (Adjust if you already have condition labels stored.)
-    med = df["latency"].median()
-    hist_df = pd.DataFrame(
-        {
-            "latency": df["latency"].to_numpy(),
-            "condition": (df["latency"] <= med).map({True: "fast", False: "slow"}).to_numpy(),
-        }
-    )
-
-    # 3) Plot + save
     plot_latency_erp_with_histograms(
         fast_list=fast_list,
         slow_list=slow_list,
         df=hist_df,
-        ymax=float(args.ymax),
-        save_basepath=args.out,
+        save_basepath=out_path,
     )
