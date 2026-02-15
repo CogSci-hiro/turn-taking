@@ -12,7 +12,7 @@ class EpochFileInfo:
 
 
 _EPOCHS_RE = re.compile(
-    r".*[/\\](?P<subject>sub-\d+)_.*_run-(?P<run>\d+)_epochs-epo\.fif$"
+    r".*[/\\](?P<subject>sub-\d+)_.*_run-(?P<run>\d+).*(_epochs-epo|_epo)\.fif$"
 )
 
 
