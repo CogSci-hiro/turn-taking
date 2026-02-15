@@ -82,7 +82,7 @@ rule tfr:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main tfr --config "{input.config}"
+        python -m turntaking.cli.main tfr --config "{input.configfile}"
         """
 
 
