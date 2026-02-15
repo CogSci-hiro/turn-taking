@@ -2,3 +2,4 @@
 .snakemake
 dev/temp
 project_snapshot.md
+._*
