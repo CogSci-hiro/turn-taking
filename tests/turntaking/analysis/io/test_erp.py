@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for ERP output naming and file-contract writer."""
 
@@ -10,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from turntaking.analysis.io.erp import get_erp_condition_names, write_erp_outputs
+from turntaking.analysis.erp.outputs import get_erp_condition_names, write_erp_outputs
 
 
 def _evoked(comment: str) -> mne.Evoked:

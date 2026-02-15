@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for mixed-effect EEG feature helper functions."""
 

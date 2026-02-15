@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for ROI ERP time-window averaging helper."""
 

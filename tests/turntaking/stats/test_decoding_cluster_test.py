@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for decoding cluster-test orchestration and summary formatting."""
 

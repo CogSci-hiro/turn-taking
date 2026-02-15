@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for decoding execution and group orchestration utilities."""
 

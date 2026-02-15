@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for subject split and decoding dataset assembly in analysis.decoding.dataset."""
 

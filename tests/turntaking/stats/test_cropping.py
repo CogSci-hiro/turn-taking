@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for sample-based time-margin cropping utilities."""
 

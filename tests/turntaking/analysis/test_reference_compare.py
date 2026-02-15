@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Reference-metric unit tests for analysis regression tooling."""
 

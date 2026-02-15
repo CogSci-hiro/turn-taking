@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for induced-TFR output naming and writer contract."""
 

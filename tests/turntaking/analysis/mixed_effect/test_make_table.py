@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for mixed-effect table assembly helpers and file-level guards."""
 

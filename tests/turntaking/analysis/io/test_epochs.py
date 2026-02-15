@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Tests for epoch-path parsing and subject-level epoch loading."""
 
