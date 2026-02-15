@@ -13,6 +13,7 @@ File sink details (FIF/NPY/CSV/HDF5 contract) stay in
 ``turntaking.analysis.erp.outputs``.
 """
 
+import json
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -31,10 +32,11 @@ from turntaking.analysis.erp.outputs import (
     get_erp_condition_names,
     write_erp_outputs,
 )
-from turntaking.analysis.io.epochs import load_epochs as _load_epochs_from_disk
 from turntaking.analysis.selection import SelectionParams, select_epochs, split_epochs_median
+from turntaking.analysis.utils.epochs import load_epochs as _load_epochs_from_disk
 from turntaking.analysis.types import EpochBundle
-from turntaking.analysis.utils.io import save_dataframe_csv
+from turntaking.analysis.utils.io import save_dataframe_csv, save_hdf5_dataset
+from turntaking.stats.cluster_test import ClusterTestResult
 
 __all__ = [
     "ErpConditionNames",
@@ -43,6 +45,8 @@ __all__ = [
     "load_epochs",
     "run_erp_analysis",
     "save_erp_results",
+    "write_cluster_outputs",
+    "read_cluster_outputs",
 ]
 
 
@@ -427,3 +431,80 @@ def save_erp_results(
     )
     if summary is not None:
         save_dataframe_csv(summary, out_dir / "summary.csv")
+
+
+def write_cluster_outputs(out_dir: Path, result: ClusterTestResult) -> None:
+    out_dir = Path(out_dir)
+    payload = _cluster_payload(result)
+    save_hdf5_dataset(out_dir / "cluster_results.hdf5", payload)
+    save_dataframe_csv(_cluster_summary(result), out_dir / "cluster_summary.csv")
+
+
+def _cluster_payload(result: ClusterTestResult) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "t-values": np.asarray(result.t_values, dtype=float),
+        "p-values": np.asarray(result.p_values, dtype=float),
+        "h0": np.asarray(result.h0, dtype=float),
+        "meta/json": np.bytes_(json.dumps(result.metadata, sort_keys=True).encode("utf-8")),
+    }
+    for idx, cluster in enumerate(result.clusters):
+        for dim_i, inds in enumerate(cluster):
+            payload[f"clusters/{dim_i}-{idx}"] = np.asarray(inds, dtype=int)
+    return payload
+
+
+def _cluster_summary(result: ClusterTestResult) -> pd.DataFrame:
+    p_values = np.asarray(result.p_values, dtype=float)
+    return pd.DataFrame(
+        [
+            {
+                **result.metadata,
+                "n_clusters": int(p_values.size),
+                "min_p": float(np.min(p_values)) if p_values.size else float("nan"),
+                "n_p_lt_0_05": int(np.sum(p_values < 0.05)) if p_values.size else 0,
+            }
+        ]
+    )
+
+
+def read_cluster_outputs(path: Path) -> ClusterTestResult:
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"Cluster results not found: {path}")
+    try:
+        import h5py
+    except Exception as exc:  # noqa: BLE001
+        raise ImportError("h5py is required to read cluster_results.hdf5.") from exc
+    with h5py.File(path, "r") as handle:
+        t_values = np.asarray(handle["t-values"], dtype=float)
+        p_values = np.asarray(handle["p-values"], dtype=float)
+        h0 = np.asarray(handle["h0"], dtype=float)
+        metadata = _read_cluster_metadata(handle)
+        clusters = _read_cluster_index_groups(handle)
+    return ClusterTestResult(t_values=t_values, p_values=p_values, h0=h0, clusters=clusters, metadata=metadata)
+
+
+def _read_cluster_metadata(handle: Any) -> dict[str, Any]:
+    if "meta/json" not in handle:
+        return {}
+    raw = handle["meta/json"][()]
+    text = raw.decode("utf-8") if isinstance(raw, (bytes, np.bytes_)) else bytes(raw).decode("utf-8")
+    return json.loads(text)
+
+
+def _read_cluster_index_groups(handle: Any) -> list[tuple[np.ndarray, ...]]:
+    group = handle.get("clusters", None)
+    if group is None:
+        return []
+    by_cluster: dict[int, dict[int, np.ndarray]] = {}
+    for name in group.keys():
+        dim_str, idx_str = name.split("-", 1)
+        cluster_idx = int(idx_str)
+        dim_idx = int(dim_str)
+        by_cluster.setdefault(cluster_idx, {})[dim_idx] = np.asarray(group[name], dtype=int)
+    clusters: list[tuple[np.ndarray, ...]] = []
+    for cluster_idx in sorted(by_cluster.keys()):
+        dims = by_cluster[cluster_idx]
+        max_dim = max(dims.keys()) if dims else -1
+        clusters.append(tuple(dims[dim_idx] for dim_idx in range(max_dim + 1)))
+    return clusters
