@@ -10,6 +10,10 @@ import pandas as pd
 
 __all__ = [
     "ensure_dir_exists",
+    "save_table",
+    "save_table_csv",
+    "save_npy",
+    "save_hdf5",
     "save_array_nd",
     "save_dataframe_csv",
     "save_hdf5_dataset",
@@ -43,6 +47,24 @@ def save_array_nd(arr: np.ndarray, path: str | Path) -> Path:
     return out_path
 
 
+def save_table(df: pd.DataFrame, path: str | Path) -> Path:
+    """
+    Save a DataFrame as `.csv` or `.parquet`.
+
+    This is a generic tabular helper used across analysis domains.
+    """
+    out_path = Path(path)
+    ensure_dir_exists(out_path.parent)
+    suffix = out_path.suffix.lower()
+    if suffix == ".csv":
+        df.to_csv(out_path, index=False)
+    elif suffix in {".parquet", ".pq"}:
+        df.to_parquet(out_path, index=False)
+    else:
+        raise ValueError(f"Unsupported table extension: {suffix}")
+    return out_path
+
+
 def save_dataframe_csv(df: pd.DataFrame, path: str | Path) -> Path:
     """
     Save a DataFrame as CSV without index.
@@ -56,6 +78,16 @@ def save_dataframe_csv(df: pd.DataFrame, path: str | Path) -> Path:
     ensure_dir_exists(out_path.parent)
     df.to_csv(out_path, index=False)
     return out_path
+
+
+def save_table_csv(df: pd.DataFrame, path: str | Path) -> Path:
+    """Backward-compatible alias for CSV table outputs."""
+    return save_dataframe_csv(df, path)
+
+
+def save_npy(arr: np.ndarray, path: str | Path) -> Path:
+    """Backward-compatible alias for `.npy` outputs."""
+    return save_array_nd(arr, path)
 
 
 def save_hdf5_dataset(path: str | Path, payload: Mapping[str, Any]) -> Path:
@@ -124,3 +156,7 @@ def save_hdf5_dataset(path: str | Path, payload: Mapping[str, Any]) -> Path:
 
     return out_path
 
+
+def save_hdf5(path: str | Path, payload: Mapping[str, Any]) -> Path:
+    """Backward-compatible alias for HDF5 mapping serialization."""
+    return save_hdf5_dataset(path, payload)
