@@ -354,7 +354,26 @@ def run_erp_analysis(
     *,
     save_path: str | None = None,
 ) -> dict[str, np.ndarray]:
-    """Run ERP analysis for one epochs file and optionally persist outputs."""
+    """
+    Run single-subject ERP analysis for one epochs file.
+
+    Parameters
+    ----------
+    epoch_path
+        Path to an MNE epochs FIF file.
+    config
+        ERP analysis configuration mapping. At minimum it must contain
+        ``contrast`` (``"duration"`` or ``"latency"``). Selection thresholds may
+        be provided under ``selection`` or ``constraints``.
+    save_path
+        If provided, writes the per-subject ERP outputs into this directory.
+
+    Returns
+    -------
+    outputs
+        Dictionary containing ``erp_condition1``, ``erp_condition2``, ``contrast``,
+        and ``times`` arrays.
+    """
     bundle = load_epochs(epoch_path)
     contrast = _resolve_contrast(config)
     selection_params = _extract_selection_params(config)
@@ -430,6 +449,7 @@ def save_erp_results(
 
 
 def write_cluster_outputs(out_dir: Path, result: ClusterTestResult) -> None:
+    """Write ERP cluster permutation test outputs (HDF5 + CSV summary)."""
     out_dir = Path(out_dir)
     payload = _cluster_payload(result)
     save_hdf5_dataset(out_dir / "cluster_results.hdf5", payload)
@@ -464,6 +484,7 @@ def _cluster_summary(result: ClusterTestResult) -> pd.DataFrame:
 
 
 def read_cluster_outputs(path: Path) -> ClusterTestResult:
+    """Read ERP cluster permutation outputs from ``cluster_results.hdf5``."""
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Cluster results not found: {path}")

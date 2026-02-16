@@ -36,6 +36,8 @@ __all__ = [
 
 @dataclass(frozen=True)
 class Hdf5CacheParams:
+    """HDF5 dataset storage parameters for cached decoding features."""
+
     compression: str | None = "gzip"
     compression_level: int = 4
     x_dtype: str = "float32"
@@ -43,11 +45,14 @@ class Hdf5CacheParams:
 
 @dataclass(frozen=True)
 class DecodingScorePaths:
+    """Resolved paths for the decoding score contract inside a decoding directory."""
+
     scores_npy: Path
     times_npy: Path
 
     @staticmethod
     def from_dir(decoding_dir: Path) -> "DecodingScorePaths":
+        """Build standard score paths from a decoding output directory."""
         return DecodingScorePaths(
             scores_npy=decoding_dir / _SCORES_FNAME,
             times_npy=decoding_dir / _TIMES_FNAME,
@@ -56,6 +61,8 @@ class DecodingScorePaths:
 
 @dataclass(frozen=True)
 class DecodingClusterResults:
+    """In-memory representation of decoding cluster test results loaded from HDF5."""
+
     t_values: np.ndarray
     clusters: list[tuple[np.ndarray, np.ndarray]]
     p_values: np.ndarray
@@ -63,10 +70,18 @@ class DecodingClusterResults:
 
 
 def get_decoding_out_dir(out_dir: Path, contrast: ContrastName) -> Path:
+    """
+    Return the standard decoding output directory for a contrast.
+
+    Layout
+    ------
+    ``<out_dir>/decoding/erp/<contrast>/``
+    """
     return Path(out_dir) / "decoding" / "erp" / contrast
 
 
 def get_decoding_cluster_out_dir(out_dir: Path, contrast: ContrastName) -> Path:
+    """Return the standard stats output directory for decoding cluster tests."""
     return Path(out_dir) / "stats" / "decoding" / "erp" / contrast
 
 
@@ -77,6 +92,20 @@ def save_decoding_scores(
     scores: np.ndarray,
     times_s: np.ndarray,
 ) -> Tuple[Path, Path]:
+    """
+    Save decoding TG scores and time vector as ``.npy`` files.
+
+    Parameters
+    ----------
+    out_dir
+        Base output directory.
+    contrast
+        ``"duration"`` or ``"latency"``.
+    scores
+        TG scores. Expected shape is ``(n_subjects, n_splits, n_times, n_times)``.
+    times_s
+        Time vector (seconds), shape ``(n_times,)``.
+    """
     out_path = ensure_dir_exists(get_decoding_out_dir(out_dir, contrast))
     scores_path = save_array_nd(scores, out_path / _SCORES_FNAME)
     times_path = save_array_nd(np.asarray(times_s, dtype=np.float64), out_path / _TIMES_FNAME)
@@ -84,6 +113,7 @@ def save_decoding_scores(
 
 
 def load_decoding_scores(paths: DecodingScorePaths) -> tuple[np.ndarray, np.ndarray]:
+    """Load decoding TG scores and validate shape consistency with the time vector."""
     if not paths.scores_npy.exists():
         raise FileNotFoundError(f"Missing scores file: {paths.scores_npy}")
     if not paths.times_npy.exists():
@@ -107,6 +137,7 @@ def _validate_scores_shapes(scores: np.ndarray, times_s: np.ndarray) -> None:
 
 
 def get_feature_cache_path(out_dir: Path, contrast: ContrastName, subject: str) -> Path:
+    """Return the HDF5 cache path for a subject's decoded features."""
     return get_decoding_out_dir(out_dir, contrast) / "features" / f"{subject}.h5"
 
 
@@ -120,6 +151,14 @@ def save_subject_feature_cache_hdf5(
     times_s: np.ndarray,
     cache_params: Hdf5CacheParams,
 ) -> Path:
+    """
+    Save subject-level decoded features into an HDF5 cache file.
+
+    The cache stores:
+    - ``X`` as float (typically float32) to reduce footprint
+    - ``y`` as int8
+    - ``times`` as float64 seconds
+    """
     cache_path = get_feature_cache_path(out_dir, contrast, subject)
     ensure_dir_exists(cache_path.parent)
     with h5py.File(cache_path, "w") as h5:
@@ -158,6 +197,7 @@ def load_subject_feature_cache_hdf5(
     contrast: ContrastName,
     subject: str,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Load cached subject features (X, y, times) from HDF5."""
     cache_path = get_feature_cache_path(out_dir, contrast, subject)
     if not cache_path.exists():
         raise FileNotFoundError(f"Feature cache not found: {cache_path}")
@@ -176,6 +216,7 @@ def save_decoding_cluster_results_hdf5(
     p_values: np.ndarray,
     h0: np.ndarray,
 ) -> Path:
+    """Write decoding TG cluster results to an HDF5 file."""
     ensure_dir_exists(out_hdf5.parent)
     with h5py.File(out_hdf5, "w") as handle:
         handle.create_dataset("t-values", data=t_values, dtype=float)
@@ -197,6 +238,7 @@ def write_decoding_cluster_outputs(
     h0: np.ndarray,
     summary: pd.DataFrame,
 ) -> tuple[Path, Path]:
+    """Write decoding cluster-test outputs (HDF5 + CSV summary) to the stats directory."""
     stats_dir = ensure_dir_exists(get_decoding_cluster_out_dir(out_dir, contrast))
     hdf5_path = save_decoding_cluster_results_hdf5(
         out_hdf5=stats_dir / "cluster_results.hdf5",
@@ -210,6 +252,7 @@ def write_decoding_cluster_outputs(
 
 
 def load_decoding_cluster_results_hdf5(path: Path) -> DecodingClusterResults:
+    """Load decoding cluster-test results from HDF5."""
     if not path.exists():
         raise FileNotFoundError(f"Missing cluster results: {path}")
     with h5py.File(path, "r") as handle:

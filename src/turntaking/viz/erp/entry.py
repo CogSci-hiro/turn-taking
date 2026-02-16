@@ -7,6 +7,19 @@ from turntaking.viz.utils import viz_mode
 
 
 def run(cfg: Any, *, mode: str | None = None, topomap_format: str | None = None) -> None:
+    """
+    Run an ERP visualization mode.
+
+    Parameters
+    ----------
+    cfg
+        Loaded ``TurntakingConfig`` (or a compatible mapping-like object).
+    mode
+        Visualization mode override. If ``None``, uses ``viz_mode(cfg, "erp")``.
+        Supported values: ``"timecourse"``, ``"hist"``, ``"topomap"``.
+    topomap_format
+        Optional format name for topomap rendering (e.g. ``"static"`` or ``"svg"``).
+    """
     selected_mode = mode or viz_mode(cfg, "erp", default="timecourse")
     if selected_mode == "timecourse":
         from turntaking.viz.erp.timecourse import render
@@ -24,4 +37,3 @@ def run(cfg: Any, *, mode: str | None = None, topomap_format: str | None = None)
         render(cfg, format_name=topomap_format)
         return
     raise ValueError(f"Unsupported ERP viz mode: {selected_mode!r}")
-

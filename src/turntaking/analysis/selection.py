@@ -1,3 +1,20 @@
+"""
+Epoch selection and contrast splitting.
+
+This module defines the *behavioral* rules that turn a pool of epochs into the
+two-class contrasts used throughout the pipeline.
+
+Two orthogonal concepts are used repeatedly across domains:
+
+- Selection: include/exclude epochs using metadata thresholds.
+- Splitting: convert continuous metadata into two labels by median split.
+
+Downstream modules assume:
+
+- input is an MNE ``Epochs`` (or ``BaseEpochs``) object
+- ``epochs.metadata`` exists and contains numeric columns required for the
+  selected contrast
+"""
 
 from dataclasses import dataclass
 from typing import Literal
@@ -31,7 +48,21 @@ class SelectionParams:
 
 
 def select_epochs(epochs: mne.BaseEpochs, params: SelectionParams) -> mne.BaseEpochs:
-    """Apply metadata-based epoch selection."""
+    """
+    Apply metadata-based epoch selection.
+
+    Parameters
+    ----------
+    epochs
+        Input epochs. Must include a ``pandas.DataFrame`` in ``epochs.metadata``.
+    params
+        Thresholds to apply.
+
+    Returns
+    -------
+    selected
+        A new ``BaseEpochs`` view with only epochs satisfying the constraints.
+    """
     if epochs.metadata is None:
         raise ValueError("epochs.metadata is required for selection.")
 
@@ -49,18 +80,48 @@ def split_epochs_median(
     epochs: mne.BaseEpochs,
     contrast: Contrast,
 ) -> tuple[mne.BaseEpochs, mne.BaseEpochs, dict[str, str]]:
+    """
+    Split epochs into two classes by median split on metadata.
+
+    Parameters
+    ----------
+    epochs
+        Input epochs with ``epochs.metadata`` present.
+    contrast
+        Which metadata dimension to split on:
+
+        - ``"latency"``: split on the ``latency`` column (fast vs slow).
+        - ``"duration"``: split on the ``self_duration`` column (long vs short).
+
+    Returns
+    -------
+    cond_1
+        First class epochs (fast or long).
+    cond_2
+        Second class epochs (slow or short).
+    labels
+        Mapping with keys ``cond_1`` and ``cond_2`` for consistent filenames and
+        figure labels.
+
+    Notes
+    -----
+    Epochs with values exactly equal to the median are excluded to avoid label
+    ambiguity, which can slightly reduce trial counts.
+    """
     if epochs.metadata is None:
         raise ValueError("epochs.metadata is required for splitting.")
 
     md = epochs.metadata
 
     if contrast == "latency":
+        # Smaller latency -> "fast", larger latency -> "slow"
         values = md["latency"].astype(float).to_numpy()
         median = float(np.median(values))
         mask_1 = values < median
         mask_2 = values > median
         labels = {"cond_1": "fast", "cond_2": "slow"}
     else:
+        # Larger self-duration -> "long", smaller -> "short"
         values = md["self_duration"].astype(float).to_numpy()
         median = float(np.median(values))
         mask_1 = values > median   # long

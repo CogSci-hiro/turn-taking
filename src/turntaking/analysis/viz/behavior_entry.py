@@ -9,6 +9,8 @@ from matplotlib import pyplot as plt
 
 @dataclass(frozen=True)
 class BehaviorVizConfig:
+    """Resolved input/output paths and render parameters for behavior figures."""
+
     duration_offsets_csv: Path
     latency_offsets_csv: Path
     turn_table_csv: Path
@@ -24,6 +26,7 @@ class BehaviorVizConfig:
 
 
 def run_behavior_viz(cfg: BehaviorVizConfig) -> None:
+    """Render the behavior figure set and close Matplotlib state."""
     for out_path in (
         cfg.out_main,
         cfg.out_s1,

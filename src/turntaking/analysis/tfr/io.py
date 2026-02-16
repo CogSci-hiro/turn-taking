@@ -35,12 +35,21 @@ __all__ = [
 
 @dataclass(frozen=True)
 class TfrConditionNames:
+    """Condition labels used in induced-TFR filenames for a given contrast."""
+
     cond_1: str
     cond_2: str
 
 
 def get_tfr_condition_names(contrast: str) -> TfrConditionNames:
-    """Map TFR contrast names to condition labels used in output filenames."""
+    """
+    Map TFR contrast names to condition labels used in output filenames.
+
+    Mapping
+    -------
+    - ``duration`` -> ``long`` vs ``short``
+    - ``latency``  -> ``fast`` vs ``slow``
+    """
     if contrast == "duration":
         return TfrConditionNames(cond_1="long", cond_2="short")
     if contrast == "latency":
@@ -139,6 +148,7 @@ def write_tfr_outputs(
 
 
 def write_cluster_outputs(out_dir: Path, result: ClusterTestResult) -> None:
+    """Write cluster permutation test outputs for induced-TFR results."""
     out_dir = Path(out_dir)
     payload = _cluster_payload(result)
     save_hdf5_dataset(out_dir / "cluster_results.hdf5", payload)
@@ -173,6 +183,7 @@ def _cluster_summary(result: ClusterTestResult) -> pd.DataFrame:
 
 
 def read_cluster_outputs(path: Path) -> ClusterTestResult:
+    """Read cluster permutation outputs from ``cluster_results.hdf5``."""
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"Cluster results not found: {path}")

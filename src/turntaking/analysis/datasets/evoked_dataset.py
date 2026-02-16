@@ -1,3 +1,21 @@
+"""
+Shared dataset builder for ERP and induced TFR domains.
+
+This module is the *bridge* between disk (epoch FIF files) and the domain cores
+(``turntaking.analysis.erp.core`` / ``turntaking.analysis.tfr.core``).
+
+Responsibilities
+----------------
+- Group epoch files by subject (and stable sort within subject).
+- Load and optionally resample epochs for each subject.
+- Apply selection thresholds and median-split into two conditions.
+- Enforce cross-subject invariants (channel order, time axis).
+- Delegate numerical computation to the appropriate core module.
+
+The result is an ``EvokedDatasetResult`` that downstream I/O layers can persist
+using their artifact contracts.
+"""
+
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -85,6 +103,8 @@ def _require_metadata(epochs: mne.BaseEpochs) -> pd.DataFrame:
 
 
 def _assert_times_match(reference: np.ndarray, current: np.ndarray, *, subject: str) -> None:
+    # Strict equality is intentional: time misalignment across subjects breaks
+    # stacking and any downstream group statistics.
     if current.shape != reference.shape or not np.allclose(current, reference, atol=0.0, rtol=0.0):
         raise ValueError(f"Time axis mismatch for subject={subject}.")
 
@@ -121,6 +141,9 @@ def _update_reference_axes(
     cond1: mne.BaseEpochs,
     subject: str,
 ) -> tuple[list[str], np.ndarray]:
+    # We enforce a single reference channel ordering and a single reference time
+    # axis. Any mismatch is treated as a hard error because downstream stacking
+    # (and group stats) assume identical axes.
     if reference_ch_names is None:
         next_ch_names = list(cond1.ch_names)
     elif list(cond1.ch_names) != reference_ch_names:
@@ -366,7 +389,12 @@ def build_raw_evoked_dataset(
     selection_params: SelectionParams,
     sfreq: float | None = None,
 ) -> EvokedDatasetRaw:
-    """Build raw split/equalized per-subject epoch arrays for ERP/TFR cores."""
+    """
+    Build raw split/equalized per-subject epoch arrays for ERP/TFR cores.
+
+    This is useful when you want to plug in an alternative core computation but
+    keep selection/splitting consistent with the rest of the pipeline.
+    """
     if len(epoch_paths) == 0:
         raise ValueError("No epoch files provided.")
     grouped = _group_paths_by_subject(epoch_paths)
@@ -412,8 +440,30 @@ def build_evoked_dataset(
     sfreq: float | None = None,
 ) -> EvokedDatasetResult:
     """
-    Backward-compatible API shim:
-    dataset selection/grouping here, computation delegated to domain cores.
+    Build an ERP or induced-TFR dataset from epoch FIF paths.
+
+    Parameters
+    ----------
+    epoch_paths
+        List of epoch file paths (may include multiple runs per subject).
+    kind
+        ``"erp"`` or ``"tfr"``.
+    contrast
+        ``"duration"`` or ``"latency"``; controls which metadata column is used
+        for median split.
+    selection_params
+        Metadata thresholds applied before splitting.
+    band
+        Required when ``kind="tfr"`` (e.g. ``"alpha"``).
+    sfreq
+        Optional resampling frequency (Hz). When provided, resampling occurs
+        before splitting to ensure a consistent time axis.
+
+    Returns
+    -------
+    result
+        A domain-agnostic container with per-subject ``Evoked`` objects, stacked
+        arrays, and summary tables.
     """
     grouped = _group_paths_by_subject(epoch_paths)
     subjects = sorted(grouped.keys())

@@ -1,3 +1,19 @@
+"""
+Typed configuration schema for the turn-taking workflow.
+
+This module turns a user-provided YAML mapping (see ``workflow/config.yaml``)
+into a nested set of frozen dataclasses with basic validation and a few
+backward-compatible defaults.
+
+Why dataclasses?
+---------------
+- Call-sites get attribute access with type hints instead of raw dicts.
+- Validation happens once at load time, not sprinkled across the codebase.
+- Sphinx API docs can render the schema in a discoverable way.
+
+The canonical loader is ``turntaking.config.loader.load_config``.
+"""
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal, Optional, Tuple
@@ -291,6 +307,8 @@ class VizDecodingSection:
 
 @dataclass(frozen=True)
 class VizSection:
+    """Paths and parameters for figure rendering (main + supplementary)."""
+
     base_out_dir: Path
     erp_timecourse: VizErpTimecourseSection
     erp_topo: VizErpTopoSection
@@ -446,6 +464,8 @@ def _parse_viz_section(viz_d: dict[str, Any], *, io_out_dir: Path) -> VizSection
 
 @dataclass(frozen=True)
 class IoSection:
+    """Filesystem layout needed to locate epochs and write analysis outputs."""
+
     epoch_dir: Path
     epoch_pattern: str
     out_dir: Path
@@ -453,6 +473,8 @@ class IoSection:
 
 @dataclass(frozen=True)
 class SubjectsSection:
+    """How to determine which subjects participate in the analysis."""
+
     mode: Literal["from_epochs", "explicit"]
     exclude: list[str]
     include: list[str]
@@ -460,6 +482,8 @@ class SubjectsSection:
 
 @dataclass(frozen=True)
 class DatasetSection:
+    """Dataset expansion parameters used to discover epoch files on disk."""
+
     subjects: SubjectsSection
     tasks: list[str]
     runs: list[int]
@@ -468,6 +492,8 @@ class DatasetSection:
 
 @dataclass(frozen=True)
 class ConstraintsSection:
+    """Global selection thresholds shared by multiple analysis domains."""
+
     min_latency: float
     max_latency: float
     min_response_duration: float
@@ -538,6 +564,8 @@ class AnalysisDecodingSection:
 
 @dataclass(frozen=True)
 class AnalysisSection:
+    """Analysis parameter bundle (ERP, TFR, decoding, mixed-effect)."""
+
     contrasts: list[Literal["duration", "latency"]]
     bands: list[str]
     erp: AnalysisErpSection
@@ -548,6 +576,8 @@ class AnalysisSection:
 
 @dataclass(frozen=True)
 class ExecutionSection:
+    """Resource settings used by Snakemake rules (threads/memory)."""
+
     threads_light: int
     threads_heavy: int
     mem_mb_light: int
@@ -556,6 +586,14 @@ class ExecutionSection:
 
 @dataclass(frozen=True)
 class TurntakingConfig:
+    """
+    Top-level configuration object for the workflow.
+
+    This object is produced by ``TurntakingConfig.from_dict`` (usually via
+    ``turntaking.config.loader.load_config``) and passed to CLI and library
+    entrypoints.
+    """
+
     io: IoSection
     dataset: DatasetSection
     constraints: ConstraintsSection

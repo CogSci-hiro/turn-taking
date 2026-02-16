@@ -1,3 +1,16 @@
+"""
+Induced TFR computations (Hilbert envelope).
+
+This module computes induced power envelopes in canonical frequency bands by:
+
+1. Filtering each epoch into a band (e.g. alpha/beta),
+2. Applying the Hilbert transform to obtain the analytic envelope,
+3. Averaging across trials to obtain an induced "evoked" response per subject,
+4. Building a difference wave between the two median-split conditions.
+
+The output mirrors the ERP core API so the higher-level dataset builder can
+produce consistent artifact contracts for both ERP and TFR.
+"""
 
 from typing import Any
 
@@ -16,6 +29,7 @@ _BAND_LIMITS_HZ: dict[str, tuple[float, float]] = {
 
 
 def _band_limits_hz(band: str) -> tuple[float, float]:
+    """Return (low, high) cutoff frequencies for a named band."""
     if band not in _BAND_LIMITS_HZ:
         raise ValueError(
             f"Unknown band={band!r}. Known: {sorted(_BAND_LIMITS_HZ.keys())}. "
@@ -31,6 +45,25 @@ def _compute_induced_envelope_epochs(
     times: np.ndarray,
     band: str,
 ) -> np.ndarray:
+    """
+    Compute induced envelopes per epoch for a band.
+
+    Parameters
+    ----------
+    data
+        Epoch array ``(n_trials, n_channels, n_times)``.
+    info
+        MNE info describing channels/sfreq.
+    times
+        Time vector (seconds), used for ``tmin`` in the temporary ``EpochsArray``.
+    band
+        Band name (e.g. ``"alpha"``).
+
+    Returns
+    -------
+    induced
+        Envelope epochs with the same shape as ``data``.
+    """
     l_freq, h_freq = _band_limits_hz(band)
     epochs = mne.EpochsArray(data.copy(), info.copy(), tmin=float(times[0]), verbose=False)
     epochs.load_data()
@@ -106,6 +139,7 @@ def _build_dataset_metadata(
 
 
 def _sfreq_from_times(times: np.ndarray) -> float:
+    """Infer sampling frequency from an evenly-sampled time vector."""
     if times.ndim != 1 or times.size < 2:
         raise ValueError("times must be a 1D array with at least two samples.")
     dt = np.diff(times)
@@ -160,7 +194,24 @@ def compute_induced_dataset_result(
     band: str,
     contrast: Contrast,
 ) -> EvokedDatasetResult:
-    """Compute induced-envelope evoked outputs from raw split/equalized arrays."""
+    """
+    Compute induced-envelope evoked outputs from raw split/equalized arrays.
+
+    Parameters
+    ----------
+    raw_dataset
+        Per-subject split epoch arrays and metadata.
+    band
+        Band name used for filtering + Hilbert envelope computation.
+    contrast
+        Contrast labeling rules used for median split (duration or latency).
+
+    Returns
+    -------
+    result
+        Container with per-subject induced evokeds, stacked data arrays, and
+        metadata/tables for downstream writers and plots.
+    """
     _sfreq_from_times(raw_dataset.times)
     evokeds_cond_1: list[mne.Evoked] = []
     evokeds_cond_2: list[mne.Evoked] = []

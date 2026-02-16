@@ -1,3 +1,12 @@
+"""
+Configuration loader.
+
+This module is the single place that knows how to:
+
+- read YAML from disk,
+- migrate legacy visualization keys,
+- validate and materialize a typed ``TurntakingConfig``.
+"""
 
 from copy import deepcopy
 from pathlib import Path
@@ -16,6 +25,14 @@ LEGACY_VIZ_KEY_MAP: dict[tuple[str, ...], tuple[str, ...]] = {
 
 
 def load_config(path: Path) -> TurntakingConfig:
+    """
+    Load a YAML config file and return a validated ``TurntakingConfig``.
+
+    Parameters
+    ----------
+    path
+        Path to a YAML file (typically ``workflow/config.yaml``).
+    """
     raw = yaml.safe_load(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
         raise ValueError("Config must be a YAML mapping.")

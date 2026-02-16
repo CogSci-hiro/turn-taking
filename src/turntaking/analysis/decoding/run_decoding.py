@@ -1,3 +1,16 @@
+"""
+Temporal generalization decoding orchestration.
+
+The decoding pipeline is ERP-based and produces a temporal generalization (TG)
+matrix per subject, using MNE-Python's ``GeneralizingEstimator`` around a linear
+classifier. Group outputs are stacked into a single 4D array:
+
+``scores.shape == (n_subjects, n_splits, n_times, n_times)``.
+
+This module is intentionally model-centric; dataset construction lives in
+``turntaking.analysis.decoding.dataset`` and persistence lives in
+``turntaking.analysis.decoding.io``.
+"""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,6 +29,7 @@ from turntaking.analysis.decoding.dataset import DecodingDatasetParams, LoadSubj
 @dataclass(frozen=True)
 class DecodingRunParams:
     """Model fitting parameters for decoding."""
+
     n_splits: int
     seed: int
     n_jobs: int
@@ -27,10 +41,21 @@ def decode_subject_temporal_generalization(
     params: DecodingRunParams,
 ) -> np.ndarray:
     """
+    Decode a single subject with temporal generalization.
+
+    Parameters
+    ----------
+    X
+        Feature tensor ``(n_trials, n_channels, n_times)``.
+    y
+        Class labels ``(n_trials,)`` with two classes.
+    params
+        Cross-validation and parallelism controls.
+
     Returns
     -------
     scores : np.ndarray
-        (n_splits, n_times, n_times)
+        TG scores ``(n_splits, n_times, n_times)`` (train time x test time).
     """
     if X.ndim != 3:
         raise ValueError(f"Expected X as (trials, channels, times), got {X.shape}.")
@@ -76,12 +101,29 @@ def run_group_decoding(
     save_cached_features_fn: Callable[[str, np.ndarray, np.ndarray, np.ndarray], None] | None = None,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
+    Run temporal generalization decoding for multiple subjects and stack results.
+
+    Parameters
+    ----------
+    subjects
+        Iterable of subject IDs such as ``["sub-004", "sub-005"]``.
+    epoch_dir
+        Directory containing epoch FIF files.
+    dataset_params
+        Selection/splitting/resampling parameters.
+    run_params
+        Model + CV parameters.
+    load_subject_epochs_fn
+        Callback that loads epochs for a subject (allows swapping discovery logic).
+    load_cached_features_fn, save_cached_features_fn
+        Optional callbacks for caching decoded features on disk (e.g. HDF5).
+
     Returns
     -------
     scores
-        (n_subjects, n_splits, n_times, n_times)
+        Stacked TG scores ``(n_subjects, n_splits, n_times, n_times)``.
     times_s
-        (n_times,)
+        Shared time vector in seconds, shape ``(n_times,)``.
     """
     subjects_sorted = sorted(subjects)
 

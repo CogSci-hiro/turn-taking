@@ -1,4 +1,3 @@
-
 """Generic epoch path parsing and loading helpers shared across analysis domains."""
 
 import re
@@ -18,12 +17,16 @@ __all__ = [
 
 @dataclass(frozen=True)
 class EpochFileInfo:
+    """Minimal identity parsed from an epochs filename/path."""
+
     subject: str
     run: int
 
 
 @dataclass(frozen=True)
 class EpochLoadParams:
+    """Parameters controlling how epoch files are discovered and loaded."""
+
     suffix: str = "_epochs-epo.fif"
     preload: bool = True
 
@@ -34,6 +37,12 @@ _EPOCHS_RE = re.compile(
 
 
 def parse_epochs_filepath(path: Path) -> EpochFileInfo:
+    """
+    Parse ``sub-XXX`` and run number from an epochs path.
+
+    The pipeline expects filenames such as:
+    ``sub-004_task-conversation_run-1_epochs-epo.fif``.
+    """
     match = _EPOCHS_RE.match(str(path))
     if match is None:
         raise ValueError(f"Could not parse subject/run from epochs path: {path}")
@@ -41,6 +50,7 @@ def parse_epochs_filepath(path: Path) -> EpochFileInfo:
 
 
 def load_epochs(path: Path, *, preload: bool = False) -> mne.BaseEpochs:
+    """Load one epochs FIF file with consistent MNE verbosity defaults."""
     return mne.read_epochs(str(path), preload=preload, verbose=False)
 
 
@@ -49,6 +59,24 @@ def load_subject_epochs(
     epoch_dir: Path,
     params: EpochLoadParams | None = None,
 ) -> mne.BaseEpochs:
+    """
+    Load and concatenate all epoch files for one subject.
+
+    Parameters
+    ----------
+    subject
+        Subject identifier such as ``"sub-004"``.
+    epoch_dir
+        Directory containing epochs FIF files.
+    params
+        Discovery and load controls.
+
+    Returns
+    -------
+    epochs
+        A single ``BaseEpochs`` object. If multiple runs exist, they are
+        concatenated in a stable sort order.
+    """
     params = params or EpochLoadParams()
     epoch_dir = Path(epoch_dir)
     if not epoch_dir.exists():

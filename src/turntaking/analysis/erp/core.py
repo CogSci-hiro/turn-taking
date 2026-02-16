@@ -1,3 +1,18 @@
+"""
+ERP core computations (pure-ish).
+
+The ERP pipeline is intentionally split into:
+
+- "core" (this module): NumPy-level computations and light construction of MNE
+  ``Evoked`` containers.
+- "io" / "outputs": file naming + persistence contracts.
+
+Shape conventions
+-----------------
+- Epoch arrays: ``(n_trials, n_channels, n_times)``
+- ERP arrays: ``(n_channels, n_times)``
+- Group evoked data stacks: typically ``(n_subjects, n_conditions, n_channels, n_times)``
+"""
 
 from typing import Any
 
@@ -19,13 +34,15 @@ def compute_erp_average(
     Parameters
     ----------
     data
-        3D array [n_trials, n_channels, n_times]
+        Epoch data as ``(n_trials, n_channels, n_times)``.
     trial_mask
-        boolean array of shape [n_trials] indicating which trials to include
+        Boolean mask selecting which trials to include. Must be shape
+        ``(n_trials,)``.
 
     Returns
     -------
-    erp : ndarray [n_channels, n_times]
+    erp
+        Trial-average ERP as ``(n_channels, n_times)``.
     """
     if data.ndim != 3:
         raise ValueError(f"`data` must be 3D [n_trials, n_channels, n_times], got shape={data.shape}.")
@@ -48,7 +65,19 @@ def compute_contrast(
     erp_condition1: np.ndarray,
     erp_condition2: np.ndarray,
 ) -> np.ndarray:
-    """Compute simple contrast: condition1 - condition2."""
+    """
+    Compute a simple ERP contrast: ``condition1 - condition2``.
+
+    Parameters
+    ----------
+    erp_condition1, erp_condition2
+        ERP arrays with identical shape ``(n_channels, n_times)``.
+
+    Returns
+    -------
+    contrast
+        Difference wave with shape ``(n_channels, n_times)``.
+    """
     if erp_condition1.ndim != 2 or erp_condition2.ndim != 2:
         raise ValueError(
             "Both ERP inputs must be 2D arrays [n_channels, n_times]; "
@@ -66,7 +95,24 @@ def apply_baseline(
     times: np.ndarray,
     baseline: tuple[float, float] | None,
 ) -> np.ndarray:
-    """Apply baseline correction to ERP."""
+    """
+    Apply baseline correction to an ERP.
+
+    Parameters
+    ----------
+    erp
+        ERP array ``(n_channels, n_times)``.
+    times
+        Time vector in seconds, shape ``(n_times,)``.
+    baseline
+        Baseline window ``(tmin, tmax)`` in seconds. If ``None``, returns a copy
+        of ``erp`` unchanged.
+
+    Returns
+    -------
+    erp_bc
+        Baseline-corrected ERP with the same shape as ``erp``.
+    """
     if erp.ndim != 2:
         raise ValueError(f"`erp` must be 2D [n_channels, n_times], got shape={erp.shape}.")
 
@@ -100,10 +146,28 @@ def summarize_erp(
     summary_window: tuple[float, float],
 ) -> dict[str, float]:
     """
-    Compute selected summary metrics:
-    - mean amplitude in window
-    - peak latency in window
-    - peak amplitude in window
+    Compute selected 1D summary metrics within a time window.
+
+    The waveform is first averaged across channels to a single time-course, and
+    summary statistics are then extracted from that 1D representation.
+
+    Parameters
+    ----------
+    erp
+        ERP array ``(n_channels, n_times)``.
+    times
+        Time vector in seconds, shape ``(n_times,)``.
+    summary_window
+        Window ``(tmin, tmax)`` in seconds used for all metrics.
+
+    Returns
+    -------
+    metrics
+        Dictionary with keys:
+
+        - ``mean_amplitude``: average amplitude over channels and time in window
+        - ``peak_latency``: latency (seconds) of max in channel-mean waveform
+        - ``peak_amplitude``: value at ``peak_latency`` in channel-mean waveform
     """
     if erp.ndim != 2:
         raise ValueError(f"`erp` must be 2D [n_channels, n_times], got shape={erp.shape}.")
@@ -230,7 +294,25 @@ def compute_evoked_dataset_result(
     *,
     contrast: Contrast,
 ) -> EvokedDatasetResult:
-    """Compute ERP evoked outputs from raw split/equalized epoch arrays."""
+    """
+    Compute subject-level ERPs and group-level stacks from raw split epochs.
+
+    This is the main ERP "core" entry point used by the dataset builder.
+
+    Parameters
+    ----------
+    raw_dataset
+        Per-subject split epoch arrays and metadata.
+    contrast
+        Which contrast labeling rules were used (duration or latency). This is
+        recorded into the output metadata.
+
+    Returns
+    -------
+    result
+        Container with ``Evoked`` objects, stacked NumPy arrays, and tables used
+        by downstream writers and visualizations.
+    """
     evokeds_cond_1: list[mne.Evoked] = []
     evokeds_cond_2: list[mne.Evoked] = []
     evokeds_difference: list[mne.Evoked] = []

@@ -12,6 +12,16 @@ from turntaking.analysis.selection import SelectionParams
 
 
 def run_mixed_effect(args: argparse.Namespace, cfg: Any) -> None:
+    """
+    Generate the trial-level mixed-effect table used by downstream R models.
+
+    Parameters
+    ----------
+    args
+        CLI arguments. Supports an optional ``--out-csv`` override.
+    cfg
+        Loaded configuration (typically ``TurntakingConfig``).
+    """
     epoch_dir = Path(cfg.io.epoch_dir)
     out_dir = Path(cfg.io.out_dir)
     out_csv = Path(args.out_csv) if getattr(args, "out_csv", None) is not None else out_dir / "mixed_effect" / "table.csv"

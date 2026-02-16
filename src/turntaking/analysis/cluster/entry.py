@@ -15,6 +15,20 @@ Kind = Literal["erp", "tfr"]
 
 
 def run_cluster(args: Any, cfg: Any) -> None:
+    """
+    Run cluster-based permutation statistics for ERP or TFR group data.
+
+    This entrypoint is primarily used by the CLI/Snakemake workflow and writes
+    the results into ``<io.out_dir>/stats/...`` using the appropriate domain's
+    I/O helper.
+
+    Parameters
+    ----------
+    args
+        CLI namespace with at least ``kind``, ``contrast`` and (for TFR) ``band``.
+    cfg
+        Loaded configuration (typically ``TurntakingConfig``).
+    """
     kind: Kind = args.kind
     contrast: str = str(args.contrast)
     band: str | None = getattr(args, "band", None)

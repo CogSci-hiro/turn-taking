@@ -1,3 +1,15 @@
+"""
+Low-level I/O utilities for analysis artifacts.
+
+This module centralizes small, deterministic file-writing helpers so analysis
+domains can implement their artifact contracts without duplicating boilerplate.
+
+Design goals
+------------
+- Minimal surprise: keep dtype/shape unchanged unless explicitly requested.
+- Deterministic outputs: stable CSV/HDF5 layout and JSON serialization.
+- Domain-agnostic: no knowledge of ERP/TFR/decoding semantics.
+"""
 
 import json
 from pathlib import Path
@@ -48,7 +60,7 @@ def save_array_nd(arr: np.ndarray, path: str | Path) -> Path:
 
 def save_table(df: pd.DataFrame, path: str | Path) -> Path:
     """
-    Save a DataFrame as `.csv` or `.parquet`.
+    Save a DataFrame as ``.csv`` or ``.parquet``.
 
     This is a generic tabular helper used across analysis domains.
     """
@@ -99,6 +111,12 @@ def save_hdf5_dataset(path: str | Path, payload: Mapping[str, Any]) -> Path:
     - ``list``/``tuple`` become datasets when possible, otherwise JSON bytes.
     - Scalars and other Python objects are JSON-encoded bytes.
     - ``None`` values are skipped.
+
+    Notes
+    -----
+    HDF5 has no native "arbitrary Python object" type. For mixed payloads we
+    encode JSON as UTF-8 bytes (stored as ``np.bytes_``) and keep arrays as
+    proper datasets when possible.
     """
     out_path = Path(path)
     ensure_dir_exists(out_path.parent)

@@ -1,3 +1,17 @@
+"""
+Decoding dataset construction (ERP features).
+
+This module turns MNE epochs into the ``(X, y, times)`` tensors expected by the
+temporal generalization decoder.
+
+Workflow per subject
+--------------------
+1. Load epochs for that subject.
+2. Apply metadata-based selection thresholds.
+3. Resample to a lower sfreq for compute/memory efficiency.
+4. Median-split into two classes (duration or latency).
+5. Return trial tensors + binary labels.
+"""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,7 +27,19 @@ Contrast = Literal["latency", "duration"]
 
 @dataclass(frozen=True)
 class DecodingDatasetParams:
-    """Parameters for decoding dataset creation (ERP only)."""
+    """
+    Parameters controlling decoding dataset construction.
+
+    Attributes
+    ----------
+    contrast
+        Which median-split rule to use (duration or latency).
+    selection
+        Inclusion thresholds applied before splitting.
+    sfreq_hz
+        Resampling frequency (Hz) for decoding features.
+    """
+
     contrast: Contrast
     selection: SelectionParams
     sfreq_hz: float
