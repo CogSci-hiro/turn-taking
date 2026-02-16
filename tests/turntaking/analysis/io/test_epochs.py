@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from turntaking.analysis.io.epochs import EpochLoadParams, parse_epochs_filepath, load_epochs, load_subject_epochs
+from turntaking.analysis.utils.epochs import EpochLoadParams, parse_epochs_filepath, load_epochs, load_subject_epochs
 
 
 def test_parse_epochs_filepath_extracts_subject_and_run():
@@ -31,7 +31,7 @@ def test_load_epochs_delegates_to_mne_read_epochs(monkeypatch, tmp_path):
         called["verbose"] = verbose
         return "EPOCHS"
 
-    monkeypatch.setattr("turntaking.analysis.io.epochs.mne.read_epochs", fake_read_epochs)
+    monkeypatch.setattr("turntaking.analysis.utils.epochs.mne.read_epochs", fake_read_epochs)
 
     out = load_epochs(tmp_path / "sub-001_task-conversation_run-1_epochs-epo.fif", preload=True)
     assert out == "EPOCHS"
@@ -64,7 +64,7 @@ def test_load_subject_epochs_returns_single_file_without_concat(monkeypatch, tmp
     def fake_read_epochs(path, preload, verbose):
         return {"path": str(path), "preload": preload, "verbose": verbose}
 
-    monkeypatch.setattr("turntaking.analysis.io.epochs.mne.read_epochs", fake_read_epochs)
+    monkeypatch.setattr("turntaking.analysis.utils.epochs.mne.read_epochs", fake_read_epochs)
     out = load_subject_epochs("sub-001", epoch_dir, EpochLoadParams(preload=False))
     assert out["path"] == str(f)
     assert out["preload"] is False
@@ -88,8 +88,8 @@ def test_load_subject_epochs_concatenates_multiple_runs(monkeypatch, tmp_path):
     def fake_concat(lst, verbose):
         return {"ordered": lst, "verbose": verbose}
 
-    monkeypatch.setattr("turntaking.analysis.io.epochs.mne.read_epochs", fake_read_epochs)
-    monkeypatch.setattr("turntaking.analysis.io.epochs.mne.concatenate_epochs", fake_concat)
+    monkeypatch.setattr("turntaking.analysis.utils.epochs.mne.read_epochs", fake_read_epochs)
+    monkeypatch.setattr("turntaking.analysis.utils.epochs.mne.concatenate_epochs", fake_concat)
 
     out = load_subject_epochs("sub-001", epoch_dir)
     assert loaded == [f1.name, f2.name]

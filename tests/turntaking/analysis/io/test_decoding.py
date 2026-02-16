@@ -4,7 +4,7 @@
 import numpy as np
 import pytest
 
-from turntaking.analysis.io.decoding import (
+from turntaking.analysis.decoding.io import (
     DecodingScorePaths,
     Hdf5CacheParams,
     get_decoding_out_dir,

@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from turntaking.analysis.io.core import save_hdf5, save_npy, save_table, save_table_csv
+from turntaking.analysis.utils.io import save_hdf5, save_npy, save_table, save_table_csv
 
 
 def test_save_table_writes_csv_and_parquet(tmp_path):

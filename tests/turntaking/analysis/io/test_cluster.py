@@ -5,8 +5,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from turntaking.analysis.io.cluster import read_cluster_outputs, write_cluster_outputs
-from turntaking.analysis.io.decoding_cluster import load_decoding_cluster_results_hdf5
+from turntaking.analysis.erp.io import read_cluster_outputs, write_cluster_outputs
+from turntaking.analysis.decoding.io import load_decoding_cluster_results_hdf5
 from turntaking.stats.cluster_test import ClusterTestResult
 
 
