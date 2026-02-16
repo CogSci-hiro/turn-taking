@@ -15,6 +15,13 @@ def _require_key(d: dict[str, Any], key: str, where: str) -> Any:
     return d[key]
 
 
+def _resolve_viz_path(base_out_dir: Path, value: Any) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return base_out_dir / path
+
+
 @dataclass(frozen=True)
 class VizErpHistSection:
     duration_long_fif: Path
