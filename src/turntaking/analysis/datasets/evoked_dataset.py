@@ -268,6 +268,69 @@ def _build_results_metadata(
     return metadata
 
 
+@dataclass
+class _PartialBuildState:
+    evokeds_cond_1: list[mne.Evoked]
+    evokeds_cond_2: list[mne.Evoked]
+    evokeds_difference: list[mne.Evoked]
+    n_trials_frames: list[pd.DataFrame]
+    offsets_frames: list[pd.DataFrame]
+    cond_1: str | None
+    cond_2: str | None
+    times_ref: np.ndarray | None
+    ch_names_ref: list[str] | None
+
+
+def _new_partial_build_state() -> _PartialBuildState:
+    return _PartialBuildState(
+        evokeds_cond_1=[],
+        evokeds_cond_2=[],
+        evokeds_difference=[],
+        n_trials_frames=[],
+        offsets_frames=[],
+        cond_1=None,
+        cond_2=None,
+        times_ref=None,
+        ch_names_ref=None,
+    )
+
+
+def _apply_partial_result(
+    state: _PartialBuildState,
+    *,
+    partial: EvokedDatasetResult,
+    subject: str,
+) -> None:
+    cur_ch_names, cur_times = _assert_partial_axes(
+        partial=partial,
+        subject=subject,
+        ch_names_ref=state.ch_names_ref,
+        times_ref=state.times_ref,
+    )
+    if state.cond_1 is None:
+        state.cond_1 = str(partial.results["cond_1"])
+        state.cond_2 = str(partial.results["cond_2"])
+        state.ch_names_ref = cur_ch_names
+        state.times_ref = cur_times
+    state.evokeds_cond_1.extend(partial.evokeds_cond_1)
+    state.evokeds_cond_2.extend(partial.evokeds_cond_2)
+    state.evokeds_difference.extend(partial.evokeds_difference)
+    state.n_trials_frames.append(partial.n_trials)
+    state.offsets_frames.append(partial.offsets)
+
+
+def _validate_build_inputs(
+    *,
+    kind: Kind,
+    band: str | None,
+    subjects: list[str],
+) -> None:
+    if kind == "tfr" and band is None:
+        raise ValueError("kind='tfr' requires band=...")
+    if len(subjects) == 0:
+        raise ValueError("No epoch files provided.")
+
+
 def _compute_partials(
     *,
     grouped: dict[str, list[Path]],
@@ -276,27 +339,8 @@ def _compute_partials(
     selection_params: SelectionParams,
     sfreq: float | None,
     compute_result,
-) -> tuple[
-    list[mne.Evoked],
-    list[mne.Evoked],
-    list[mne.Evoked],
-    list[pd.DataFrame],
-    list[pd.DataFrame],
-    str | None,
-    str | None,
-    np.ndarray | None,
-    list[str] | None,
-]:
-    evokeds_cond_1: list[mne.Evoked] = []
-    evokeds_cond_2: list[mne.Evoked] = []
-    evokeds_difference: list[mne.Evoked] = []
-    n_trials_frames: list[pd.DataFrame] = []
-    offsets_frames: list[pd.DataFrame] = []
-    cond_1: str | None = None
-    cond_2: str | None = None
-    times_ref: np.ndarray | None = None
-    ch_names_ref: list[str] | None = None
-
+) -> _PartialBuildState:
+    state = _new_partial_build_state()
     for subject in subjects:
         raw = build_raw_evoked_dataset(
             grouped[subject],
@@ -305,34 +349,14 @@ def _compute_partials(
             sfreq=sfreq,
         )
         partial = compute_result(raw)
-        cur_ch_names, cur_times = _assert_partial_axes(
-            partial=partial,
-            subject=subject,
-            ch_names_ref=ch_names_ref,
-            times_ref=times_ref,
-        )
-        if cond_1 is None:
-            cond_1 = str(partial.results["cond_1"])
-            cond_2 = str(partial.results["cond_2"])
-            ch_names_ref = cur_ch_names
-            times_ref = cur_times
-        evokeds_cond_1.extend(partial.evokeds_cond_1)
-        evokeds_cond_2.extend(partial.evokeds_cond_2)
-        evokeds_difference.extend(partial.evokeds_difference)
-        n_trials_frames.append(partial.n_trials)
-        offsets_frames.append(partial.offsets)
+        _apply_partial_result(state, partial=partial, subject=subject)
+    return state
 
-    return (
-        evokeds_cond_1,
-        evokeds_cond_2,
-        evokeds_difference,
-        n_trials_frames,
-        offsets_frames,
-        cond_1,
-        cond_2,
-        times_ref,
-        ch_names_ref,
-    )
+
+def _finalize_partials_or_raise(state: _PartialBuildState) -> tuple[str, str, np.ndarray, list[str]]:
+    if state.cond_1 is None or state.cond_2 is None or state.times_ref is None or state.ch_names_ref is None:
+        raise ValueError("No evokeds computed (maybe selection removed all epochs).")
+    return state.cond_1, state.cond_2, state.times_ref, state.ch_names_ref
 
 
 def build_raw_evoked_dataset(
@@ -391,24 +415,11 @@ def build_evoked_dataset(
     Backward-compatible API shim:
     dataset selection/grouping here, computation delegated to domain cores.
     """
-    if kind == "tfr" and band is None:
-        raise ValueError("kind='tfr' requires band=...")
     grouped = _group_paths_by_subject(epoch_paths)
     subjects = sorted(grouped.keys())
-    if len(subjects) == 0:
-        raise ValueError("No epoch files provided.")
+    _validate_build_inputs(kind=kind, band=band, subjects=subjects)
     compute_result = _result_computer(kind, contrast, band)
-    (
-        evokeds_cond_1,
-        evokeds_cond_2,
-        evokeds_difference,
-        n_trials_frames,
-        offsets_frames,
-        cond_1,
-        cond_2,
-        times_ref,
-        ch_names_ref,
-    ) = _compute_partials(
+    state = _compute_partials(
         grouped=grouped,
         subjects=subjects,
         contrast=contrast,
@@ -416,9 +427,8 @@ def build_evoked_dataset(
         sfreq=sfreq,
         compute_result=compute_result,
     )
-    if cond_1 is None or cond_2 is None or times_ref is None or ch_names_ref is None:
-        raise ValueError("No evokeds computed (maybe selection removed all epochs).")
-    evoked_data = _stack_evoked_data(evokeds_cond_1, evokeds_cond_2, evokeds_difference)
+    cond_1, cond_2, times_ref, ch_names_ref = _finalize_partials_or_raise(state)
+    evoked_data = _stack_evoked_data(state.evokeds_cond_1, state.evokeds_cond_2, state.evokeds_difference)
     results = _build_results_metadata(
         kind=kind,
         contrast=contrast,
@@ -431,11 +441,11 @@ def build_evoked_dataset(
         evoked_data=evoked_data,
     )
     return EvokedDatasetResult(
-        evokeds_cond_1=evokeds_cond_1,
-        evokeds_cond_2=evokeds_cond_2,
-        evokeds_difference=evokeds_difference,
+        evokeds_cond_1=state.evokeds_cond_1,
+        evokeds_cond_2=state.evokeds_cond_2,
+        evokeds_difference=state.evokeds_difference,
         evoked_data=evoked_data,
-        n_trials=pd.concat(n_trials_frames, ignore_index=True),
-        offsets=pd.concat(offsets_frames, ignore_index=True) if offsets_frames else pd.DataFrame(),
+        n_trials=pd.concat(state.n_trials_frames, ignore_index=True),
+        offsets=pd.concat(state.offsets_frames, ignore_index=True) if state.offsets_frames else pd.DataFrame(),
         results=results,
     )

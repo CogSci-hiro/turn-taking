@@ -5,9 +5,6 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from turntaking.analysis.erp.entry import _expand_epoch_paths_from_config, run_erp
-
-
 def add_subparser(subparsers: Any) -> None:
     parser: argparse.ArgumentParser = subparsers.add_parser(
         "erp",
@@ -28,7 +25,15 @@ def add_subparser(subparsers: Any) -> None:
 
 
 def run(args: argparse.Namespace, cfg: Any) -> None:
+    from turntaking.analysis.erp.entry import run_erp
+
     run_erp(args, cfg)
+
+
+def _expand_epoch_paths_from_config(cfg: Any):
+    from turntaking.analysis.erp.entry import _expand_epoch_paths_from_config as _impl
+
+    return _impl(cfg)
 
 
 __all__ = ["add_subparser", "run", "_expand_epoch_paths_from_config"]

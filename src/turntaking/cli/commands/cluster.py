@@ -5,9 +5,6 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from turntaking.analysis.cluster.entry import run_cluster
-
-
 def add_subparser(subparsers: argparse._SubParsersAction) -> None:
     parser = subparsers.add_parser("cluster", help="Run cluster permutation tests (ERP/TFR).")
     parser.add_argument("--config", required=True, help="Path to YAML config file.")
@@ -23,4 +20,6 @@ def add_subparser(subparsers: argparse._SubParsersAction) -> None:
 
 
 def run(args: Any, cfg: Any) -> None:
+    from turntaking.analysis.cluster.entry import run_cluster
+
     run_cluster(args, cfg)

@@ -28,15 +28,26 @@ def _io_or_paths() -> Dict:
     """
     Return the config section used for filesystem paths.
 
-    Preferred schema:
-      paths.epoch_dir / paths.epoch_pattern / paths.out_dir
-    Backward-compatible fallback:
-      io.epoch_dir / io.epoch_pattern / io.out_dir
+    Resolution order:
+      1) If `io` exists, use it as the primary source.
+      2) If both `io` and `paths` exist, overlay `io` onto `paths`
+         so `io` can override defaults from the base workflow config.
+      3) Otherwise fall back to whichever section exists.
     """
-    if isinstance(config.get("paths"), dict):
-        return dict(config["paths"])
-    if isinstance(config.get("io"), dict):
-        return dict(config["io"])
+    io_cfg = config.get("io")
+    paths_cfg = config.get("paths")
+
+    has_io = isinstance(io_cfg, dict)
+    has_paths = isinstance(paths_cfg, dict)
+
+    if has_io and has_paths:
+        merged = dict(paths_cfg)
+        merged.update(io_cfg)
+        return merged
+    if has_io:
+        return dict(io_cfg)
+    if has_paths:
+        return dict(paths_cfg)
     raise WorkflowError("Missing config section: expected top-level 'paths' or 'io'.")
 
 

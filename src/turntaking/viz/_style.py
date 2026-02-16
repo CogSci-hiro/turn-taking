@@ -145,6 +145,19 @@ def apply_figure_profile(
     fig.set_size_inches(profile.width_in, new_height_in, forward=True)
 
 
+def apply_style(profile_name: str = "jneuro_2col") -> FigureProfile:
+    """
+    Apply global plotting style and return the selected export profile.
+    """
+    if profile_name not in FIGURE_PROFILES:
+        valid = ", ".join(sorted(FIGURE_PROFILES.keys()))
+        raise ValueError(f"Unknown figure profile: {profile_name!r}. Valid: {valid}")
+    plt.rcParams["font.size"] = FONT_SIZE
+    plt.rcParams["axes.titlesize"] = TITLE_FONT_SIZE
+    plt.rcParams["axes.labelsize"] = FONT_SIZE
+    return FIGURE_PROFILES[profile_name]
+
+
 def save_figure(
     fig: matplotlib.figure.Figure,
     save_basepath: str | Path,

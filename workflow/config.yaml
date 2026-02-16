@@ -46,10 +46,18 @@ analysis:
   - "alpha"
   - "beta"
   erp:
+    baseline: [-2, 0.0]
     sfreq: 512
     n_permutations: 1000
     threshold:
       type: automatic
+    artifacts:
+      duration:
+        long: "erp/duration/long_ave.fif"
+        short: "erp/duration/short_ave.fif"
+      latency:
+        fast: "erp/latency/fast_ave.fif"
+        slow: "erp/latency/slow_ave.fif"
   tfr:
     left_margin: 0.2
     right_margin: 0.5
@@ -97,83 +105,38 @@ execution:
 
 viz:
   erp_timecourse:
-    duration_long_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/long_ave.fif"
-    duration_short_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/short_ave.fif"
-    latency_fast_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/fast_ave.fif"
-    latency_slow_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/slow_ave.fif"
-    out_base: "/Volumes/work-4T/turn-taking-new/figures/main/F_erp_timecourse.tif"
     xlim_ms: [-1500, 500]
     ylim_uv: [-2.8, 1.9]
   behavior:
-    duration_offsets_csv: "/Volumes/work-4T/turn-taking-new/erp/duration/offsets.csv"
-    latency_offsets_csv: "/Volumes/work-4T/turn-taking-new/erp/latency/offsets.csv"
-    turn_table_csv: "/Volumes/work-4T/turn-taking-new/beh/turn_table.csv"
-    out_base: "/Volumes/work-4T/turn-taking-new/figures/F_behavior"
     n_bins: 100
-  erp_topo:
-    duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/duration/cluster_results.hdf5"
-    latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/latency/cluster_results.hdf5"
-    info_source_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/difference_ave.fif"
-    out_duration: "/Volumes/work-4T/turn-taking-new/figures/supp/F_erp_topo_duration.tif"
-    out_latency: "/Volumes/work-4T/turn-taking-new/figures/supp/F_erp_topo_latency.tif"
-    tmin_s: -2
-    tmax_s: 0
-    step_ms: 100          # pick e.g. 50 or 100
-    max_cols: 10          # optional
-    p_threshold: 0.01
-  tfr_topos:
-    alpha_duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/tfr/duration/alpha/cluster_results.hdf5"
-    alpha_latency_cluster_hdf5:  "/Volumes/work-4T/turn-taking-new/stats/tfr/latency/alpha/cluster_results.hdf5"
-    beta_duration_cluster_hdf5:  "/Volumes/work-4T/turn-taking-new/stats/tfr/duration/beta/cluster_results.hdf5"
-    beta_latency_cluster_hdf5:   "/Volumes/work-4T/turn-taking-new/stats/tfr/latency/beta/cluster_results.hdf5"
-
-    info_source_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/difference_ave.fif"
-
-    out_alpha_duration: "/Volumes/work-4T/turn-taking-new/figures/supp/F_tfr_topo_alpha_duration.tif"
-    out_alpha_latency:  "/Volumes/work-4T/turn-taking-new/figures/supp/F_tfr_topo_alpha_latency.tif"
-    out_beta_duration:  "/Volumes/work-4T/turn-taking-new/figures/supp/F_tfr_topo_beta_duration.tif"
-    out_beta_latency:   "/Volumes/work-4T/turn-taking-new/figures/supp/F_tfr_topo_beta_latency.tif"
-
-    tmin_s: -2
-    tmax_s: 0
-    step_ms: 100
-    max_cols: 10
-    p_threshold: 0.01
+  topomaps:
+    erp:
+      static:
+        tmin_s: -2
+        tmax_s: 0
+        step_ms: 100
+        max_cols: 10
+        p_threshold: 0.01
+      svg:
+        p_threshold: 0.05
+        n_duration_maps: 2
+        n_latency_maps: 3
+    tfr:
+      static:
+        tmin_s: -2
+        tmax_s: 0
+        step_ms: 100
+        max_cols: 10
+        p_threshold: 0.01
+      svg:
+        p_threshold: 0.05
+        n_duration_maps: 2
+        n_latency_maps: 3
   decoding:
-    duration_scores_npy: "/Volumes/work-4T/turn-taking-new/decoding/erp/duration/scores.npy"
-    duration_times_npy: "/Volumes/work-4T/turn-taking-new/decoding/erp/duration/times.npy"
-    latency_scores_npy: "/Volumes/work-4T/turn-taking-new/decoding/erp/latency/scores.npy"
-    latency_times_npy: "/Volumes/work-4T/turn-taking-new/decoding/erp/latency/times.npy"
-    duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/decoding/erp/duration/cluster_results.hdf5"
-    latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/decoding/erp/latency/cluster_results.hdf5"
-
-    out_base: "/Volumes/work-4T/turn-taking-new/figures/main/F_decoding"
     p_threshold: 0.05
     figure_profile: "jneuro_2col"
     ymax: 0.65
     lim: 0.04
-  erp_topomaps:
-    template_svg: "workflow/templates/ERP-timeline.svg"
-    info_source_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/difference_ave.fif"
-    duration_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/duration/cluster_results.hdf5"
-    latency_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/erp/latency/cluster_results.hdf5"
-    p_threshold: 0.05
-    n_duration_maps: 2
-    n_latency_maps: 3
-  tfr_topomaps:
-    template_svg: "workflow/templates/TF-timeline.svg"
-    info_source_fif: "/Volumes/work-4T/turn-taking-new/tfr/duration/alpha/difference_ave.fif"
-    alpha_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/tfr/duration/alpha/cluster_results.hdf5"
-    beta_cluster_hdf5: "/Volumes/work-4T/turn-taking-new/stats/tfr/duration/beta/cluster_results.hdf5"
-    p_threshold: 0.05
-    n_duration_maps: 2
-    n_latency_maps: 3
   erp_hist:
-    duration_long_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/long_ave.fif"
-    duration_short_fif: "/Volumes/work-4T/turn-taking-new/erp/duration/short_ave.fif"
-    latency_fast_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/fast_ave.fif"
-    latency_slow_fif: "/Volumes/work-4T/turn-taking-new/erp/latency/slow_ave.fif"
-    out_base: "/Volumes/work-4T/turn-taking-new/figures/main/F_erp_timecourse_hist.tif"
-    hist_table_csv: "/Volumes/work-4T/turn-taking-new/mixed_effect/table.csv"
     xlim_ms: [ -1500, 500 ]
     ylim_uv: [ -2.8, 1.9 ]

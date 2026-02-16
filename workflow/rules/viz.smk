@@ -1,5 +1,19 @@
 # workflow/rules/viz.smk
+
 from pathlib import Path
+
+
+def active_configfile() -> str:
+    cfgs = list(getattr(workflow, "overwrite_configfiles", []))
+    if not cfgs:
+        cfgs = list(getattr(workflow, "configfiles", []))
+    if not cfgs:
+        raise ValueError("No configfile is available in Snakemake workflow context.")
+    return str(cfgs[0])
+
+
+CONFIGFILE = active_configfile()
+
 
 def heavy_threads() -> int:
     return int(config.get("execution", {}).get("threads_heavy", 10))
@@ -9,121 +23,154 @@ def heavy_mem_mb() -> int:
     return int(config.get("execution", {}).get("mem_mb_heavy", 10_000))
 
 
+CONTRASTS = list(config.get("analysis", {}).get("contrasts", []))
+BANDS = list(config.get("analysis", {}).get("bands", []))
+
+FIG_ROOT = out_dir() / "figures"
+ERP_ROOT = out_dir() / "erp"
+TFR_ROOT = out_dir() / "tfr"
+DECODING_ROOT = out_dir() / "decoding" / "erp"
+STATS_ROOT = out_dir() / "stats"
+
+
+def _erp_condition_files(contrast: str) -> tuple[str, str]:
+    if contrast == "duration":
+        return "long_ave.fif", "short_ave.fif"
+    if contrast == "latency":
+        return "fast_ave.fif", "slow_ave.fif"
+    raise ValueError(f"Unknown ERP contrast: {contrast}")
+
+
+def _erp_outputs_for_contrast(contrast: str) -> list[str]:
+    cond1, cond2 = _erp_condition_files(contrast)
+    base = ERP_ROOT / contrast
+    return [
+        str(base / "difference_ave.fif"),
+        str(base / "evoked-data.npy"),
+        str(base / "n_trials.csv"),
+        str(base / "metadata.hdf5"),
+        str(base / "offsets.csv"),
+        str(base / cond1),
+        str(base / cond2),
+    ]
+
+
+def _tfr_condition_files(contrast: str) -> tuple[str, str]:
+    if contrast == "duration":
+        return "long_ave.fif", "short_ave.fif"
+    if contrast == "latency":
+        return "fast_ave.fif", "slow_ave.fif"
+    raise ValueError(f"Unknown TFR contrast: {contrast}")
+
+
+def _tfr_outputs_for_contrast_band(contrast: str, band: str) -> list[str]:
+    cond1, cond2 = _tfr_condition_files(contrast)
+    base = TFR_ROOT / contrast / band
+    return [
+        str(base / "difference_ave.fif"),
+        str(base / "induced-data.npy"),
+        str(base / "n_trials.csv"),
+        str(base / "metadata.hdf5"),
+        str(base / cond1),
+        str(base / cond2),
+    ]
+
+
+ERP_OUT = [path for contrast in CONTRASTS for path in _erp_outputs_for_contrast(contrast)]
+TFR_OUT = [
+    path
+    for contrast in CONTRASTS
+    for band in BANDS
+    for path in _tfr_outputs_for_contrast_band(contrast, band)
+]
+DECODING_OUT = [
+    str(DECODING_ROOT / contrast / "scores.npy")
+    for contrast in CONTRASTS
+] + [
+    str(DECODING_ROOT / contrast / "times.npy")
+    for contrast in CONTRASTS
+]
+ERP_CLUSTER_OUT = expand(
+    str(STATS_ROOT / "erp" / "{contrast}" / "cluster_results.hdf5"),
+    contrast=CONTRASTS,
+)
+TFR_CLUSTER_OUT = expand(
+    str(STATS_ROOT / "tfr" / "{contrast}" / "{band}" / "cluster_results.hdf5"),
+    contrast=CONTRASTS,
+    band=BANDS,
+)
+DECODING_CLUSTER_OUT = expand(
+    str(STATS_ROOT / "decoding" / "erp" / "{contrast}" / "cluster_results.hdf5"),
+    contrast=CONTRASTS,
+)
+
+
 FIG_MAIN = [
-    str(out_dir() / "figures" / "main" / "fig1_behavior.png"),
-    str(out_dir() / "figures" / "main" / "fig2_erp_timecourse.png"),
-    str(out_dir() / "figures" / "main" / "fig3_erp_topomaps.png"),
-    str(out_dir() / "figures" / "main" / "fig4_tfr_topomaps.png"),
-    str(out_dir() / "figures" / "main" / "fig5_decoding.png"),
-    str(out_dir() / "figures" / "main" / "F_erp_topomap.tif"),
-    str(out_dir() / "figures" / "main" / "F_tfr_topomap.tif"),
+    str(FIG_ROOT / "main" / "F_behavior.tif"),
+    str(FIG_ROOT / "main" / "F_erp_timecourse.tif"),
+    str(FIG_ROOT / "main" / "F_erp_topomap.tif"),
+    str(FIG_ROOT / "main" / "F_tfr_topomap.tif"),
+    str(FIG_ROOT / "main" / "F_decoding.tif"),
 ]
 
 FIG_SUPP = [
-    str(out_dir() / "figures" / "supp" / "figS1_response_duration_hist.png"),
-    str(out_dir() / "figures" / "supp" / "figS2_previous_speech_duration_hist.png"),
-    str(out_dir() / "figures" / "supp" / "figS3_long_joint.png"),
-    str(out_dir() / "figures" / "supp" / "figS3_short_joint.png"),
-    str(out_dir() / "figures" / "supp" / "figS3_fast_joint.png"),
-    str(out_dir() / "figures" / "supp" / "figS3_slow_joint.png"),
-    str(out_dir() / "figures" / "supp" / "figS4_erp_timecourse_with_hist.png"),
+    str(FIG_ROOT / "supp" / "S1_response_duration_hist.tif"),
+    str(FIG_ROOT / "supp" / "S2_previous_speech_duration_hist.tif"),
+    str(FIG_ROOT / "supp" / "S3_long_joint.tif"),
+    str(FIG_ROOT / "supp" / "S3_short_joint.tif"),
+    str(FIG_ROOT / "supp" / "S3_fast_joint.tif"),
+    str(FIG_ROOT / "supp" / "S3_slow_joint.tif"),
+    str(FIG_ROOT / "main" / "F_erp_timecourse_hist.tif"),
+    str(FIG_ROOT / "supp" / "F_erp_topo_duration.tif"),
+    str(FIG_ROOT / "supp" / "F_erp_topo_latency.tif"),
+    str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_duration.tif"),
+    str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_latency.tif"),
+    str(FIG_ROOT / "supp" / "F_tfr_topo_beta_duration.tif"),
+    str(FIG_ROOT / "supp" / "F_tfr_topo_beta_latency.tif"),
 ]
-
-
-# These should match whatever your analysis rules produce (Option B contracts)
-ERP_OUT = [
-    str(out_dir() / "erp" / "manifest.json"),
-    str(out_dir() / "erp" / "grand_average-ave.fif"),
-    str(out_dir() / "erp" / "stats.csv"),
-]
-TFR_OUT = [
-    str(out_dir() / "tfr" / "manifest.json"),
-    str(out_dir() / "tfr" / "grand_average-tfr.h5"),
-    str(out_dir() / "tfr" / "stats.csv"),
-]
-DECODING_OUT = [
-    # Decoding outputs (ERP)
-    str(out_dir() / "decoding" / "erp" / "duration" / "scores.npy"),
-    str(out_dir() / "decoding" / "erp" / "duration" / "times.npy"),
-    str(out_dir() / "decoding" / "erp" / "latency" / "scores.npy"),
-    str(out_dir() / "decoding" / "erp" / "latency" / "times.npy"),
-
-    # Decoding cluster-test outputs (needed to draw significance)
-    str(out_dir() / "stats" / "decoding" / "erp" / "duration" / "cluster_results.hdf5"),
-    str(out_dir() / "stats" / "decoding" / "erp" / "latency" / "cluster_results.hdf5"),
-]
-
-
-FIG_ROOT = config["io"]["out_dir"] + "/figures"
 
 
 rule figures_main:
     """
-    Build all main manuscript figures (Fig 1–5).
+    Aggregate target for all main manuscript figures.
     """
     input:
-        epochs=epoch_inputs(),
-        erp=ERP_OUT,
-        tfr=TFR_OUT,
-        decoding=DECODING_OUT,
-        config=str(Path(workflow.basedir) / "config.yaml"),
-    output:
         FIG_MAIN
-    threads:
-        heavy_threads()
-    resources:
-        mem_mb=heavy_mem_mb()
-    params:
-        entrypoint=str(entrypoint())
-    shell:
-        r"""
-        set -euo pipefail
-        python "{params.entrypoint}" viz main --config "{input.config}"
-        """
 
 
 rule figures_supp:
     """
-    Build all supplementary figures (S1–S4).
+    Aggregate target for all supplementary figures.
     """
     input:
-        epochs=epoch_inputs(),
-        erp=ERP_OUT,
-        tfr=TFR_OUT,
-        decoding=DECODING_OUT,
-        config=str(Path(workflow.basedir) / "config.yaml"),
-    output:
         FIG_SUPP
-    threads:
-        heavy_threads()
-    resources:
-        mem_mb=heavy_mem_mb()
-    params:
-        entrypoint=str(entrypoint())
-    shell:
-        r"""
-        set -euo pipefail
-        python "{params.entrypoint}" viz supp --config "{input.config}"
-        """
 
 
 rule fig_erp_timecourse:
     input:
-        config="workflow/config.yaml"
+        config=CONFIGFILE,
+        erp=ERP_OUT,
     output:
-        fig=FIG_ROOT + "/main" + "/F_erp_timecourse.tif"
+        fig=str(FIG_ROOT / "main" / "F_erp_timecourse.tif"),
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
     shell:
         r"""
-        python -m turntaking.cli.main viz-erp-timecourse --config "{input.config}"
+        set -euo pipefail
+        python -m turntaking.cli.main viz --config "{input.config}" erp --mode timecourse
         """
 
 
 rule fig_erp_topos:
     input:
-        config="workflow/config.yaml"
+        config=CONFIGFILE,
+        erp=ERP_OUT,
+        clusters=ERP_CLUSTER_OUT,
     output:
-        duration=FIG_ROOT + "/supp/F_erp_topo_duration.tif",
-        latency=FIG_ROOT + "/supp/F_erp_topo_latency.tif",
+        duration=str(FIG_ROOT / "supp" / "F_erp_topo_duration.tif"),
+        latency=str(FIG_ROOT / "supp" / "F_erp_topo_latency.tif"),
     threads:
         heavy_threads()
     resources:
@@ -131,18 +178,20 @@ rule fig_erp_topos:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main viz-erp-topo --config "{input.config}"
+        python -m turntaking.cli.main viz --config "{input.config}" erp --mode topomap --format static
         """
 
 
 rule fig_tfr_topos:
     input:
-        config="workflow/config.yaml"
+        config=CONFIGFILE,
+        tfr=TFR_OUT,
+        clusters=TFR_CLUSTER_OUT,
     output:
-        alpha_duration=FIG_ROOT + "/supp/F_tfr_topo_alpha_duration.tif",
-        alpha_latency=FIG_ROOT + "/supp/F_tfr_topo_alpha_latency.tif",
-        beta_duration=FIG_ROOT + "/supp/F_tfr_topo_beta_duration.tif",
-        beta_latency=FIG_ROOT + "/supp/F_tfr_topo_beta_latency.tif",
+        alpha_duration=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_duration.tif"),
+        alpha_latency=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_latency.tif"),
+        beta_duration=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_duration.tif"),
+        beta_latency=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_latency.tif"),
     threads:
         heavy_threads()
     resources:
@@ -150,50 +199,24 @@ rule fig_tfr_topos:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main viz-tfr-topos --config "{input.config}"
-        """
-
-
-rule fig_tfr_topomaps:
-    input:
-        config="workflow/config.yaml"
-    output:
-        fig=FIG_ROOT + "/main" + "/F_tfr_topo.tif"
-    threads:
-        heavy_threads()
-    resources:
-        mem_mb=heavy_mem_mb()
-    shell:
-        r"""
-        set -euo pipefail
-        python -m turntaking.cli.main viz-tfr-topo --config "{input.config}"
+        python -m turntaking.cli.main viz --config "{input.config}" tfr --mode topomap --format static
         """
 
 
 rule fig_behavior:
     input:
-        config="workflow/config.yaml",
-        table=config["paths"]["out_dir"] + "/beh/turn_table.csv"
+        config=CONFIGFILE,
+        table=str(out_dir() / "beh" / "turn_table.csv"),
+        duration_offsets=str(out_dir() / "erp" / "duration" / "offsets.csv"),
+        latency_offsets=str(out_dir() / "erp" / "latency" / "offsets.csv"),
     output:
-        main=FIG_ROOT + "/main" + "/F_behavior.tif",
-        s1=FIG_ROOT + "/supp" + "/S1_response_duration_hist.tif",
-        s2=FIG_ROOT + "/supp" + "/S2_previous_speech_duration_hist.tif",
-        s3_long=FIG_ROOT + "/supp" + "/S3_long_joint.tif",
-        s3_short=FIG_ROOT + "/supp" + "/S3_short_joint.tif",
-        s3_fast=FIG_ROOT + "/supp" + "/S3_fast_joint.tif",
-        s3_slow=FIG_ROOT + "/supp" + "/S3_slow_joint.tif",
-    shell:
-        r"""
-        python -m turntaking.cli.main viz-behavior --config "{input.config}"
-        """
-
-
-rule fig_decoding:
-    input:
-        config="workflow/config.yaml",
-        decoding=DECODING_OUT
-    output:
-        fig=FIG_ROOT + "/main" + "/F_decoding.tif"
+        main=str(FIG_ROOT / "main" / "F_behavior.tif"),
+        s1=str(FIG_ROOT / "supp" / "S1_response_duration_hist.tif"),
+        s2=str(FIG_ROOT / "supp" / "S2_previous_speech_duration_hist.tif"),
+        s3_long=str(FIG_ROOT / "supp" / "S3_long_joint.tif"),
+        s3_short=str(FIG_ROOT / "supp" / "S3_short_joint.tif"),
+        s3_fast=str(FIG_ROOT / "supp" / "S3_fast_joint.tif"),
+        s3_slow=str(FIG_ROOT / "supp" / "S3_slow_joint.tif"),
     threads:
         heavy_threads()
     resources:
@@ -201,20 +224,38 @@ rule fig_decoding:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main viz-decoding \
-          --config "{input.config}" \
-          --out "{output.fig}"
+        python -m turntaking.cli.main viz --config "{input.config}" behavior
+        """
+
+
+rule fig_decoding:
+    input:
+        config=CONFIGFILE,
+        decoding=DECODING_OUT,
+        clusters=DECODING_CLUSTER_OUT,
+    output:
+        fig=str(FIG_ROOT / "main" / "F_decoding.tif"),
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
+    shell:
+        r"""
+        set -euo pipefail
+        python -m turntaking.cli.main viz --config "{input.config}" decoding --mode figure
         """
 
 
 rule fig_erp_topomap_svg:
     input:
         template="workflow/templates/ERP-timeline.svg",
-        config="workflow/config.yaml",
+        config=CONFIGFILE,
+        erp=ERP_OUT,
+        clusters=ERP_CLUSTER_OUT,
     output:
-        svg=FIG_ROOT + "/main/F_erp_topomap.svg",
+        svg=str(FIG_ROOT / "main" / "F_erp_topomap.svg"),
     params:
-        parts_dir=FIG_ROOT + "/main/parts_erp_topomap"
+        parts_dir=str(FIG_ROOT / "main" / "parts_erp_topomap"),
     threads:
         heavy_threads()
     resources:
@@ -222,32 +263,25 @@ rule fig_erp_topomap_svg:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main viz-topomaps \
-          --config "{input.config}" \
-          --template "{input.template}" \
-          --parts-dir "{params.parts_dir}" \
-          --out-svg "{output.svg}"
+        python -m turntaking.cli.main viz --config "{input.config}" erp --mode topomap --format svg
         """
 
 
 rule fig_erp_topomap_tif:
     input:
-        svg=FIG_ROOT + "/main/F_erp_topomap.svg",
-        config="workflow/config.yaml",
+        svg=str(FIG_ROOT / "main" / "F_erp_topomap.svg"),
+        config=CONFIGFILE,
     output:
-        tif=FIG_ROOT + "/main/F_erp_topomap.tif",
+        tif=str(FIG_ROOT / "main" / "F_erp_topomap.tif"),
     shell:
         r"""
         set -euo pipefail
-
-        # Make sure Python can locate libcairo on macOS (brew)
         if [ -d /opt/homebrew/lib ]; then
           export DYLD_LIBRARY_PATH="/opt/homebrew/lib:${{DYLD_LIBRARY_PATH:-}}"
         fi
         if [ -d /usr/local/lib ]; then
           export DYLD_LIBRARY_PATH="/usr/local/lib:${{DYLD_LIBRARY_PATH:-}}"
         fi
-
         python -m turntaking.cli.main viz-svg-to-tiff \
           --config "{input.config}" \
           --in-svg "{input.svg}" \
@@ -259,11 +293,13 @@ rule fig_erp_topomap_tif:
 rule fig_tfr_topomap_svg:
     input:
         template="workflow/templates/TF-timeline.svg",
-        config="workflow/config.yaml",
+        config=CONFIGFILE,
+        tfr=TFR_OUT,
+        clusters=TFR_CLUSTER_OUT,
     output:
-        svg=FIG_ROOT + "/main/F_tfr_topomap.svg",
+        svg=str(FIG_ROOT / "main" / "F_tfr_topomap.svg"),
     params:
-        parts_dir=FIG_ROOT + "/main/parts_tfr_topomap"
+        parts_dir=str(FIG_ROOT / "main" / "parts_tfr_topomap"),
     threads:
         heavy_threads()
     resources:
@@ -271,32 +307,25 @@ rule fig_tfr_topomap_svg:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main viz-tfr-topomaps \
-          --config "{input.config}" \
-          --template "{input.template}" \
-          --parts-dir "{params.parts_dir}" \
-          --out-svg "{output.svg}"
+        python -m turntaking.cli.main viz --config "{input.config}" tfr --mode topomap --format svg
         """
 
 
 rule fig_tfr_topomap_tif:
     input:
-        svg=FIG_ROOT + "/main/F_tfr_topomap.svg",
-        config="workflow/config.yaml",
+        svg=str(FIG_ROOT / "main" / "F_tfr_topomap.svg"),
+        config=CONFIGFILE,
     output:
-        tif=FIG_ROOT + "/main/F_tfr_topomap.tif",
+        tif=str(FIG_ROOT / "main" / "F_tfr_topomap.tif"),
     shell:
         r"""
         set -euo pipefail
-
-        # Make sure Python can locate libcairo on macOS (brew)
         if [ -d /opt/homebrew/lib ]; then
           export DYLD_LIBRARY_PATH="/opt/homebrew/lib:${{DYLD_LIBRARY_PATH:-}}"
         fi
         if [ -d /usr/local/lib ]; then
           export DYLD_LIBRARY_PATH="/usr/local/lib:${{DYLD_LIBRARY_PATH:-}}"
         fi
-
         python -m turntaking.cli.main viz-svg-to-tiff \
           --config "{input.config}" \
           --in-svg "{input.svg}" \
@@ -307,11 +336,17 @@ rule fig_tfr_topomap_tif:
 
 rule fig_erp_latency_with_hist:
     input:
-        config="workflow/config.yaml",
-        ixed_table=config["viz"]["erp_hist"]["hist_table_csv"],
+        config=CONFIGFILE,
+        mixed_table=str(out_dir() / "mixed_effect" / "table.csv"),
+        erp=ERP_OUT,
     output:
-        fig=FIG_ROOT + "/main" + "/F_erp_timecourse_hist.tif"
+        fig=str(FIG_ROOT / "main" / "F_erp_timecourse_hist.tif"),
+    threads:
+        heavy_threads()
+    resources:
+        mem_mb=heavy_mem_mb()
     shell:
         r"""
-        python -m turntaking.cli.main viz-erp-latency-hist --config "{input.config}"
+        set -euo pipefail
+        python -m turntaking.cli.main viz --config "{input.config}" erp --mode hist
         """

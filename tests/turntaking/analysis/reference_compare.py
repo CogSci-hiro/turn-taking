@@ -116,10 +116,21 @@ def assert_similarity(
 
 
 def load_supported_artifact(path: Path) -> np.ndarray | pd.DataFrame:
-    """Load an artifact from `.npy` or `.csv` for cross-run comparison."""
+    """Load an artifact from `.npy`, `.csv`, or evoked `.fif` for comparison."""
     suffix = path.suffix.lower()
     if suffix == ".npy":
         return np.asarray(np.load(path))
     if suffix == ".csv":
         return pd.read_csv(path)
+    if suffix == ".fif":
+        import mne
+
+        evokeds = mne.read_evokeds(path, condition=None, verbose="ERROR")
+        if isinstance(evokeds, list):
+            if len(evokeds) == 0:
+                raise ValueError(f"Empty evoked FIF artifact: {path}")
+            if len(evokeds) == 1:
+                return np.asarray(evokeds[0].data)
+            return np.stack([np.asarray(ev.data) for ev in evokeds], axis=0)
+        return np.asarray(evokeds.data)
     raise ValueError(f"Unsupported artifact extension for similarity comparison: {suffix}")

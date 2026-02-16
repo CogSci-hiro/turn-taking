@@ -16,7 +16,7 @@ ClusterKind = Literal["erp", "tfr"]
 class ClusterTestParams:
     """Parameters controlling the cluster permutation test."""
     n_permutations: int = 1024
-    threshold: float | None = None
+    threshold: float | dict[str, Any] | None = None
     tail: int = 0  # 0: two-sided, 1: upper tail, -1: lower tail
     alpha: float = 0.05
     seed: int = 0
@@ -37,6 +37,22 @@ class ClusterTestResult:
 def _channel_adjacency(info: mne.Info, ch_type: str) -> np.ndarray:
     adj, _ = find_ch_adjacency(info, ch_type=ch_type)
     return adj
+
+
+def _serialize_threshold(threshold: float | dict[str, Any] | None) -> float | dict[str, Any] | None:
+    if threshold is None:
+        return None
+    if isinstance(threshold, dict):
+        out: dict[str, Any] = {}
+        for key, value in threshold.items():
+            if isinstance(value, (np.integer, np.floating)):
+                out[str(key)] = float(value)
+            elif isinstance(value, (int, float)):
+                out[str(key)] = float(value)
+            else:
+                out[str(key)] = value
+        return out
+    return float(threshold)
 
 
 def run_cluster_1samp_spatiotemporal(
@@ -104,7 +120,7 @@ def run_cluster_1samp_spatiotemporal(
         "n_times": int(X.shape[1]),
         "n_channels": int(X.shape[2]),
         "n_permutations": int(params.n_permutations),
-        "threshold": None if params.threshold is None else float(params.threshold),
+        "threshold": _serialize_threshold(params.threshold),
         "tail": int(params.tail),
         "alpha": float(params.alpha),
         "seed": int(params.seed),

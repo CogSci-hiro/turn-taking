@@ -1,17 +1,29 @@
 import glob
+from pathlib import Path
 
-BEH_DIR = config["paths"]["beh_dir"]
-OUT_DIR = config["paths"]["out_dir"]
 
-BEH_ROOT = OUT_DIR + "/beh"
-BEH_TSVS = sorted(glob.glob(BEH_DIR + "/*_metadata.tsv"))
+def active_configfile() -> str:
+    cfgs = list(getattr(workflow, "overwrite_configfiles", []))
+    if not cfgs:
+        cfgs = list(getattr(workflow, "configfiles", []))
+    if not cfgs:
+        raise ValueError("No configfile is available in Snakemake workflow context.")
+    return str(cfgs[0])
+
+
+CONFIGFILE = active_configfile()
+
+BEH_DIR = Path(_io_or_paths()["beh_dir"])
+BEH_ROOT = out_dir() / "beh"
+BEH_TSVS = sorted(glob.glob(str(BEH_DIR / "*_metadata.tsv")))
+
 
 rule beh_turn_table:
     input:
-        config="workflow/config.yaml",
+        config=CONFIGFILE,
         tsvs=BEH_TSVS
     output:
-        csv=BEH_ROOT + "/turn_table.csv"
+        csv=str(BEH_ROOT / "turn_table.csv")
     threads:
         light_threads()
     resources:

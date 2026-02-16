@@ -27,3 +27,9 @@ test = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+  "unit: fast unit tests",
+  "contract: repository and pipeline contracts",
+  "integration: end-to-end tests",
+]
+norecursedirs = [".git", ".venv", ".snakemake", "__pycache__", "tests/fixtures/_tmp_out"]

@@ -59,7 +59,7 @@ rule erp:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main erp --config "{input.configfile}"
+        python -m turntaking.cli.main analyze --config "{input.configfile}" erp
         """
 
 
@@ -95,7 +95,7 @@ rule tfr:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main tfr --config "{input.configfile}"
+        python -m turntaking.cli.main analyze --config "{input.configfile}" tfr
         """
 
 
@@ -124,8 +124,7 @@ rule decoding:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main decoding \
-          --config "{input.configfile}" \
+        python -m turntaking.cli.main analyze --config "{input.configfile}" decoding \
           --contrast "{wildcards.contrast}"
         """
 
@@ -148,11 +147,10 @@ rule mixed_effect:
     shell:
         r"""
         set -euo pipefail
-        python -m turntaking.cli.main mixed-effect --config "{input.config}" 
-
+        python -m turntaking.cli.main analyze --config "{input.configfile}" mixed
         """
 
 
 rule mixed_effect_all:
     input:
-        MIXED_ROOT + "/table.csv"
+        f"{MIXED_ROOT}/table.csv"

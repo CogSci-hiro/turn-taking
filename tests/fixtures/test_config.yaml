@@ -23,9 +23,17 @@ analysis:
   erp:
     left_margin: 0.0
     right_margin: 0.0
+    baseline: [-0.2, 0.0]
     sfreq: 64
     n_permutations: 10
     threshold: null
+    artifacts:
+      duration:
+        long: "erp/duration/long_ave.fif"
+        short: "erp/duration/short_ave.fif"
+      latency:
+        fast: "erp/latency/fast_ave.fif"
+        slow: "erp/latency/slow_ave.fif"
   tfr:
     left_margin: 0.0
     right_margin: 0.0
@@ -53,61 +61,25 @@ execution:
 
 viz:
   erp_timecourse:
-    duration_long_fif: "__OUT_DIR__/erp/duration/long_ave.fif"
-    duration_short_fif: "__OUT_DIR__/erp/duration/short_ave.fif"
-    latency_fast_fif: "__OUT_DIR__/erp/latency/fast_ave.fif"
-    latency_slow_fif: "__OUT_DIR__/erp/latency/slow_ave.fif"
-    out_base: "__OUT_DIR__/figures/erp_timecourse"
     xlim_ms: [-500, 500]
     ylim_uv: [-5, 5]
   behavior:
-    duration_offsets_csv: "__OUT_DIR__/erp/duration/offsets.csv"
-    latency_offsets_csv: "__OUT_DIR__/erp/latency/offsets.csv"
-    turn_table_csv: "__OUT_DIR__/beh/turn_table.csv"
-    out_base: "__OUT_DIR__/figures/behavior"
     n_bins: 10
   erp_topo:
-    duration_cluster_hdf5: "__OUT_DIR__/stats/erp/duration/cluster_results.hdf5"
-    latency_cluster_hdf5: "__OUT_DIR__/stats/erp/latency/cluster_results.hdf5"
-    info_source_fif: "__OUT_DIR__/erp/duration/difference_ave.fif"
-    out_duration: "__OUT_DIR__/figures/erp_topo_duration.tif"
-    out_latency: "__OUT_DIR__/figures/erp_topo_latency.tif"
     tmin_s: -0.2
     tmax_s: 0.1
     step_ms: 50
-  erp_topomaps:
-    template_svg: "workflow/templates/ERP-timeline.svg"
-    parts_dir: "__OUT_DIR__/figures/parts_erp_topomaps"
-    out_svg: "__OUT_DIR__/figures/F_erp_topomaps.svg"
-    info_source_fif: "__OUT_DIR__/erp/duration/difference_ave.fif"
-    duration_cluster_hdf5: "__OUT_DIR__/stats/erp/duration/cluster_results.hdf5"
-    latency_cluster_hdf5: "__OUT_DIR__/stats/erp/latency/cluster_results.hdf5"
-  tfr_topomaps:
-    template_svg: "workflow/templates/TFR-timeline.svg"
-    parts_dir: "__OUT_DIR__/figures/parts_tfr_topomaps"
-    out_svg: "__OUT_DIR__/figures/F_tfr_topomaps.svg"
-    info_source_fif: "__OUT_DIR__/tfr/duration/alpha/difference_ave.fif"
-    alpha_cluster_hdf5: "__OUT_DIR__/stats/tfr/alpha/cluster_results.hdf5"
-    beta_cluster_hdf5: "__OUT_DIR__/stats/tfr/beta/cluster_results.hdf5"
+  erp_topomaps: {}
+  tfr_topomaps: {}
   tfr_topos:
-    alpha_duration_cluster_hdf5: "__OUT_DIR__/stats/tfr/alpha_duration_cluster.hdf5"
-    alpha_latency_cluster_hdf5: "__OUT_DIR__/stats/tfr/alpha_latency_cluster.hdf5"
-    beta_duration_cluster_hdf5: "__OUT_DIR__/stats/tfr/beta_duration_cluster.hdf5"
-    beta_latency_cluster_hdf5: "__OUT_DIR__/stats/tfr/beta_latency_cluster.hdf5"
-    info_source_fif: "__OUT_DIR__/tfr/duration/alpha/difference_ave.fif"
-    out_alpha_duration: "__OUT_DIR__/figures/alpha_duration.tif"
-    out_alpha_latency: "__OUT_DIR__/figures/alpha_latency.tif"
-    out_beta_duration: "__OUT_DIR__/figures/beta_duration.tif"
-    out_beta_latency: "__OUT_DIR__/figures/beta_latency.tif"
     tmin_s: -0.2
     tmax_s: 0.1
     step_ms: 50
+  decoding:
+    figure_profile: "jneuro_2col"
+    p_threshold: 0.05
+    ymax: 0.65
+    lim: 0.04
   erp_hist:
-    duration_long_fif: "__OUT_DIR__/erp/duration/long_ave.fif"
-    duration_short_fif: "__OUT_DIR__/erp/duration/short_ave.fif"
-    latency_fast_fif: "__OUT_DIR__/erp/latency/fast_ave.fif"
-    latency_slow_fif: "__OUT_DIR__/erp/latency/slow_ave.fif"
-    hist_table_csv: "__OUT_DIR__/figures/erp_hist_table.csv"
-    out_base: "__OUT_DIR__/figures/erp_hist"
     xlim_ms: [-500, 500]
     ylim_uv: [-5, 5]

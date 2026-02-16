@@ -5,9 +5,6 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from turntaking.analysis.decoding.entry import run_decoding
-
-
 def add_subparser(subparsers: Any) -> None:
     parser: argparse.ArgumentParser = subparsers.add_parser(
         "decoding",
@@ -37,4 +34,6 @@ def add_subparser(subparsers: Any) -> None:
 
 
 def run(args: argparse.Namespace, cfg: Any) -> None:
+    from turntaking.analysis.decoding.entry import run_decoding
+
     run_decoding(args, cfg)

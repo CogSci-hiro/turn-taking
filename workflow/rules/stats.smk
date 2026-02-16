@@ -6,6 +6,18 @@ conda:
     CONDA_PY_ENV
 
 
+def active_configfile() -> str:
+    cfgs = list(getattr(workflow, "overwrite_configfiles", []))
+    if not cfgs:
+        cfgs = list(getattr(workflow, "configfiles", []))
+    if not cfgs:
+        raise ValueError("No configfile is available in Snakemake workflow context.")
+    return str(cfgs[0])
+
+
+CONFIGFILE = active_configfile()
+
+
 def stats_erp_out_dir() -> Path:
     return out_dir() / "stats" / "erp"
 
@@ -19,7 +31,7 @@ def heavy_mem_mb() -> int:
     return int(config.get("execution", {}).get("mem_mb_heavy", 10_000))
 
 
-T1_LMM = str(out_dir() / "tables" / "table_T1_lmm_results.csv")
+T1_LMM = str(out_dir() / "mixed_effect" / "lmm" / "tables" / "models.csv")
 
 
 def erp_contrasts() -> list[str]:
@@ -59,7 +71,7 @@ DECODING_OUT = [
 rule test_erp:
     input:
         erp_outputs=ERP_OUT,  # or just the specific per-contrast inputs
-        config=str(Path(workflow.basedir) / "config.yaml")
+        config=CONFIGFILE
     output:
         hdf5=str(stats_erp_out_dir() / "{contrast}" / "cluster_results.hdf5"),
         summary=str(stats_erp_out_dir() / "{contrast}" / "cluster_summary.csv")
@@ -143,7 +155,7 @@ rule test_tfr:
     """
     input:
         tfr_outputs=lambda wc: tfr_outputs_for_contrast_band(wc.contrast, wc.band),
-        config=str(Path(workflow.basedir) / "config.yaml")
+        config=CONFIGFILE
     output:
         hdf5=str(stats_tfr_out_dir() / "{contrast}" / "{band}" / "cluster_results.hdf5"),
         summary=str(stats_tfr_out_dir() / "{contrast}" / "{band}" / "cluster_summary.csv")
@@ -188,7 +200,7 @@ rule test_decoding:
     input:
         scores=str(out_dir() / "decoding" / "erp" / "{contrast}" / "scores.npy"),
         times=str(out_dir() / "decoding" / "erp" / "{contrast}" / "times.npy"),
-        config=str(Path(workflow.basedir) / "config.yaml"),
+        config=CONFIGFILE,
     output:
         hdf5=str(stats_decoding_out_dir() / "erp" / "{contrast}" / "cluster_results.hdf5"),
         summary=str(stats_decoding_out_dir() / "erp" / "{contrast}" / "cluster_summary.csv"),

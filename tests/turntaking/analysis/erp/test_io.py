@@ -37,6 +37,7 @@ def test_run_erp_analysis_matches_contrast_math_and_writes_outputs(tmp_path, sam
         str(epoch_path),
         {
             "contrast": "duration",
+            "baseline": [-0.2, 0.0],
             "min_latency": 0.0,
             "max_latency": 1.0,
             "min_self_duration": 0.0,
@@ -69,4 +70,3 @@ def test_run_erp_analysis_matches_contrast_math_and_writes_outputs(tmp_path, sam
     summary = pd.read_csv(out_dir / "summary.csv")
     assert set(summary.columns) == {"name", "mean_amplitude", "peak_latency", "peak_amplitude"}
     assert set(summary["name"]) == {"long", "short", "difference"}
-

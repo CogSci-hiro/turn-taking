@@ -51,10 +51,7 @@ __all__ = [
 
 
 def _resolve_baseline(config: Mapping[str, Any]) -> tuple[float, float] | None:
-    baseline = _as_window(config.get("baseline"))
-    if baseline is None and isinstance(config.get("analysis"), Mapping):
-        baseline = _as_window(config["analysis"].get("baseline"))
-    return baseline
+    return _as_window(config.get("baseline"))
 
 
 def _resolve_summary_window(config: Mapping[str, Any], times: np.ndarray) -> tuple[float, float]:

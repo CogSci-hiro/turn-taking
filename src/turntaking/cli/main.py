@@ -26,17 +26,11 @@ import turntaking.cli.commands.cluster as cmd_cluster
 import turntaking.cli.commands.decoding as cmd_decoding
 import turntaking.cli.commands.decoding_cluster as cmd_decoding_cluster
 import turntaking.cli.commands.mixed_effect as cmd_mixed_effect
+import turntaking.cli.commands.analyze as cmd_analyze
+import turntaking.cli.commands.viz as cmd_viz
 
-import turntaking.cli.commands.viz.erp_timecourse as cmd_viz_erp_timecourse
-import turntaking.cli.commands.viz.behavior as cmd_viz_behavior
-import turntaking.cli.commands.viz.erp_topo as cmd_viz_erp_topo
 import turntaking.cli.commands.turn_table as cmd_beh_turn_table
-import turntaking.cli.commands.viz.decoding as cmd_viz_decoding
-import turntaking.cli.commands.viz.topomaps as cmd_viz_topomaps
-import turntaking.cli.commands.viz.tfr_topo as cmd_viz_tfr_topo
-import turntaking.cli.commands.viz.svg_to_tif as cmd_viz_svg_to_tif
-import turntaking.cli.commands.viz.tfr_topomaps as cmd_viz_tfr_topomaps
-import turntaking.cli.commands.viz.erp_latency_hist as cmd_viz_erp_latency_hist
+import turntaking.cli.commands.viz_svg_to_tif as cmd_viz_svg_to_tif
 
 _COMMANDS = {"erp": cmd_erp,
              "tfr": cmd_tfr,
@@ -44,15 +38,9 @@ _COMMANDS = {"erp": cmd_erp,
              "decoding-cluster": cmd_decoding_cluster,
              "cluster": cmd_cluster,
              "mixed-effect": cmd_mixed_effect,
-             "viz-erp-timecourse": cmd_viz_erp_timecourse,
-             "viz-behavior": cmd_viz_behavior,
-             "viz-erp-topo": cmd_viz_erp_topo,
-             "viz-tfr-topos": cmd_viz_tfr_topo,
-             "viz-topomaps": cmd_viz_topomaps,
-             "viz-tfr-topomaps": cmd_viz_tfr_topomaps,
-             "viz-decoding": cmd_viz_decoding,
+             "analyze": cmd_analyze,
+             "viz": cmd_viz,
              "beh-turn-table": cmd_beh_turn_table,
-             "viz-erp-latency-hist": cmd_viz_erp_latency_hist,
              "viz-svg-to-tiff": cmd_viz_svg_to_tif}
 
 

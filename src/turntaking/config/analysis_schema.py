@@ -22,6 +22,80 @@ def _resolve_viz_path(base_out_dir: Path, value: Any) -> Path:
     return base_out_dir / path
 
 
+def _optional_mapping(d: dict[str, Any], key: str, where: str) -> dict[str, Any]:
+    raw = d.get(key, {})
+    if raw is None:
+        raw = {}
+    return _require_mapping(raw, f"{where}.{key}")
+
+
+def _resolve_viz_default_path(
+    section: dict[str, Any],
+    key: str,
+    *,
+    base_out_dir: Path,
+    default: str | Path,
+) -> Path:
+    del section, key
+    return _resolve_viz_path(base_out_dir, default)
+
+
+def _float_pair(
+    section: dict[str, Any],
+    key: str,
+    *,
+    default: tuple[float, float],
+    where: str,
+) -> tuple[float, float]:
+    raw = section.get(key, default)
+    if not isinstance(raw, (list, tuple)) or len(raw) != 2:
+        raise ValueError(f"{where}.{key} must be a two-value list/tuple.")
+    return float(raw[0]), float(raw[1])
+
+
+def _normalize_cluster_threshold(value: Any, where: str) -> Any | None:
+    """
+    Normalize cluster threshold config into values accepted by MNE.
+
+    Supported forms:
+    - ``null`` / ``None`` -> ``None`` (automatic threshold)
+    - number -> float
+    - ``{value: ...}`` -> float or ``None``
+    - ``{type: automatic}`` -> ``None``
+    - ``{start: x, step: y}`` -> dict (TFCE-style threshold)
+    """
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if not isinstance(value, dict):
+        raise ValueError(
+            f"{where} must be null, a number, or mapping. Got {type(value).__name__}."
+        )
+
+    if "type" in value:
+        mode = str(value["type"]).strip().lower()
+        if mode in {"automatic", "auto", "none", "null"}:
+            return None
+        if mode == "value":
+            value = {"value": value.get("value", None)}
+
+    if "value" in value:
+        inner = value.get("value")
+        return None if inner is None else float(inner)
+
+    if "start" in value and "step" in value:
+        normalized = dict(value)
+        normalized["start"] = float(value["start"])
+        normalized["step"] = float(value["step"])
+        return normalized
+
+    raise ValueError(
+        f"{where} mapping must contain either "
+        "'value', 'type: automatic', or both 'start' and 'step'."
+    )
+
+
 @dataclass(frozen=True)
 class VizErpHistSection:
     duration_long_fif: Path
@@ -199,6 +273,22 @@ class VizBehaviorSection:
     out_base: Path
     n_bins: int = 100
 
+
+@dataclass(frozen=True)
+class VizDecodingSection:
+    duration_scores_npy: Path
+    duration_times_npy: Path
+    latency_scores_npy: Path
+    latency_times_npy: Path
+    duration_cluster_hdf5: Path
+    latency_cluster_hdf5: Path
+    out_base: Path
+    p_threshold: float = 0.05
+    figure_profile: str = "jneuro_2col"
+    ymax: float = 0.65
+    lim: float = 0.04
+
+
 @dataclass(frozen=True)
 class VizSection:
     base_out_dir: Path
@@ -209,14 +299,148 @@ class VizSection:
     erp_topomaps: VizErpTopomapsSection
     tfr_topomaps: VizTfrTopomapsSection
     erp_hist: VizErpHistSection
+    decoding: VizDecodingSection
 
     @classmethod
     def from_dict(cls, raw: dict) -> "VizSection":
-        base_out_dir = Path(raw.get("base_out_dir", "."))
-        return cls(
-            base_out_dir=base_out_dir,
-            erp_timecourse=VizErpTimecourseSection.from_dict(raw["erp_timecourse"])
-        )
+        viz_d = _require_mapping(raw, "viz")
+        return _parse_viz_section(viz_d, io_out_dir=Path("."))
+
+
+def _parse_viz_erp_timecourse(viz_d: dict[str, Any], *, base_out_dir: Path) -> VizErpTimecourseSection:
+    section = _optional_mapping(viz_d, "erp_timecourse", "viz")
+    return VizErpTimecourseSection(
+        duration_long_fif=_resolve_viz_default_path(section, "duration_long_fif", base_out_dir=base_out_dir, default="erp/duration/long_ave.fif"),
+        duration_short_fif=_resolve_viz_default_path(section, "duration_short_fif", base_out_dir=base_out_dir, default="erp/duration/short_ave.fif"),
+        latency_fast_fif=_resolve_viz_default_path(section, "latency_fast_fif", base_out_dir=base_out_dir, default="erp/latency/fast_ave.fif"),
+        latency_slow_fif=_resolve_viz_default_path(section, "latency_slow_fif", base_out_dir=base_out_dir, default="erp/latency/slow_ave.fif"),
+        out_base=_resolve_viz_default_path(section, "out_base", base_out_dir=base_out_dir, default="figures/main/F_erp_timecourse"),
+        xlim_ms=_float_pair(section, "xlim_ms", default=(-1500.0, 500.0), where="viz.erp_timecourse"),
+        ylim_uv=_float_pair(section, "ylim_uv", default=(-2.8, 1.9), where="viz.erp_timecourse"),
+    )
+
+
+def _parse_viz_behavior(viz_d: dict[str, Any], *, base_out_dir: Path) -> VizBehaviorSection:
+    section = _optional_mapping(viz_d, "behavior", "viz")
+    return VizBehaviorSection(
+        duration_offsets_csv=_resolve_viz_default_path(section, "duration_offsets_csv", base_out_dir=base_out_dir, default="erp/duration/offsets.csv"),
+        latency_offsets_csv=_resolve_viz_default_path(section, "latency_offsets_csv", base_out_dir=base_out_dir, default="erp/latency/offsets.csv"),
+        turn_table_csv=_resolve_viz_default_path(section, "turn_table_csv", base_out_dir=base_out_dir, default="beh/turn_table.csv"),
+        out_base=_resolve_viz_default_path(section, "out_base", base_out_dir=base_out_dir, default="figures/F_behavior"),
+        n_bins=int(section.get("n_bins", 100)),
+    )
+
+
+def _parse_viz_erp_topo(viz_d: dict[str, Any], *, base_out_dir: Path) -> VizErpTopoSection:
+    section = _optional_mapping(viz_d, "erp_topo", "viz")
+    return VizErpTopoSection(
+        duration_cluster_hdf5=_resolve_viz_default_path(section, "duration_cluster_hdf5", base_out_dir=base_out_dir, default="stats/erp/duration/cluster_results.hdf5"),
+        latency_cluster_hdf5=_resolve_viz_default_path(section, "latency_cluster_hdf5", base_out_dir=base_out_dir, default="stats/erp/latency/cluster_results.hdf5"),
+        info_source_fif=_resolve_viz_default_path(section, "info_source_fif", base_out_dir=base_out_dir, default="erp/duration/difference_ave.fif"),
+        out_duration=_resolve_viz_default_path(section, "out_duration", base_out_dir=base_out_dir, default="figures/supp/F_erp_topo_duration"),
+        out_latency=_resolve_viz_default_path(section, "out_latency", base_out_dir=base_out_dir, default="figures/supp/F_erp_topo_latency"),
+        tmin_s=float(section.get("tmin_s", -2.0)),
+        tmax_s=float(section.get("tmax_s", 0.0)),
+        step_ms=float(section.get("step_ms", 100)),
+        max_cols=int(section.get("max_cols", 10)),
+        p_threshold=float(section.get("p_threshold", 0.01)),
+    )
+
+
+def _parse_viz_erp_topomaps(viz_d: dict[str, Any], *, base_out_dir: Path) -> VizErpTopomapsSection:
+    section = _optional_mapping(viz_d, "erp_topomaps", "viz")
+    return VizErpTopomapsSection(
+        template_svg=Path(section.get("template_svg", "workflow/templates/ERP-timeline.svg")),
+        out_svg=_resolve_viz_default_path(section, "out_svg", base_out_dir=base_out_dir, default="figures/main/F_erp_topomap.svg"),
+        parts_dir=_resolve_viz_default_path(section, "parts_dir", base_out_dir=base_out_dir, default="figures/main/parts_erp_topomap"),
+        info_source_fif=_resolve_viz_default_path(section, "info_source_fif", base_out_dir=base_out_dir, default="erp/duration/difference_ave.fif"),
+        duration_cluster_hdf5=_resolve_viz_default_path(section, "duration_cluster_hdf5", base_out_dir=base_out_dir, default="stats/erp/duration/cluster_results.hdf5"),
+        latency_cluster_hdf5=_resolve_viz_default_path(section, "latency_cluster_hdf5", base_out_dir=base_out_dir, default="stats/erp/latency/cluster_results.hdf5"),
+        p_threshold=float(section.get("p_threshold", 0.05)),
+        n_duration_maps=int(section.get("n_duration_maps", 2)),
+        n_latency_maps=int(section.get("n_latency_maps", 3)),
+    )
+
+
+def _parse_viz_tfr_topomaps(viz_d: dict[str, Any], *, base_out_dir: Path) -> VizTfrTopomapsSection:
+    section = _optional_mapping(viz_d, "tfr_topomaps", "viz")
+    return VizTfrTopomapsSection(
+        template_svg=Path(section.get("template_svg", "workflow/templates/TF-timeline.svg")),
+        out_svg=_resolve_viz_default_path(section, "out_svg", base_out_dir=base_out_dir, default="figures/main/F_tfr_topomap.svg"),
+        parts_dir=_resolve_viz_default_path(section, "parts_dir", base_out_dir=base_out_dir, default="figures/main/parts_tfr_topomap"),
+        info_source_fif=_resolve_viz_default_path(section, "info_source_fif", base_out_dir=base_out_dir, default="tfr/duration/alpha/difference_ave.fif"),
+        alpha_cluster_hdf5=_resolve_viz_default_path(section, "alpha_cluster_hdf5", base_out_dir=base_out_dir, default="stats/tfr/duration/alpha/cluster_results.hdf5"),
+        beta_cluster_hdf5=_resolve_viz_default_path(section, "beta_cluster_hdf5", base_out_dir=base_out_dir, default="stats/tfr/duration/beta/cluster_results.hdf5"),
+        p_threshold=float(section.get("p_threshold", 0.05)),
+        n_duration_maps=int(section.get("n_duration_maps", 2)),
+        n_latency_maps=int(section.get("n_latency_maps", 3)),
+    )
+
+
+def _parse_viz_tfr_topos(viz_d: dict[str, Any], *, base_out_dir: Path) -> VizTfrToposSection:
+    section = _optional_mapping(viz_d, "tfr_topos", "viz")
+    return VizTfrToposSection(
+        alpha_duration_cluster_hdf5=_resolve_viz_default_path(section, "alpha_duration_cluster_hdf5", base_out_dir=base_out_dir, default="stats/tfr/duration/alpha/cluster_results.hdf5"),
+        alpha_latency_cluster_hdf5=_resolve_viz_default_path(section, "alpha_latency_cluster_hdf5", base_out_dir=base_out_dir, default="stats/tfr/latency/alpha/cluster_results.hdf5"),
+        beta_duration_cluster_hdf5=_resolve_viz_default_path(section, "beta_duration_cluster_hdf5", base_out_dir=base_out_dir, default="stats/tfr/duration/beta/cluster_results.hdf5"),
+        beta_latency_cluster_hdf5=_resolve_viz_default_path(section, "beta_latency_cluster_hdf5", base_out_dir=base_out_dir, default="stats/tfr/latency/beta/cluster_results.hdf5"),
+        info_source_fif=_resolve_viz_default_path(section, "info_source_fif", base_out_dir=base_out_dir, default="erp/duration/difference_ave.fif"),
+        out_alpha_duration=_resolve_viz_default_path(section, "out_alpha_duration", base_out_dir=base_out_dir, default="figures/supp/F_tfr_topo_alpha_duration"),
+        out_alpha_latency=_resolve_viz_default_path(section, "out_alpha_latency", base_out_dir=base_out_dir, default="figures/supp/F_tfr_topo_alpha_latency"),
+        out_beta_duration=_resolve_viz_default_path(section, "out_beta_duration", base_out_dir=base_out_dir, default="figures/supp/F_tfr_topo_beta_duration"),
+        out_beta_latency=_resolve_viz_default_path(section, "out_beta_latency", base_out_dir=base_out_dir, default="figures/supp/F_tfr_topo_beta_latency"),
+        tmin_s=float(section.get("tmin_s", -2.0)),
+        tmax_s=float(section.get("tmax_s", 0.0)),
+        step_ms=float(section.get("step_ms", 100)),
+        max_cols=int(section.get("max_cols", 10)),
+        p_threshold=float(section.get("p_threshold", 0.01)),
+    )
+
+
+def _parse_viz_erp_hist(viz_d: dict[str, Any], *, base_out_dir: Path) -> VizErpHistSection:
+    section = _optional_mapping(viz_d, "erp_hist", "viz")
+    return VizErpHistSection(
+        duration_long_fif=_resolve_viz_default_path(section, "duration_long_fif", base_out_dir=base_out_dir, default="erp/duration/long_ave.fif"),
+        duration_short_fif=_resolve_viz_default_path(section, "duration_short_fif", base_out_dir=base_out_dir, default="erp/duration/short_ave.fif"),
+        latency_fast_fif=_resolve_viz_default_path(section, "latency_fast_fif", base_out_dir=base_out_dir, default="erp/latency/fast_ave.fif"),
+        latency_slow_fif=_resolve_viz_default_path(section, "latency_slow_fif", base_out_dir=base_out_dir, default="erp/latency/slow_ave.fif"),
+        hist_table_csv=_resolve_viz_default_path(section, "hist_table_csv", base_out_dir=base_out_dir, default="mixed_effect/table.csv"),
+        out_base=_resolve_viz_default_path(section, "out_base", base_out_dir=base_out_dir, default="figures/main/F_erp_timecourse_hist"),
+        xlim_ms=_float_pair(section, "xlim_ms", default=(-1500.0, 500.0), where="viz.erp_hist"),
+        ylim_uv=_float_pair(section, "ylim_uv", default=(-2.8, 1.9), where="viz.erp_hist"),
+    )
+
+
+def _parse_viz_decoding(viz_d: dict[str, Any], *, base_out_dir: Path) -> VizDecodingSection:
+    section = _optional_mapping(viz_d, "decoding", "viz")
+    return VizDecodingSection(
+        duration_scores_npy=_resolve_viz_default_path(section, "duration_scores_npy", base_out_dir=base_out_dir, default="decoding/erp/duration/scores.npy"),
+        duration_times_npy=_resolve_viz_default_path(section, "duration_times_npy", base_out_dir=base_out_dir, default="decoding/erp/duration/times.npy"),
+        latency_scores_npy=_resolve_viz_default_path(section, "latency_scores_npy", base_out_dir=base_out_dir, default="decoding/erp/latency/scores.npy"),
+        latency_times_npy=_resolve_viz_default_path(section, "latency_times_npy", base_out_dir=base_out_dir, default="decoding/erp/latency/times.npy"),
+        duration_cluster_hdf5=_resolve_viz_default_path(section, "duration_cluster_hdf5", base_out_dir=base_out_dir, default="stats/decoding/erp/duration/cluster_results.hdf5"),
+        latency_cluster_hdf5=_resolve_viz_default_path(section, "latency_cluster_hdf5", base_out_dir=base_out_dir, default="stats/decoding/erp/latency/cluster_results.hdf5"),
+        out_base=_resolve_viz_default_path(section, "out_base", base_out_dir=base_out_dir, default="figures/main/F_decoding"),
+        p_threshold=float(section.get("p_threshold", 0.05)),
+        figure_profile=str(section.get("figure_profile", "jneuro_2col")),
+        ymax=float(section.get("ymax", 0.65)),
+        lim=float(section.get("lim", 0.04)),
+    )
+
+
+def _parse_viz_section(viz_d: dict[str, Any], *, io_out_dir: Path) -> VizSection:
+    base_out_dir = io_out_dir
+    return VizSection(
+        base_out_dir=base_out_dir,
+        erp_timecourse=_parse_viz_erp_timecourse(viz_d, base_out_dir=base_out_dir),
+        erp_topo=_parse_viz_erp_topo(viz_d, base_out_dir=base_out_dir),
+        tfr_topos=_parse_viz_tfr_topos(viz_d, base_out_dir=base_out_dir),
+        behavior=_parse_viz_behavior(viz_d, base_out_dir=base_out_dir),
+        erp_topomaps=_parse_viz_erp_topomaps(viz_d, base_out_dir=base_out_dir),
+        tfr_topomaps=_parse_viz_tfr_topomaps(viz_d, base_out_dir=base_out_dir),
+        erp_hist=_parse_viz_erp_hist(viz_d, base_out_dir=base_out_dir),
+        decoding=_parse_viz_decoding(viz_d, base_out_dir=base_out_dir),
+    )
 
 
 
@@ -251,11 +475,28 @@ class ConstraintsSection:
 
 @dataclass(frozen=True)
 class AnalysisErpSection:
+    @dataclass(frozen=True)
+    class Artifacts:
+        @dataclass(frozen=True)
+        class Duration:
+            long: str
+            short: str
+
+        @dataclass(frozen=True)
+        class Latency:
+            fast: str
+            slow: str
+
+        duration: Duration
+        latency: Latency
+
     left_margin: float
     right_margin: float
+    baseline: list[float]
     sfreq: int
     n_permutations: int
     threshold: Any | None
+    artifacts: Artifacts
 
 
 @dataclass(frozen=True)
@@ -393,12 +634,29 @@ class TurntakingConfig:
         bands = [str(x) for x in _require_key(analysis_d, "bands", "analysis")]
 
         erp_d = _require_mapping(_require_key(analysis_d, "erp", "analysis"), "analysis.erp")
+        artifacts_raw = erp_d.get("artifacts", {})
+        if artifacts_raw is None:
+            artifacts_raw = {}
+        artifacts_d = _require_mapping(artifacts_raw, "analysis.erp.artifacts")
+        duration_d = _require_mapping(artifacts_d.get("duration", {}), "analysis.erp.artifacts.duration")
+        latency_d = _require_mapping(artifacts_d.get("latency", {}), "analysis.erp.artifacts.latency")
         erp = AnalysisErpSection(
             left_margin=float(erp_d.get("left_margin", 0.0)),
             right_margin=float(erp_d.get("right_margin", 0.0)),
+            baseline=[float(x) for x in _require_key(erp_d, "baseline", "analysis.erp")],
             sfreq=int(_require_key(erp_d, "sfreq", "analysis.erp")),
             n_permutations=int(_require_key(erp_d, "n_permutations", "analysis.erp")),
-            threshold=erp_d.get("threshold"),
+            threshold=_normalize_cluster_threshold(erp_d.get("threshold"), "analysis.erp.threshold"),
+            artifacts=AnalysisErpSection.Artifacts(
+                duration=AnalysisErpSection.Artifacts.Duration(
+                    long=str(duration_d.get("long", "erp/duration/long_ave.fif")),
+                    short=str(duration_d.get("short", "erp/duration/short_ave.fif")),
+                ),
+                latency=AnalysisErpSection.Artifacts.Latency(
+                    fast=str(latency_d.get("fast", "erp/latency/fast_ave.fif")),
+                    slow=str(latency_d.get("slow", "erp/latency/slow_ave.fif")),
+                ),
+            ),
         )
 
         tfr_d = _require_mapping(_require_key(analysis_d, "tfr", "analysis"), "analysis.tfr")
@@ -408,7 +666,7 @@ class TurntakingConfig:
             method=str(_require_key(tfr_d, "method", "analysis.tfr")),
             sfreq=int(_require_key(tfr_d, "sfreq", "analysis.tfr")),
             n_permutations=int(_require_key(tfr_d, "n_permutations", "analysis.tfr")),
-            threshold=tfr_d.get("threshold"),
+            threshold=_normalize_cluster_threshold(tfr_d.get("threshold"), "analysis.tfr.threshold"),
         )
 
         # ------------------------------ mixed ------------------------------
@@ -434,7 +692,10 @@ class TurntakingConfig:
             sfreq=int(_require_key(decoding_d, "sfreq", "analysis.decoding")),
             n_splits=int(_require_key(decoding_d, "n_splits", "analysis.decoding")),
             n_permutations=int(decoding_d.get("n_permutations", 0)),
-            threshold=decoding_d.get("threshold", None),
+            threshold=_normalize_cluster_threshold(
+                decoding_d.get("threshold", None),
+                "analysis.decoding.threshold",
+            ),
             left_margin=float(decoding_d.get("left_margin", 0.0)),
             right_margin=float(decoding_d.get("right_margin", 0.0)),
         )
@@ -459,124 +720,7 @@ class TurntakingConfig:
 
         # ------------------------------- viz -------------------------------
         viz_d = _require_mapping(_require_key(d, "viz", "root"), "viz")
-        base_out_dir = Path(viz_d.get("base_out_dir", io.out_dir))
-        erp_tc_d = _require_mapping(_require_key(viz_d, "erp_timecourse", "viz"), "viz.erp_timecourse")
-
-        erp_timecourse = VizErpTimecourseSection(
-            duration_long_fif=_resolve_viz_path(base_out_dir, _require_key(erp_tc_d, "duration_long_fif", "viz.erp_timecourse")),
-            duration_short_fif=_resolve_viz_path(base_out_dir, _require_key(erp_tc_d, "duration_short_fif", "viz.erp_timecourse")),
-            latency_fast_fif=_resolve_viz_path(base_out_dir, _require_key(erp_tc_d, "latency_fast_fif", "viz.erp_timecourse")),
-            latency_slow_fif=_resolve_viz_path(base_out_dir, _require_key(erp_tc_d, "latency_slow_fif", "viz.erp_timecourse")),
-            out_base=_resolve_viz_path(base_out_dir, _require_key(erp_tc_d, "out_base", "viz.erp_timecourse")),
-            xlim_ms=[float(x) for x in _require_key(erp_tc_d, "xlim_ms", "viz.erp_timecourse")],
-            ylim_uv=[float(x) for x in _require_key(erp_tc_d, "ylim_uv", "viz.erp_timecourse")],
-        )
-
-        behavior_d = _require_mapping(_require_key(viz_d, "behavior", "viz"), "viz.behavior")
-        behavior = VizBehaviorSection(
-            duration_offsets_csv=_resolve_viz_path(base_out_dir, _require_key(behavior_d, "duration_offsets_csv", "viz.behavior")),
-            latency_offsets_csv=_resolve_viz_path(base_out_dir, _require_key(behavior_d, "latency_offsets_csv", "viz.behavior")),
-            turn_table_csv=_resolve_viz_path(base_out_dir, _require_key(behavior_d, "turn_table_csv", "viz.behavior")),
-            out_base=_resolve_viz_path(base_out_dir, _require_key(behavior_d, "out_base", "viz.behavior")),
-            n_bins=int(_require_key(behavior_d, "n_bins", "viz.behavior")),
-        )
-
-        erp_topo_d = _require_mapping(
-            _require_key(viz_d, "erp_topo", "viz"),
-            "viz.erp_topo",
-        )
-
-        erp_topomaps_d = _require_mapping(
-            _require_key(viz_d, "erp_topomaps", "viz"),
-            "viz.erp_topomaps",
-        )
-
-        erp_topomaps = VizErpTopomapsSection(
-            template_svg=Path(_require_key(erp_topomaps_d, "template_svg", "viz.erp_topomaps")),
-            out_svg=_resolve_viz_path(base_out_dir, erp_topomaps_d["out_svg"]) if "out_svg" in erp_topomaps_d else None,
-            parts_dir=_resolve_viz_path(base_out_dir, erp_topomaps_d["parts_dir"]) if "parts_dir" in erp_topomaps_d else None,
-            info_source_fif=_resolve_viz_path(base_out_dir, _require_key(erp_topomaps_d, "info_source_fif", "viz.erp_topomaps")),
-            duration_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(erp_topomaps_d, "duration_cluster_hdf5", "viz.erp_topomaps")),
-            latency_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(erp_topomaps_d, "latency_cluster_hdf5", "viz.erp_topomaps")),
-            p_threshold=float(erp_topomaps_d.get("p_threshold", 0.05)),
-            n_duration_maps=int(erp_topomaps_d.get("n_duration_maps", 2)),
-            n_latency_maps=int(erp_topomaps_d.get("n_latency_maps", 3)),
-        )
-
-        erp_topo = VizErpTopoSection(
-            duration_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(erp_topo_d, "duration_cluster_hdf5", "viz.erp_topo")),
-            latency_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(erp_topo_d, "latency_cluster_hdf5", "viz.erp_topo")),
-            info_source_fif=_resolve_viz_path(base_out_dir, _require_key(erp_topo_d, "info_source_fif", "viz.erp_topo")),
-            out_duration=_resolve_viz_path(base_out_dir, _require_key(erp_topo_d, "out_duration", "viz.erp_topo")),
-            out_latency=_resolve_viz_path(base_out_dir, _require_key(erp_topo_d, "out_latency", "viz.erp_topo")),
-            tmin_s=float(_require_key(erp_topo_d, "tmin_s", "viz.erp_topo")),
-            tmax_s=float(_require_key(erp_topo_d, "tmax_s", "viz.erp_topo")),
-            step_ms=float(_require_key(erp_topo_d, "step_ms", "viz.erp_topo")),
-            max_cols=int(erp_topo_d.get("max_cols", 10)),
-            p_threshold=float(erp_topo_d.get("p_threshold", 0.01)),
-        )
-
-        tfr_topomaps_d = _require_mapping(
-            _require_key(viz_d, "tfr_topomaps", "viz"),
-            "viz.tfr_topomaps",
-        )
-
-        tfr_topomaps = VizTfrTopomapsSection(
-            template_svg=Path(_require_key(tfr_topomaps_d, "template_svg", "viz.tfr_topomaps")),
-            out_svg=_resolve_viz_path(base_out_dir, tfr_topomaps_d["out_svg"]) if "out_svg" in tfr_topomaps_d else None,
-            parts_dir=_resolve_viz_path(base_out_dir, tfr_topomaps_d["parts_dir"]) if "parts_dir" in tfr_topomaps_d else None,
-            info_source_fif=_resolve_viz_path(base_out_dir, _require_key(tfr_topomaps_d, "info_source_fif", "viz.tfr_topomaps")),
-            alpha_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(tfr_topomaps_d, "alpha_cluster_hdf5", "viz.tfr_topomaps")),
-            beta_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(tfr_topomaps_d, "beta_cluster_hdf5", "viz.tfr_topomaps")),
-            p_threshold=float(tfr_topomaps_d.get("p_threshold", 0.05)),
-            n_duration_maps=int(tfr_topomaps_d.get("n_duration_maps", 2)),
-            n_latency_maps=int(tfr_topomaps_d.get("n_latency_maps", 3)),
-        )
-
-        tfr_topos_d = _require_mapping(
-            _require_key(viz_d, "tfr_topos", "viz"),
-            "viz.tfr_topos",
-        )
-
-        tfr_topos = VizTfrToposSection(
-            alpha_duration_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(tfr_topos_d, "alpha_duration_cluster_hdf5", "viz.tfr_topos")),
-            alpha_latency_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(tfr_topos_d, "alpha_latency_cluster_hdf5", "viz.tfr_topos")),
-            beta_duration_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(tfr_topos_d, "beta_duration_cluster_hdf5", "viz.tfr_topos")),
-            beta_latency_cluster_hdf5=_resolve_viz_path(base_out_dir, _require_key(tfr_topos_d, "beta_latency_cluster_hdf5", "viz.tfr_topos")),
-            info_source_fif=_resolve_viz_path(base_out_dir, _require_key(tfr_topos_d, "info_source_fif", "viz.tfr_topos")),
-            out_alpha_duration=_resolve_viz_path(base_out_dir, _require_key(tfr_topos_d, "out_alpha_duration", "viz.tfr_topos")),
-            out_alpha_latency=_resolve_viz_path(base_out_dir, _require_key(tfr_topos_d, "out_alpha_latency", "viz.tfr_topos")),
-            out_beta_duration=_resolve_viz_path(base_out_dir, _require_key(tfr_topos_d, "out_beta_duration", "viz.tfr_topos")),
-            out_beta_latency=_resolve_viz_path(base_out_dir, _require_key(tfr_topos_d, "out_beta_latency", "viz.tfr_topos")),
-            tmin_s=float(_require_key(tfr_topos_d, "tmin_s", "viz.tfr_topos")),
-            tmax_s=float(_require_key(tfr_topos_d, "tmax_s", "viz.tfr_topos")),
-            step_ms=float(_require_key(tfr_topos_d, "step_ms", "viz.tfr_topos")),
-            max_cols=int(tfr_topos_d.get("max_cols", 10)),
-            p_threshold=float(tfr_topos_d.get("p_threshold", 0.01)),
-        )
-
-        erp_hist_d = _require_mapping(_require_key(viz_d, "erp_hist", "viz"), "viz.erp_hist")
-        erp_hist = VizErpHistSection(
-            duration_long_fif=_resolve_viz_path(base_out_dir, _require_key(erp_hist_d, "duration_long_fif", "viz.erp_hist")),
-            duration_short_fif=_resolve_viz_path(base_out_dir, _require_key(erp_hist_d, "duration_short_fif", "viz.erp_hist")),
-            latency_fast_fif=_resolve_viz_path(base_out_dir, _require_key(erp_hist_d, "latency_fast_fif", "viz.erp_hist")),
-            latency_slow_fif=_resolve_viz_path(base_out_dir, _require_key(erp_hist_d, "latency_slow_fif", "viz.erp_hist")),
-            hist_table_csv=_resolve_viz_path(base_out_dir, _require_key(erp_hist_d, "hist_table_csv", "viz.erp_hist")),
-            out_base=_resolve_viz_path(base_out_dir, _require_key(erp_hist_d, "out_base", "viz.erp_hist")),
-            xlim_ms=(float(_require_key(erp_hist_d, "xlim_ms", "viz.erp_hist")[0]), float(_require_key(erp_hist_d, "xlim_ms", "viz.erp_hist")[1])),
-            ylim_uv=(float(_require_key(erp_hist_d, "ylim_uv", "viz.erp_hist")[0]), float(_require_key(erp_hist_d, "ylim_uv", "viz.erp_hist")[1])),
-        )
-
-        viz = VizSection(
-            base_out_dir=base_out_dir,
-            erp_timecourse=erp_timecourse,
-            erp_topo=erp_topo,
-            behavior=behavior,
-            erp_topomaps=erp_topomaps,
-            tfr_topomaps=tfr_topomaps,
-            tfr_topos=tfr_topos,
-            erp_hist=erp_hist
-        )
+        viz = _parse_viz_section(viz_d, io_out_dir=io.out_dir)
 
         return TurntakingConfig(
             io=io,

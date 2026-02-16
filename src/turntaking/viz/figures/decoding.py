@@ -1,6 +1,5 @@
 """Decoding figures (diagonal + temporal generalization)."""
 
-from __future__ import annotations
 
 from typing import List, Sequence, Tuple, Union
 
@@ -11,6 +10,7 @@ from .._style import (
     DURATION_COLOR_1,
     LATENCY_COLOR_1,
     WIDTH,
+    apply_style,
 )
 from ..components.decoding import _plot_diagonal, _plot_generalization
 
@@ -77,6 +77,7 @@ def plot_decoding(
     On the left is the duration comparison, on the right is the latency comparison.
     The top row is diagonal decoding, the bottom row is temporal generalisation.
     """
+    apply_style("jneuro_2col")
     fig, axes = plt.subplots(
         2,
         2,

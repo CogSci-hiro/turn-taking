@@ -39,27 +39,11 @@ def plot_topo_selection(
     figure_profile: str = "jneuro_1col",
     save_basepath: str | Path | None = None,
 ) -> Tuple[plt.Figure, float]:
-
-    # Make significance masks
     mask = _get_mask(t, p, cluster, p_threshold)
-
-    # Get the largest absolute t value as the limit
     if lim_val is None:
         lim_val = max(t.max(), abs(t.min()))
-
-    # Convert to MNE evoked: crop the margin
-    t = mne.EvokedArray(t.T * 1e-6, info, tmin=data_tmin)  # µV t-values → V for MNE topomap
-
-    # Plot topographies
+    t = mne.EvokedArray(t.T * 1e-6, info, tmin=data_tmin)
     fig, ax = plt.subplots(1, 1, figsize=(5, 5))
-
-    mask_params = {
-        "marker": "o",
-        "markerfacecolor": FACE_COLOR,
-        "markeredgecolor": "k",
-        "linewidth": 0,
-        "markersize": MARKER_SIZE,
-    }
     t.plot_topomap(
         axes=ax,
         times=[time],
@@ -69,12 +53,10 @@ def plot_topo_selection(
         vlim=(-lim_val, lim_val),
         time_unit="ms",
         time_format="",
-        mask_params=mask_params,
+        mask_params=_topomap_mask_params(float(MARKER_SIZE)),
     )
-
     ax.set_xlabel("")
     ax.set_ylabel("")
-
     _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
     return fig, lim_val
 
@@ -82,6 +64,16 @@ def plot_topo_selection(
 # =============================================================================
 # Topomap grid (generic: ERP/TFR)
 # =============================================================================
+def _topomap_mask_params(marker_size: float) -> dict[str, float | str]:
+    return {
+        "marker": "o",
+        "markerfacecolor": FACE_COLOR,
+        "markeredgecolor": "k",
+        "linewidth": 0,
+        "markersize": float(marker_size),
+    }
+
+
 def _make_step_times_s_and_labels_ms(
     evoked: mne.Evoked,
     *,
@@ -142,143 +134,132 @@ def plot_stat_topomaps_grid(
     save_basepath: str | Path | None = None,
     time_fontsize: float = 6
 ) -> plt.Figure:
-    """
-    Generic grid plotter for topomap time series (ERP/TFR compatible).
-
-    Parameters
-    ----------
-    stat
-        Array of shape (n_times, n_channels), typically t-values.
-    mask
-        Boolean array of shape (n_times, n_channels) or None.
-        NOTE: this supports only a single marker style. If you want different
-        clusters to have different markers, pass cluster identities and overlay
-        markers (see extension note below).
-    info
-        MNE Info with montage.
-    data_tmin
-        Start time (seconds) corresponding to stat[0, :].
-    tmin, tmax
-        Requested time window (seconds) to display.
-    step_ms
-        Step size in milliseconds.
-    title
-        Figure title.
-    lim_val
-        If None, uses max abs(stat).
-    max_cols
-        Max number of columns before wrapping.
-    """
-
-    if stat.ndim != 2:
-        raise ValueError(f"stat must be 2D (n_times, n_channels), got shape={stat.shape}.")
-    n_times, n_ch = stat.shape
-
-    if mask is not None and mask.shape != stat.shape:
-        raise ValueError(f"mask must match stat shape. stat={stat.shape}, mask={mask.shape}")
-
-    if step_ms <= 0:
-        raise ValueError(f"step_ms must be > 0, got {step_ms}")
-
-    # Color limits
-    if lim_val is None:
-        lim_val = float(np.max(np.abs(stat)))
-    lim_val = float(lim_val)
-
-    # MNE expects (n_channels, n_times) in Volts for EvokedArray
+    _validate_topomap_inputs(stat=stat, mask=mask, step_ms=step_ms)
+    lim_val = _resolve_lim_val(stat=stat, lim_val=lim_val)
     evoked = mne.EvokedArray(stat.T * 1e-6, info, tmin=float(data_tmin))
-
     times_s, labels_ms = _make_step_times_s_and_labels_ms(evoked, tmin_s=tmin, tmax_s=tmax, step_ms=step_ms)
     if times_s.size == 0:
         raise ValueError("No time points selected after clipping/snapping. Check tmin/tmax/step_ms.")
 
-    # Wrap into grid
-    n_maps = int(times_s.size)
+    fig, axes_flat, cbar_ax = _make_topomap_grid(n_maps=int(times_s.size), max_cols=max_cols)
+    draw_axes = axes_flat[: int(times_s.size)]
+    _plot_topomap_series(
+        evoked=evoked,
+        axes=draw_axes,
+        times_s=times_s,
+        mask=mask,
+        lim_val=lim_val,
+        time_unit=time_unit,
+        time_format=time_format,
+        mask_marker_size=mask_marker_size,
+        cmap=cmap,
+    )
+    _annotate_topomap_times(draw_axes, labels_ms=labels_ms, time_fontsize=time_fontsize)
+    fig.suptitle(title)
+    _add_topomap_colorbar(fig, cbar_ax=cbar_ax, lim_val=lim_val, cmap=cmap, cbar_label=cbar_label)
+    _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
+    return fig
+
+
+def _validate_topomap_inputs(*, stat: np.ndarray, mask: Optional[np.ndarray], step_ms: float) -> None:
+    if stat.ndim != 2:
+        raise ValueError(f"stat must be 2D (n_times, n_channels), got shape={stat.shape}.")
+    if mask is not None and mask.shape != stat.shape:
+        raise ValueError(f"mask must match stat shape. stat={stat.shape}, mask={mask.shape}")
+    if step_ms <= 0:
+        raise ValueError(f"step_ms must be > 0, got {step_ms}")
+
+
+def _resolve_lim_val(*, stat: np.ndarray, lim_val: float | None) -> float:
+    if lim_val is None:
+        return float(np.max(np.abs(stat)))
+    return float(lim_val)
+
+
+def _make_topomap_grid(n_maps: int, max_cols: int) -> tuple[plt.Figure, list[plt.Axes], plt.Axes]:
     n_cols = int(min(max_cols, n_maps))
     n_rows = int(np.ceil(n_maps / n_cols))
-
-    # Figure size: keep panels big; width grows with columns, height with rows
-    # You can tune these constants, but this is a sane starting point.
-    panel_w = 1.35
-    panel_h = 1.35
-    cbar_col_w = 0.55  # inches-ish worth of space, controlled by GridSpec ratio below
-
-    fig_w = max(9.0, panel_w * n_cols + cbar_col_w)
-    fig_h = max(5.0, panel_h * n_rows + 0.8)
-
+    fig_w = max(9.0, 1.35 * n_cols + 0.55)
+    fig_h = max(5.0, 1.35 * n_rows + 0.8)
     fig = plt.figure(figsize=(fig_w, fig_h))
-
-    # Dedicated colorbar column keeps topomaps from shrinking
     gs = GridSpec(
         n_rows,
         n_cols + 1,
         figure=fig,
-        width_ratios=[1.0] * n_cols + [0.08],  # last column is narrow colorbar
+        width_ratios=[1.0] * n_cols + [0.08],
         wspace=0.05,
         hspace=0.10,
     )
-
-    axes_flat: list[plt.Axes] = []
-    for r in range(n_rows):
-        for c in range(n_cols):
-            axes_flat.append(fig.add_subplot(gs[r, c]))
-
+    axes_flat = [fig.add_subplot(gs[r, c]) for r in range(n_rows) for c in range(n_cols)]
     cbar_ax = fig.add_subplot(gs[:, -1])
-
-    # Hide unused axes
     for ax in axes_flat[n_maps:]:
         ax.set_visible(False)
+    return fig, axes_flat, cbar_ax
 
-    mask_params = {
-        "marker": "o",
-        "markerfacecolor": FACE_COLOR,
-        "markeredgecolor": "k",
-        "linewidth": 0,
-        "markersize": float(mask_marker_size),
-    }
 
-    # Draw topomaps (no built-in colorbar; we add our own in cbar_ax)
+def _plot_topomap_series(
+    *,
+    evoked: mne.Evoked,
+    axes: list[plt.Axes],
+    times_s: np.ndarray,
+    mask: Optional[np.ndarray],
+    lim_val: float,
+    time_unit: str,
+    time_format: str,
+    mask_marker_size: float,
+    cmap: str,
+) -> None:
     evoked.plot_topomap(
-        axes=axes_flat[:n_maps],
+        axes=axes,
         times=times_s,
         colorbar=False,
         show=False,
-        mask=None if mask is None else mask.T,  # MNE expects (n_channels, n_times)
+        mask=None if mask is None else mask.T,
         vlim=(-lim_val, lim_val),
         time_unit=time_unit,
         time_format=time_format,
-        mask_params=mask_params,
+        mask_params=_topomap_mask_params(mask_marker_size),
         cmap=cmap,
     )
 
-    for ax, label_ms in zip(axes_flat[:n_maps], labels_ms):
+
+def _annotate_topomap_times(
+    axes: list[plt.Axes],
+    *,
+    labels_ms: np.ndarray,
+    time_fontsize: float,
+) -> None:
+    for ax, label_ms in zip(axes, labels_ms):
         ax.set_title("")
         ax.text(
-            0.5, 1.2,
+            0.5,
+            1.2,
             f"{label_ms:d} ms",
             transform=ax.transAxes,
-            ha="center", va="top",
+            ha="center",
+            va="top",
             fontsize=time_fontsize,
             color="0.2",
             zorder=20,
         )
-
-    for ax in axes_flat[:n_maps]:
+    for ax in axes:
         ax.title.set_fontsize(time_fontsize)
 
-    fig.suptitle(title)
 
-    # Our dedicated, slim colorbar
+def _add_topomap_colorbar(
+    fig: plt.Figure,
+    *,
+    cbar_ax: plt.Axes,
+    lim_val: float,
+    cmap: str,
+    cbar_label: str,
+) -> None:
     norm = mpl.colors.Normalize(vmin=-lim_val, vmax=lim_val)
     sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
     sm.set_array([])
-
     cbar = fig.colorbar(sm, cax=cbar_ax)
     cbar.set_label(cbar_label, rotation=270, labelpad=14)
     cbar.ax.tick_params(labelsize=8)
-
-    _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
-    return fig
 
 
 # =============================================================================
@@ -363,16 +344,28 @@ def plot_electrode_time_course(
     figure_profile: str = "jneuro_2col",
     save_basepath: str | Path | None = None,
 ) -> plt.Figure:
-    """
-    Plot time course of ERP amplitudes for Fz and Pz for duration/latency comparison
-    """
-
     fig, axes = plt.subplots(2, 2, figsize=(WIDTH, WIDTH * 0.78))
+    _plot_duration_column(axes, long_list=long_list, short_list=short_list, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+    _plot_latency_column(axes, fast_list=fast_list, slow_list=slow_list, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+    _format_electrode_panel_layout(fig, axes)
+    _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
+    return fig
 
-    _plot_selection_electrode_time_course(
-        long_list,
-        short_list,
-        axes[0, 0],
+
+def _plot_duration_column(
+    axes: np.ndarray,
+    *,
+    long_list: List[mne.Evoked],
+    short_list: List[mne.Evoked],
+    xmin: float,
+    xmax: float,
+    ymin: float,
+    ymax: float,
+) -> None:
+    _plot_electrode_panel(
+        long_list=long_list,
+        short_list=short_list,
+        ax=axes[0, 0],
         electrode="Fz",
         label_1="long",
         label_2="short",
@@ -384,14 +377,11 @@ def plot_electrode_time_course(
         ymax=ymax,
         y_large_label="Fz",
         title="Duration",
-        xlabel="Time (ms)",
-        ylabel="Amplitude ($\\mu$V)",
     )
-
-    _plot_selection_electrode_time_course(
-        long_list,
-        short_list,
-        axes[1, 0],
+    _plot_electrode_panel(
+        long_list=long_list,
+        short_list=short_list,
+        ax=axes[1, 0],
         electrode="Pz",
         label_1="long",
         label_2="short",
@@ -403,14 +393,23 @@ def plot_electrode_time_course(
         ymax=ymax,
         y_large_label="Pz",
         title=None,
-        xlabel="Time (ms)",
-        ylabel="Amplitude ($\\mu$V)",
     )
 
-    _plot_selection_electrode_time_course(
-        fast_list,
-        slow_list,
-        axes[0, 1],
+
+def _plot_latency_column(
+    axes: np.ndarray,
+    *,
+    fast_list: List[mne.Evoked],
+    slow_list: List[mne.Evoked],
+    xmin: float,
+    xmax: float,
+    ymin: float,
+    ymax: float,
+) -> None:
+    _plot_electrode_panel(
+        long_list=fast_list,
+        short_list=slow_list,
+        ax=axes[0, 1],
         electrode="Fz",
         label_1="fast",
         label_2="slow",
@@ -420,15 +419,13 @@ def plot_electrode_time_course(
         xmax=xmax,
         ymin=ymin,
         ymax=ymax,
+        y_large_label=None,
         title="Latency",
-        xlabel="Time (ms)",
-        ylabel="Amplitude ($\\mu$V)",
     )
-
-    _plot_selection_electrode_time_course(
-        fast_list,
-        slow_list,
-        axes[1, 1],
+    _plot_electrode_panel(
+        long_list=fast_list,
+        short_list=slow_list,
+        ax=axes[1, 1],
         electrode="Pz",
         label_1="fast",
         label_2="slow",
@@ -438,25 +435,51 @@ def plot_electrode_time_course(
         xmax=xmax,
         ymin=ymin,
         ymax=ymax,
+        y_large_label=None,
         title=None,
+    )
+
+
+def _plot_electrode_panel(
+    *,
+    long_list: List[mne.Evoked],
+    short_list: List[mne.Evoked],
+    ax: plt.Axes,
+    electrode: str,
+    label_1: str,
+    label_2: str,
+    color_1: str,
+    color_2: str,
+    xmin: float,
+    xmax: float,
+    ymin: float,
+    ymax: float,
+    y_large_label: str | None,
+    title: str | None,
+) -> None:
+    _plot_selection_electrode_time_course(
+        long_list,
+        short_list,
+        ax,
+        electrode=electrode,
+        label_1=label_1,
+        label_2=label_2,
+        color_1=color_1,
+        color_2=color_2,
+        xmin=xmin,
+        xmax=xmax,
+        ymin=ymin,
+        ymax=ymax,
+        y_large_label=y_large_label,
+        title=title,
         xlabel="Time (ms)",
         ylabel="Amplitude ($\\mu$V)",
     )
 
-    # After all panels are drawn
-    fig.align_ylabels(axes[:, 0])  # aligns left-column ylabels
 
-    fig.subplots_adjust(
-        left=0.18,
-        right=0.98,
-        bottom=0.10,
-        top=0.92,
-        wspace=0.25,
-        hspace=0.25,
-    )
-
-    _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
-    return fig
+def _format_electrode_panel_layout(fig: plt.Figure, axes: np.ndarray) -> None:
+    fig.align_ylabels(axes[:, 0])
+    fig.subplots_adjust(left=0.18, right=0.98, bottom=0.10, top=0.92, wspace=0.25, hspace=0.25)
 
 
 def plot_latency_erp_with_histograms(
@@ -468,53 +491,39 @@ def plot_latency_erp_with_histograms(
     figure_profile: str = "jneuro_2col",
     save_basepath: str | Path | None = None,
 ) -> plt.Figure:
-    """
-    Plot time course of latency ERP comparison for two electrodes Fz/Pz together with speech offset histogram
-    """
-
     fig, axes = plt.subplots(1, 2, figsize=(WIDTH, WIDTH * 0.5))
     fig.suptitle("Latency effect and histogram")
-
-    _plot_selection_electrode_time_course(
-        fast_list,
-        slow_list,
-        axes[0],
-        electrode="Fz",
-        label_1="fast",
-        label_2="slow",
-        color_1=LATENCY_COLOR_1,
-        color_2=LATENCY_COLOR_2,
-        xmin=-1500,
-        xmax=500,
-        ymin=-2.8,
-        ymax=2.8,
-        title="Fz",
-        xlabel="Time (ms)",
-        ylabel="Amplitude ($\\mu$V)",
-        legend=False,
-    )
-
-    ax0 = axes[0].twinx()
-
-    # IMPORTANT: avoid mutating caller's DataFrame in-place
     latency_df = df.copy()
     latency_df["latency"] = -latency_df["latency"] * 1e3
+    _plot_latency_hist_panel(axes[0], fast_list=fast_list, slow_list=slow_list, latency_df=latency_df, ymax=ymax, electrode="Fz")
+    _plot_latency_hist_panel(
+        axes[1],
+        fast_list=fast_list,
+        slow_list=slow_list,
+        latency_df=latency_df,
+        ymax=ymax,
+        electrode="Pz",
+        clear_main_axis_ticks=True,
+    )
+    _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
+    return fig
 
-    sns.histplot(latency_df, x="latency", hue="condition", ax=ax0, palette=[LATENCY_COLOR_1, LATENCY_COLOR_2])
-    axes[0].legend()
 
-    legend = ax0.legend()
-    legend.remove()
-
-    ax0.set_ylim(0, ymax)
-    ax0.set_yticks([])
-    ax0.set_ylabel("")
-
+def _plot_latency_hist_panel(
+    ax: plt.Axes,
+    *,
+    fast_list: List[mne.Evoked],
+    slow_list: List[mne.Evoked],
+    latency_df: pd.DataFrame,
+    ymax: float,
+    electrode: str,
+    clear_main_axis_ticks: bool = False,
+) -> None:
     _plot_selection_electrode_time_course(
         fast_list,
         slow_list,
-        axes[1],
-        electrode="Pz",
+        ax,
+        electrode=electrode,
         label_1="fast",
         label_2="slow",
         color_1=LATENCY_COLOR_1,
@@ -523,25 +532,22 @@ def plot_latency_erp_with_histograms(
         xmax=500,
         ymin=-2.8,
         ymax=2.8,
-        title="Pz",
+        title=electrode,
         xlabel="Time (ms)",
         ylabel="Amplitude ($\\mu$V)",
         legend=False,
     )
-
-    ax1 = axes[1].twinx()
-    sns.histplot(latency_df, x="latency", hue="condition", ax=ax1, palette=[LATENCY_COLOR_1, LATENCY_COLOR_2])
-    axes[1].legend()
-
-    legend = ax1.legend()
+    hist_ax = ax.twinx()
+    sns.histplot(latency_df, x="latency", hue="condition", ax=hist_ax, palette=[LATENCY_COLOR_1, LATENCY_COLOR_2])
+    ax.legend()
+    legend = hist_ax.legend()
     legend.remove()
-
-    ax1.set_ylim(0, ymax)
-    axes[1].set_yticks([])
-    axes[1].set_ylabel("")
-
-    _maybe_save(fig, save_basepath=save_basepath, figure_profile=figure_profile)
-    return fig
+    hist_ax.set_ylim(0, ymax)
+    hist_ax.set_yticks([])
+    hist_ax.set_ylabel("")
+    if clear_main_axis_ticks:
+        ax.set_yticks([])
+        ax.set_ylabel("")
 
 
 def plot_joint_erps(
@@ -628,4 +634,3 @@ def _clip_time_range_to_evoked(
     tmin_s_snapped = float(evoked.times[i_min])
     tmax_s_snapped = float(evoked.times[i_max])
     return tmin_s_snapped, tmax_s_snapped
-

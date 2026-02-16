@@ -5,9 +5,6 @@ from __future__ import annotations
 import argparse
 from typing import Any
 
-from turntaking.analysis.tfr.entry import run_tfr
-
-
 def add_subparser(subparsers: Any) -> None:
     parser: argparse.ArgumentParser = subparsers.add_parser(
         "tfr",
@@ -34,4 +31,6 @@ def add_subparser(subparsers: Any) -> None:
 
 
 def run(args: argparse.Namespace, cfg: Any) -> None:
+    from turntaking.analysis.tfr.entry import run_tfr
+
     run_tfr(args, cfg)

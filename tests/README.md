@@ -15,6 +15,12 @@ Tests mirror the source package shape under `src/turntaking`:
 - `tests/turntaking/config/...`
 - `tests/turntaking/stats/...`
 
+Operational split used for CI hygiene:
+
+- `tests/unit/`: fast pure unit checks (no Snakemake subprocesses).
+- `tests/contracts/`: cross-module invariants (I/O contracts, workflow hygiene).
+- `tests/integration/`: end-to-end Snakemake pipeline runs.
+
 ## Basic usage
 
 Run all non-reference tests:
