@@ -106,8 +106,8 @@ class FigureProfile:
 
 
 FIGURE_PROFILES: Mapping[str, FigureProfile] = {
-    "jneuro_1col": FigureProfile(width_in=cm_to_inch(JNEURO_1COL_WIDTH_CM), formats=("tiff", "eps")),
-    "jneuro_2col": FigureProfile(width_in=cm_to_inch(JNEURO_2COL_WIDTH_CM), formats=("tiff", "eps")),
+    "jneuro_1col": FigureProfile(width_in=cm_to_inch(JNEURO_1COL_WIDTH_CM), formats=("tiff", "eps", "png")),
+    "jneuro_2col": FigureProfile(width_in=cm_to_inch(JNEURO_2COL_WIDTH_CM), formats=("tiff", "eps", "png")),
     "screen": FigureProfile(width_in=7.0, formats=("png",), dpi=150),  # handy for quick debugging
 }
 

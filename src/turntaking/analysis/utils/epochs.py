@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Generic epoch path parsing and loading helpers shared across analysis domains."""
 

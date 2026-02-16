@@ -1,6 +1,5 @@
 """CLI wiring for decoding generation."""
 
-from __future__ import annotations
 
 import argparse
 from typing import Any

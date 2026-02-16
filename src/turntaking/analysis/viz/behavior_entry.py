@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Service entrypoint for behavior figure generation."""
 

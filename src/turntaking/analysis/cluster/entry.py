@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Domain service for ERP/TFR cluster permutation analyses."""
 

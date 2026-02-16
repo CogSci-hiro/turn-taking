@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """ERP command service: orchestrates config expansion and ERP artifact generation."""
 

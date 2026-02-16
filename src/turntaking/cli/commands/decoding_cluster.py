@@ -1,6 +1,5 @@
 """CLI wiring for decoding cluster statistics."""
 
-from __future__ import annotations
 
 import argparse
 from pathlib import Path

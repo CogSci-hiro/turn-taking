@@ -1,6 +1,5 @@
 """CLI wiring for ERP/TFR cluster permutation testing."""
 
-from __future__ import annotations
 
 import argparse
 from typing import Any

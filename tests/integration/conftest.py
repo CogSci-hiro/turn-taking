@@ -5,7 +5,6 @@ are compared against frozen baselines. All helpers default to tight numeric
 thresholds to catch subtle scientific regressions.
 """
 
-from __future__ import annotations
 
 import os
 import shutil

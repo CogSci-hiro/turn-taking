@@ -40,6 +40,19 @@ rule mixed_all:
         "PYTHONPATH='{SRC_DIR}' '{PYTHON_EXE}' -m turntaking.cli.main mixed-effect --config '{TEST_CONFIG}'"
 
 
+rule integrative_all:
+    input:
+        table=str(OUT / "mixed_effect" / "table.csv")
+    output:
+        str(OUT / "mixed_effect" / "integration" / "joint_model.csv"),
+        str(OUT / "mixed_effect" / "integration" / "interactions.csv"),
+        str(OUT / "mixed_effect" / "integration" / "random_slope.csv"),
+        str(OUT / "mixed_effect" / "integration" / "partial_correlations.csv"),
+    shell:
+        "Rscript '{REPO_ROOT}/workflow/scripts/fit_integrative_lmm.R' "
+        "--in '{input.table}' --out '{OUT}/mixed_effect/integration'"
+
+
 rule erp_cluster_all:
     input:
         str(OUT / "erp" / "duration" / "evoked-data.npy"),

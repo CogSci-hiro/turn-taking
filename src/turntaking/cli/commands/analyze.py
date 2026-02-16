@@ -1,6 +1,5 @@
 """Grouped analysis command: `turntaking analyze <target>`."""
 
-from __future__ import annotations
 
 import argparse
 from typing import Any

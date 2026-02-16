@@ -49,5 +49,6 @@ rule all:
         + TFR_OUT
         + DECODING_OUT
         + [T1_LMM]
+        + INTEGRATIVE_LMM_OUT
         + FIG_MAIN
         + FIG_SUPP

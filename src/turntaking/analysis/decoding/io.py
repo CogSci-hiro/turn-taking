@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Decoding-domain I/O helpers for scores, feature caches, and cluster outputs."""
 

@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Decoding command service: resolves config/overrides and runs group decoding."""
 

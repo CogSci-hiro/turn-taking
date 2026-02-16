@@ -7,7 +7,6 @@ changes during refactoring.
 Do not relax tolerances without an experimental justification.
 """
 
-from __future__ import annotations
 
 from pathlib import Path
 

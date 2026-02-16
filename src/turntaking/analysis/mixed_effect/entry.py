@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """Service entrypoint for mixed-effect table generation."""
 

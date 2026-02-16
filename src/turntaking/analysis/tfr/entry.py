@@ -1,4 +1,3 @@
-from __future__ import annotations
 
 """TFR command service: expands config inputs and writes induced-TFR artifacts."""
 

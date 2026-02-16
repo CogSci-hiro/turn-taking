@@ -32,6 +32,12 @@ def heavy_mem_mb() -> int:
 
 
 T1_LMM = str(out_dir() / "mixed_effect" / "lmm" / "tables" / "models.csv")
+INTEGRATIVE_LMM_OUT = [
+    str(out_dir() / "mixed_effect" / "integration" / "joint_model.csv"),
+    str(out_dir() / "mixed_effect" / "integration" / "interactions.csv"),
+    str(out_dir() / "mixed_effect" / "integration" / "random_slope.csv"),
+    str(out_dir() / "mixed_effect" / "integration" / "partial_correlations.csv"),
+]
 
 
 def erp_contrasts() -> list[str]:
@@ -245,3 +251,15 @@ rule lmm_fit:
           --run_as_factor FALSE
         touch {MIXED_ROOT}/lmm/models/.done
         """
+
+
+rule fit_integrative_lmm:
+    input:
+        table=MIXED_ROOT + "/table.csv"
+    output:
+        joint_model=MIXED_ROOT + "/integration/joint_model.csv",
+        interactions=MIXED_ROOT + "/integration/interactions.csv",
+        random_slope=MIXED_ROOT + "/integration/random_slope.csv",
+        partial_correlations=MIXED_ROOT + "/integration/partial_correlations.csv",
+    script:
+        "../scripts/fit_integrative_lmm.R"

@@ -1,6 +1,5 @@
 """CLI wiring for ERP generation."""
 
-from __future__ import annotations
 
 import argparse
 from typing import Any

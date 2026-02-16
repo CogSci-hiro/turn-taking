@@ -1,6 +1,5 @@
 """ERP topomap renderer with static/SVG format switching."""
 
-from __future__ import annotations
 
 import argparse
 from pathlib import Path

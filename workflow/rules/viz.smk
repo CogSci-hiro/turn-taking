@@ -31,6 +31,7 @@ ERP_ROOT = out_dir() / "erp"
 TFR_ROOT = out_dir() / "tfr"
 DECODING_ROOT = out_dir() / "decoding" / "erp"
 STATS_ROOT = out_dir() / "stats"
+FIG_FORMATS = ("tif", "eps", "png")
 
 
 def _erp_condition_files(contrast: str) -> tuple[str, str]:
@@ -106,27 +107,61 @@ DECODING_CLUSTER_OUT = expand(
 
 
 FIG_MAIN = [
-    str(FIG_ROOT / "main" / "F_behavior.tif"),
-    str(FIG_ROOT / "main" / "F_erp_timecourse.tif"),
-    str(FIG_ROOT / "main" / "F_erp_topomap.tif"),
-    str(FIG_ROOT / "main" / "F_tfr_topomap.tif"),
-    str(FIG_ROOT / "main" / "F_decoding.tif"),
+    str((FIG_ROOT / "main" / "F_behavior").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "main" / "F_erp_timecourse").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "main" / "F_erp_topomap").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "main" / "F_tfr_topomap").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "main" / "F_decoding").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
 ]
 
 FIG_SUPP = [
-    str(FIG_ROOT / "supp" / "S1_response_duration_hist.tif"),
-    str(FIG_ROOT / "supp" / "S2_previous_speech_duration_hist.tif"),
-    str(FIG_ROOT / "supp" / "S3_long_joint.tif"),
-    str(FIG_ROOT / "supp" / "S3_short_joint.tif"),
-    str(FIG_ROOT / "supp" / "S3_fast_joint.tif"),
-    str(FIG_ROOT / "supp" / "S3_slow_joint.tif"),
-    str(FIG_ROOT / "main" / "F_erp_timecourse_hist.tif"),
-    str(FIG_ROOT / "supp" / "F_erp_topo_duration.tif"),
-    str(FIG_ROOT / "supp" / "F_erp_topo_latency.tif"),
-    str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_duration.tif"),
-    str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_latency.tif"),
-    str(FIG_ROOT / "supp" / "F_tfr_topo_beta_duration.tif"),
-    str(FIG_ROOT / "supp" / "F_tfr_topo_beta_latency.tif"),
+    str((FIG_ROOT / "supp" / "S1_response_duration_hist").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "S2_previous_speech_duration_hist").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "S3_long_joint").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "S3_short_joint").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "S3_fast_joint").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "S3_slow_joint").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "main" / "F_erp_timecourse_hist").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "F_erp_topo_duration").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "F_erp_topo_latency").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "F_tfr_topo_alpha_duration").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "F_tfr_topo_alpha_latency").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "F_tfr_topo_beta_duration").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "supp" / "F_tfr_topo_beta_latency").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
 ]
 
 
@@ -151,7 +186,9 @@ rule fig_erp_timecourse:
         config=CONFIGFILE,
         erp=ERP_OUT,
     output:
-        fig=str(FIG_ROOT / "main" / "F_erp_timecourse.tif"),
+        tif=str(FIG_ROOT / "main" / "F_erp_timecourse.tif"),
+        eps=str(FIG_ROOT / "main" / "F_erp_timecourse.eps"),
+        png=str(FIG_ROOT / "main" / "F_erp_timecourse.png"),
     threads:
         heavy_threads()
     resources:
@@ -169,8 +206,12 @@ rule fig_erp_topos:
         erp=ERP_OUT,
         clusters=ERP_CLUSTER_OUT,
     output:
-        duration=str(FIG_ROOT / "supp" / "F_erp_topo_duration.tif"),
-        latency=str(FIG_ROOT / "supp" / "F_erp_topo_latency.tif"),
+        duration_tif=str(FIG_ROOT / "supp" / "F_erp_topo_duration.tif"),
+        duration_eps=str(FIG_ROOT / "supp" / "F_erp_topo_duration.eps"),
+        duration_png=str(FIG_ROOT / "supp" / "F_erp_topo_duration.png"),
+        latency_tif=str(FIG_ROOT / "supp" / "F_erp_topo_latency.tif"),
+        latency_eps=str(FIG_ROOT / "supp" / "F_erp_topo_latency.eps"),
+        latency_png=str(FIG_ROOT / "supp" / "F_erp_topo_latency.png"),
     threads:
         heavy_threads()
     resources:
@@ -188,10 +229,18 @@ rule fig_tfr_topos:
         tfr=TFR_OUT,
         clusters=TFR_CLUSTER_OUT,
     output:
-        alpha_duration=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_duration.tif"),
-        alpha_latency=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_latency.tif"),
-        beta_duration=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_duration.tif"),
-        beta_latency=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_latency.tif"),
+        alpha_duration_tif=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_duration.tif"),
+        alpha_duration_eps=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_duration.eps"),
+        alpha_duration_png=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_duration.png"),
+        alpha_latency_tif=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_latency.tif"),
+        alpha_latency_eps=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_latency.eps"),
+        alpha_latency_png=str(FIG_ROOT / "supp" / "F_tfr_topo_alpha_latency.png"),
+        beta_duration_tif=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_duration.tif"),
+        beta_duration_eps=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_duration.eps"),
+        beta_duration_png=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_duration.png"),
+        beta_latency_tif=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_latency.tif"),
+        beta_latency_eps=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_latency.eps"),
+        beta_latency_png=str(FIG_ROOT / "supp" / "F_tfr_topo_beta_latency.png"),
     threads:
         heavy_threads()
     resources:
@@ -210,13 +259,27 @@ rule fig_behavior:
         duration_offsets=str(out_dir() / "erp" / "duration" / "offsets.csv"),
         latency_offsets=str(out_dir() / "erp" / "latency" / "offsets.csv"),
     output:
-        main=str(FIG_ROOT / "main" / "F_behavior.tif"),
-        s1=str(FIG_ROOT / "supp" / "S1_response_duration_hist.tif"),
-        s2=str(FIG_ROOT / "supp" / "S2_previous_speech_duration_hist.tif"),
-        s3_long=str(FIG_ROOT / "supp" / "S3_long_joint.tif"),
-        s3_short=str(FIG_ROOT / "supp" / "S3_short_joint.tif"),
-        s3_fast=str(FIG_ROOT / "supp" / "S3_fast_joint.tif"),
-        s3_slow=str(FIG_ROOT / "supp" / "S3_slow_joint.tif"),
+        main_tif=str(FIG_ROOT / "main" / "F_behavior.tif"),
+        main_eps=str(FIG_ROOT / "main" / "F_behavior.eps"),
+        main_png=str(FIG_ROOT / "main" / "F_behavior.png"),
+        s1_tif=str(FIG_ROOT / "supp" / "S1_response_duration_hist.tif"),
+        s1_eps=str(FIG_ROOT / "supp" / "S1_response_duration_hist.eps"),
+        s1_png=str(FIG_ROOT / "supp" / "S1_response_duration_hist.png"),
+        s2_tif=str(FIG_ROOT / "supp" / "S2_previous_speech_duration_hist.tif"),
+        s2_eps=str(FIG_ROOT / "supp" / "S2_previous_speech_duration_hist.eps"),
+        s2_png=str(FIG_ROOT / "supp" / "S2_previous_speech_duration_hist.png"),
+        s3_long_tif=str(FIG_ROOT / "supp" / "S3_long_joint.tif"),
+        s3_long_eps=str(FIG_ROOT / "supp" / "S3_long_joint.eps"),
+        s3_long_png=str(FIG_ROOT / "supp" / "S3_long_joint.png"),
+        s3_short_tif=str(FIG_ROOT / "supp" / "S3_short_joint.tif"),
+        s3_short_eps=str(FIG_ROOT / "supp" / "S3_short_joint.eps"),
+        s3_short_png=str(FIG_ROOT / "supp" / "S3_short_joint.png"),
+        s3_fast_tif=str(FIG_ROOT / "supp" / "S3_fast_joint.tif"),
+        s3_fast_eps=str(FIG_ROOT / "supp" / "S3_fast_joint.eps"),
+        s3_fast_png=str(FIG_ROOT / "supp" / "S3_fast_joint.png"),
+        s3_slow_tif=str(FIG_ROOT / "supp" / "S3_slow_joint.tif"),
+        s3_slow_eps=str(FIG_ROOT / "supp" / "S3_slow_joint.eps"),
+        s3_slow_png=str(FIG_ROOT / "supp" / "S3_slow_joint.png"),
     threads:
         heavy_threads()
     resources:
@@ -234,7 +297,9 @@ rule fig_decoding:
         decoding=DECODING_OUT,
         clusters=DECODING_CLUSTER_OUT,
     output:
-        fig=str(FIG_ROOT / "main" / "F_decoding.tif"),
+        tif=str(FIG_ROOT / "main" / "F_decoding.tif"),
+        eps=str(FIG_ROOT / "main" / "F_decoding.eps"),
+        png=str(FIG_ROOT / "main" / "F_decoding.png"),
     threads:
         heavy_threads()
     resources:
@@ -273,6 +338,8 @@ rule fig_erp_topomap_tif:
         config=CONFIGFILE,
     output:
         tif=str(FIG_ROOT / "main" / "F_erp_topomap.tif"),
+        eps=str(FIG_ROOT / "main" / "F_erp_topomap.eps"),
+        png=str(FIG_ROOT / "main" / "F_erp_topomap.png"),
     shell:
         r"""
         set -euo pipefail
@@ -286,6 +353,8 @@ rule fig_erp_topomap_tif:
           --config "{input.config}" \
           --in-svg "{input.svg}" \
           --out-tif "{output.tif}" \
+          --out-png "{output.png}" \
+          --out-eps "{output.eps}" \
           --dpi 300
         """
 
@@ -317,6 +386,8 @@ rule fig_tfr_topomap_tif:
         config=CONFIGFILE,
     output:
         tif=str(FIG_ROOT / "main" / "F_tfr_topomap.tif"),
+        eps=str(FIG_ROOT / "main" / "F_tfr_topomap.eps"),
+        png=str(FIG_ROOT / "main" / "F_tfr_topomap.png"),
     shell:
         r"""
         set -euo pipefail
@@ -330,6 +401,8 @@ rule fig_tfr_topomap_tif:
           --config "{input.config}" \
           --in-svg "{input.svg}" \
           --out-tif "{output.tif}" \
+          --out-png "{output.png}" \
+          --out-eps "{output.eps}" \
           --dpi 300
         """
 
@@ -340,7 +413,9 @@ rule fig_erp_latency_with_hist:
         mixed_table=str(out_dir() / "mixed_effect" / "table.csv"),
         erp=ERP_OUT,
     output:
-        fig=str(FIG_ROOT / "main" / "F_erp_timecourse_hist.tif"),
+        tif=str(FIG_ROOT / "main" / "F_erp_timecourse_hist.tif"),
+        eps=str(FIG_ROOT / "main" / "F_erp_timecourse_hist.eps"),
+        png=str(FIG_ROOT / "main" / "F_erp_timecourse_hist.png"),
     threads:
         heavy_threads()
     resources:
