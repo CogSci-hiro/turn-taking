@@ -6,7 +6,7 @@ from typing import Any
 import mne
 import numpy as np
 
-from turntaking.analysis.io.cluster import read_cluster_outputs
+from turntaking.analysis.erp.io import read_cluster_outputs
 
 # =============================================================================
 #                     ########################################
