@@ -7,7 +7,7 @@ import mne
 import numpy as np
 import pandas as pd
 
-from turntaking.analysis.io.epochs import load_epochs, parse_epochs_filepath
+from turntaking.analysis.utils.epochs import load_epochs, parse_epochs_filepath
 from turntaking.analysis.selection import Contrast, SelectionParams, select_epochs, split_epochs_median
 
 Kind = Literal["erp", "tfr"]
