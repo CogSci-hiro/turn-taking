@@ -63,6 +63,19 @@ rule erp:
         """
 
 
+rule erp_all:
+    input:
+        expand(f"{ERP_ROOT}/{{contrast}}/difference_ave.fif", contrast=CONTRASTS),
+        expand(f"{ERP_ROOT}/{{contrast}}/evoked-data.npy", contrast=CONTRASTS),
+        expand(f"{ERP_ROOT}/{{contrast}}/n_trials.csv", contrast=CONTRASTS),
+        expand(f"{ERP_ROOT}/{{contrast}}/metadata.hdf5", contrast=CONTRASTS),
+        expand(f"{ERP_ROOT}/{{contrast}}/offsets.csv", contrast=CONTRASTS),
+        f"{ERP_ROOT}/duration/long_ave.fif",
+        f"{ERP_ROOT}/duration/short_ave.fif",
+        f"{ERP_ROOT}/latency/fast_ave.fif",
+        f"{ERP_ROOT}/latency/slow_ave.fif"
+
+
 rule tfr:
     input:
         configfile=CONFIGFILE
@@ -86,12 +99,24 @@ rule tfr:
         """
 
 
+rule tfr_all:
+    input:
+        expand(f"{TFR_ROOT}/{{contrast}}/{{band}}/difference_ave.fif", contrast=CONTRASTS, band=BANDS),
+        expand(f"{TFR_ROOT}/{{contrast}}/{{band}}/induced-data.npy", contrast=CONTRASTS, band=BANDS),
+        expand(f"{TFR_ROOT}/{{contrast}}/{{band}}/n_trials.csv", contrast=CONTRASTS, band=BANDS),
+        expand(f"{TFR_ROOT}/{{contrast}}/{{band}}/metadata.hdf5", contrast=CONTRASTS, band=BANDS),
+        expand(f"{TFR_ROOT}/duration/{{band}}/long_ave.fif", band=BANDS),
+        expand(f"{TFR_ROOT}/duration/{{band}}/short_ave.fif", band=BANDS),
+        expand(f"{TFR_ROOT}/latency/{{band}}/fast_ave.fif", band=BANDS),
+        expand(f"{TFR_ROOT}/latency/{{band}}/slow_ave.fif", band=BANDS),
+
+
 rule decoding:
     input:
-        config="workflow/config.yaml"
+        configfile=CONFIGFILE
     output:
-        scores=DECODING_ROOT + "/{contrast}/scores.npy",
-        times=DECODING_ROOT + "/{contrast}/times.npy",
+        scores=f"{DECODING_ROOT}/{{contrast}}/scores.npy",
+        times=f"{DECODING_ROOT}/{{contrast}}/times.npy",
     threads:
         heavy_threads()
     resources:
@@ -100,22 +125,22 @@ rule decoding:
         r"""
         set -euo pipefail
         python -m turntaking.cli.main decoding \
-          --config "{input.config}" \
+          --config "{input.configfile}" \
           --contrast "{wildcards.contrast}"
         """
 
 
 rule decoding_all:
     input:
-        expand(DECODING_ROOT + "/{contrast}/scores.npy", contrast=CONTRASTS),
-        expand(DECODING_ROOT + "/{contrast}/times.npy", contrast=CONTRASTS),
+        expand(f"{DECODING_ROOT}/{{contrast}}/scores.npy", contrast=CONTRASTS),
+        expand(f"{DECODING_ROOT}/{{contrast}}/times.npy", contrast=CONTRASTS),
 
 
 rule mixed_effect:
     input:
-        config="workflow/config.yaml"
+        configfile=CONFIGFILE
     output:
-        table=MIXED_ROOT + "/table.csv"
+        table=f"{MIXED_ROOT}/table.csv"
     threads:
         light_threads()
     resources:
