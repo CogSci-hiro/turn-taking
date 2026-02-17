@@ -62,6 +62,31 @@ def test_decode_subject_temporal_generalization_returns_scores(monkeypatch):
     assert out.shape == (3, 5, 5)
 
 
+def test_decode_subject_temporal_generalization_avoids_nested_parallelism(monkeypatch):
+    """Ensures only one layer of joblib parallelism is active during decoding."""
+    params = DecodingRunParams(n_splits=3, seed=0, n_jobs=4)
+    X = np.zeros((8, 2, 5))
+    y = np.array([0, 1, 0, 1, 0, 1, 0, 1])
+
+    class _DummyGE:
+        def __init__(self, *args, **kwargs):
+            self.kwargs = kwargs
+
+    def fake_cross_val_multiscore(decoder, X_in, y_in, cv, n_jobs, verbose):
+        assert isinstance(decoder, _DummyGE)
+        assert decoder.kwargs["n_jobs"] == 4
+        assert X_in.shape == X.shape
+        assert y_in.shape == y.shape
+        assert n_jobs == 1
+        assert verbose == "ERROR"
+        return np.ones((3, 5, 5))
+
+    monkeypatch.setattr("turntaking.analysis.decoding.run_decoding.GeneralizingEstimator", _DummyGE)
+    monkeypatch.setattr("turntaking.analysis.decoding.run_decoding.cross_val_multiscore", fake_cross_val_multiscore)
+    out = decode_subject_temporal_generalization(X, y, params)
+    assert out.shape == (3, 5, 5)
+
+
 def test_run_group_decoding_uses_cache_path_and_sorts_subjects(monkeypatch, tmp_path):
     """Ensures cached feature loading path is used and subject ordering is deterministic."""
     calls: list[str] = []

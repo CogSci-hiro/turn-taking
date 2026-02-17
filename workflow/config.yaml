@@ -140,3 +140,10 @@ viz:
   erp_hist:
     xlim_ms: [ -1500, 500 ]
     ylim_uv: [ -2.8, 1.9 ]
+
+input_csv: "dev/temp/table.csv"
+fallback_input_csv:
+  - "/mnt/data/table.csv"
+  - "tests/fixtures/expected/mixed_effect/table.csv"
+output_dir: "reports/minimal_model_tests"
+use_raw: false

@@ -2,10 +2,6 @@
 
 from pathlib import Path
 
-conda:
-    CONDA_PY_ENV
-
-
 def active_configfile() -> str:
     cfgs = list(getattr(workflow, "overwrite_configfiles", []))
     if not cfgs:
@@ -32,12 +28,41 @@ def heavy_mem_mb() -> int:
 
 
 T1_LMM = str(out_dir() / "mixed_effect" / "lmm" / "tables" / "models.csv")
-INTEGRATIVE_LMM_OUT = [
-    str(out_dir() / "mixed_effect" / "integration" / "joint_model.csv"),
-    str(out_dir() / "mixed_effect" / "integration" / "interactions.csv"),
-    str(out_dir() / "mixed_effect" / "integration" / "random_slope.csv"),
-    str(out_dir() / "mixed_effect" / "integration" / "partial_correlations.csv"),
+INTEGRATIVE_LMM_OUT = []
+
+def parse_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "t"}
+
+def resolve_minimal_input_csv() -> str:
+    primary = config.get("input_csv", "dev/temp/table.csv")
+    fallback = config.get("fallback_input_csv", ["/mnt/data/table.csv"])
+    candidates = [primary]
+    if isinstance(fallback, str):
+        candidates.append(fallback)
+    else:
+        candidates.extend(list(fallback))
+    for candidate in candidates:
+        if Path(candidate).exists():
+            return str(candidate)
+    raise ValueError(
+        "No input CSV found. Checked: "
+        + ", ".join(candidates)
+        + ". Update the active workflow config: input_csv or fallback_input_csv."
+    )
+
+MINIMAL_MODEL_OUT_DIR = Path(config.get("output_dir", "reports/minimal_model_tests"))
+MINIMAL_MODEL_USE_RAW = parse_bool(config.get("use_raw", False))
+MINIMAL_MODEL_FULL_REPORT = str(MINIMAL_MODEL_OUT_DIR / "full_report.md")
+MINIMAL_MODEL_CONDENSED_CSV = str(MINIMAL_MODEL_OUT_DIR / "condensed_table.csv")
+MINIMAL_MODEL_CONDENSED_MD = str(MINIMAL_MODEL_OUT_DIR / "condensed_table.md")
+MINIMAL_MODEL_TESTS_OUT = [
+    MINIMAL_MODEL_FULL_REPORT,
+    MINIMAL_MODEL_CONDENSED_CSV,
+    MINIMAL_MODEL_CONDENSED_MD,
 ]
+MINIMAL_MODEL_TEST_OUT = MINIMAL_MODEL_TESTS_OUT
 
 
 def erp_contrasts() -> list[str]:
@@ -255,13 +280,21 @@ rule lmm_fit:
         """
 
 
-rule fit_integrative_lmm:
+rule minimal_model_tests:
     input:
-        table=MIXED_ROOT + "/table.csv"
+        table=lambda wildcards: resolve_minimal_input_csv()
     output:
-        joint_model=MIXED_ROOT + "/integration/joint_model.csv",
-        interactions=MIXED_ROOT + "/integration/interactions.csv",
-        random_slope=MIXED_ROOT + "/integration/random_slope.csv",
-        partial_correlations=MIXED_ROOT + "/integration/partial_correlations.csv",
-    script:
-        "../scripts/fit_integrative_lmm.R"
+        full_report=MINIMAL_MODEL_FULL_REPORT,
+        condensed_csv=MINIMAL_MODEL_CONDENSED_CSV,
+        condensed_md=MINIMAL_MODEL_CONDENSED_MD,
+    params:
+        outdir=str(MINIMAL_MODEL_OUT_DIR),
+        use_raw="true" if MINIMAL_MODEL_USE_RAW else "false",
+    shell:
+        r"""
+        set -euo pipefail
+        Rscript scripts/minimal_model_tests.R \
+          --in "{input.table}" \
+          --outdir "{params.outdir}" \
+          --use_raw "{params.use_raw}"
+        """

@@ -64,11 +64,15 @@ def decode_subject_temporal_generalization(
     if X.shape[0] != y.shape[0]:
         raise ValueError(f"Trial mismatch: X has {X.shape[0]}, y has {y.shape[0]}.")
 
+    # Use a single parallelism layer to avoid multiplicative workers/memory.
+    estimator_n_jobs = max(1, int(params.n_jobs))
+    cv_n_jobs = 1
+
     classifier = make_pipeline(StandardScaler(), LinearSVC())
 
     decoder = GeneralizingEstimator(
         classifier,
-        n_jobs=params.n_jobs,
+        n_jobs=estimator_n_jobs,
         scoring="roc_auc",
         verbose="ERROR",
     )
@@ -84,7 +88,7 @@ def decode_subject_temporal_generalization(
         X,
         y,
         cv=cv,
-        n_jobs=params.n_jobs,
+        n_jobs=cv_n_jobs,
         verbose="ERROR",
     )
     return scores
