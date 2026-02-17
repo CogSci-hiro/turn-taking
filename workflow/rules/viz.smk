@@ -121,6 +121,12 @@ FIG_MAIN = [
 ] + [
     str((FIG_ROOT / "main" / "F_decoding").with_suffix(f".{ext}"))
     for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "main" / "F_lrt_comparisons_duration").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
+] + [
+    str((FIG_ROOT / "main" / "F_lrt_comparisons_latency").with_suffix(f".{ext}"))
+    for ext in FIG_FORMATS
 ]
 
 FIG_SUPP = [
@@ -308,6 +314,33 @@ rule fig_decoding:
         r"""
         set -euo pipefail
         python -m turntaking.cli.main viz --config "{input.config}" decoding --mode figure
+        """
+
+
+rule fig_lrt_comparisons:
+    """
+    LRT comparisons table figure (duration + latency).
+    """
+    input:
+        lrt_csv=str(out_dir() / "mixed_effect" / "lmm" / "tables" / "lrt_comparisons.csv"),
+    output:
+        duration_tif=str(FIG_ROOT / "main" / "F_lrt_comparisons_duration.tif"),
+        duration_eps=str(FIG_ROOT / "main" / "F_lrt_comparisons_duration.eps"),
+        duration_png=str(FIG_ROOT / "main" / "F_lrt_comparisons_duration.png"),
+        latency_tif=str(FIG_ROOT / "main" / "F_lrt_comparisons_latency.tif"),
+        latency_eps=str(FIG_ROOT / "main" / "F_lrt_comparisons_latency.eps"),
+        latency_png=str(FIG_ROOT / "main" / "F_lrt_comparisons_latency.png"),
+    threads: 1
+    resources:
+        mem_mb=heavy_mem_mb()
+    shell:
+        r"""
+        set -euo pipefail
+        python scripts/make_lrt_table_figures.py \
+          --lrt-csv "{input.lrt_csv}" \
+          --out-dir "{FIG_ROOT}/main" \
+          --out-stem "F_lrt_comparisons" \
+          --profile jneuro_2col
         """
 
 

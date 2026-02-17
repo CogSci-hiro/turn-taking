@@ -32,6 +32,15 @@ get_lme4_messages <- function(mod) {
   paste(msg, collapse = " | ")
 }
 
+fdr_bh <- function(p) {
+  # p.adjust() can behave inconsistently around NA handling across workflows;
+  # make NA-handling explicit and deterministic.
+  out <- rep(NA_real_, length(p))
+  ok <- !is.na(p)
+  if (any(ok)) out[ok] <- stats::p.adjust(p[ok], method = "BH")
+  out
+}
+
 model_overview_row <- function(model_id, outcome, predictor, roi, window, family, kind, mod) {
   tibble(
     model_id = model_id,
@@ -450,6 +459,14 @@ fixed_df <- bind_rows(all_fixed_effects) %>%
   arrange(model_id, kind, term)
 
 lrt_df <- bind_rows(all_lrt) %>%
+  mutate(
+    lrt_p_fdr_global = fdr_bh(lrt_p)
+  ) %>%
+  group_by(outcome) %>%
+  mutate(
+    lrt_p_fdr_outcome = fdr_bh(lrt_p)
+  ) %>%
+  ungroup() %>%
   arrange(outcome, family, window, roi, model_id)
 
 readr::write_csv(models_df, file.path(out_tables, "models.csv"))

@@ -240,7 +240,9 @@ rule lmm_fit:
         table=MIXED_ROOT + "/table.csv"
     output:
         models_dir=MIXED_ROOT + "/lmm/models/.done",
-        tables_dir=MIXED_ROOT + "/lmm/tables/models.csv",
+        models_csv=MIXED_ROOT + "/lmm/tables/models.csv",
+        fixed_effects_csv=MIXED_ROOT + "/lmm/tables/fixed_effects.csv",
+        lrt_comparisons_csv=MIXED_ROOT + "/lmm/tables/lrt_comparisons.csv",
     shell:
         r"""
         mkdir -p {MIXED_ROOT}/lmm/models

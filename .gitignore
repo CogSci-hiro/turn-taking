@@ -75,3 +75,10 @@ tests/fixtures/_tmp_config.yaml
 # Local snapshots / misc
 # -----------------------------------------------------------------------------
 project_snapshot.md
+
+# -----------------------------------------------------------------------------
+# Sphinx documentation builds
+# -----------------------------------------------------------------------------
+docs/_build/
+# sphinx-gallery writes generated .rst into the gallery dir by default
+docs/source/auto_examples/*.rst
