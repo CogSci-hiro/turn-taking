@@ -82,3 +82,5 @@ project_snapshot.md
 docs/_build/
 # sphinx-gallery writes generated .rst into the gallery dir by default
 docs/source/auto_examples/*.rst
+# sphinx-gallery images output
+docs/source/auto_examples/images/
