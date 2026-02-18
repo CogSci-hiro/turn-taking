@@ -52,7 +52,7 @@ def resolve_minimal_input_csv() -> str:
         + ". Update the active workflow config: input_csv or fallback_input_csv."
     )
 
-MINIMAL_MODEL_OUT_DIR = Path(config.get("output_dir", "reports/minimal_model_tests"))
+MINIMAL_MODEL_OUT_DIR = Path(config.get("minimal_model_out_dir", out_dir() / "mixed_effect"))
 MINIMAL_MODEL_USE_RAW = parse_bool(config.get("use_raw", False))
 MINIMAL_MODEL_FULL_REPORT = str(MINIMAL_MODEL_OUT_DIR / "full_report.md")
 MINIMAL_MODEL_CONDENSED_CSV = str(MINIMAL_MODEL_OUT_DIR / "condensed_table.csv")

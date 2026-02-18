@@ -145,5 +145,7 @@ input_csv: "dev/temp/table.csv"
 fallback_input_csv:
   - "/mnt/data/table.csv"
   - "tests/fixtures/expected/mixed_effect/table.csv"
-output_dir: "reports/minimal_model_tests"
+# Optional override for minimal-model test outputs.
+# Defaults to: paths.out_dir/mixed_effect
+# minimal_model_out_dir: "/path/to/output/mixed_effect"
 use_raw: false
