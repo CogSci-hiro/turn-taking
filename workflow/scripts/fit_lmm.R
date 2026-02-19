@@ -429,6 +429,22 @@ for (i in seq_len(nrow(grid))) {
   delta_bic    <- BIC(full_mod) - BIC(base_mod)
   delta_loglik <- as.numeric(logLik(full_mod) - logLik(base_mod))
 
+  # Extract predictor fixed-effect beta/se from the full model.
+  full_coef <- as.data.frame(summary(full_mod)$coefficients)
+  full_coef$term <- rownames(full_coef)
+  rownames(full_coef) <- NULL
+  pred_row <- full_coef[full_coef$term == predictor, , drop = FALSE]
+  predictor_beta <- if (nrow(pred_row) > 0 && "Estimate" %in% colnames(pred_row)) {
+    as.numeric(pred_row$Estimate[[1]])
+  } else {
+    NA_real_
+  }
+  predictor_se <- if (nrow(pred_row) > 0 && "Std. Error" %in% colnames(pred_row)) {
+    as.numeric(pred_row$`Std. Error`[[1]])
+  } else {
+    NA_real_
+  }
+
   # ----------------------------------------------------------------------------
   # Store LRT summary row
   # ----------------------------------------------------------------------------
@@ -444,6 +460,8 @@ for (i in seq_len(nrow(grid))) {
     lrt_chisq     = lrt_stat,
     lrt_df        = lrt_df,
     lrt_p         = lrt_p,
+    beta          = predictor_beta,
+    se            = predictor_se,
     delta_AIC     = delta_aic,
     delta_BIC     = delta_bic,
     delta_logLik  = delta_loglik
