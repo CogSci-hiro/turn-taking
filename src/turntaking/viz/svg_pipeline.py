@@ -436,7 +436,7 @@ def export_text_svg(
             out_svg=Path("parts/ptext_duration.svg"),
             lines=[
                 "Topo colors: unthresholded t-values (common scale)",
-                "Markers: cluster-corrected p < 0.05",
+                "Markers: cluster-corrected p < 0.01",
             ],
         )
     """

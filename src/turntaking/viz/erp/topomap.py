@@ -44,7 +44,7 @@ def _svg_cfg(cfg: Any) -> tuple[argparse.Namespace, Any]:
         info_source_fif=resolve_from_out_dir(cfg, "erp/duration/difference_ave.fif"),
         duration_cluster_hdf5=resolve_from_out_dir(cfg, "stats/erp/duration/cluster_results.hdf5"),
         latency_cluster_hdf5=resolve_from_out_dir(cfg, "stats/erp/latency/cluster_results.hdf5"),
-        p_threshold=float(cfg_get_optional(cfg, "viz", "erp_topomaps", "p_threshold", default=0.05)),
+        p_threshold=float(cfg_get_optional(cfg, "viz", "erp_topomaps", "p_threshold", default=0.01)),
         n_duration_maps=int(cfg_get_optional(cfg, "viz", "erp_topomaps", "n_duration_maps", default=2)),
         n_latency_maps=int(cfg_get_optional(cfg, "viz", "erp_topomaps", "n_latency_maps", default=3)),
     )

@@ -5,7 +5,7 @@ import argparse
 from pathlib import Path
 from typing import Any
 
-def add_subparser(subparsers: argparse._SubParsersAction) -> None:
+def add_subparser(subparsers) -> None:
     parser = subparsers.add_parser(
         "mixed-effect",
         help="Export trial-level CSV table for R mixed-effects models.",

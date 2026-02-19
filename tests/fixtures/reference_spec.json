@@ -1,0 +1,23 @@
+{
+  "reference_root": "tests/fixtures/expected",
+  "global_tolerances": {
+    "max_abs_error": 0.01,
+    "mean_abs_error": 0.001,
+    "min_pearson_r": 0.99
+  },
+  "comparisons": [
+    {
+      "name": "duration_evoked_data",
+      "actual": "erp/duration/evoked-data.npy"
+    },
+    {
+      "name": "latency_offsets",
+      "actual": "erp/latency/offsets.csv",
+      "tolerances": {
+        "max_abs_error": 0.02,
+        "mean_abs_error": 0.002,
+        "min_pearson_r": 0.98
+      }
+    }
+  ]
+}

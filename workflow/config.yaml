@@ -118,7 +118,7 @@ viz:
         max_cols: 10
         p_threshold: 0.01
       svg:
-        p_threshold: 0.05
+        p_threshold: 0.01
         n_duration_maps: 2
         n_latency_maps: 3
     tfr:
@@ -133,7 +133,7 @@ viz:
         n_duration_maps: 2
         n_latency_maps: 3
   decoding:
-    p_threshold: 0.05
+    p_threshold: 0.01
     figure_profile: "jneuro_2col"
     ymax: 0.65
     lim: 0.04

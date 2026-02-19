@@ -152,7 +152,7 @@ class VizErpTopomapsSection:
     duration_cluster_hdf5: Path = Path(".")
     latency_cluster_hdf5: Path = Path(".")
 
-    p_threshold: float = 0.05
+    p_threshold: float = 0.01
     n_duration_maps: int = 2
     n_latency_maps: int = 3
 
@@ -209,7 +209,7 @@ class VizTfrTopomapsSection:
             info_source_fif: "/path/to/tfr/.../difference_ave.fif"
             alpha_cluster_hdf5: "/path/to/.../alpha/cluster_results.hdf5"
             beta_cluster_hdf5: "/path/to/.../beta/cluster_results.hdf5"
-            p_threshold: 0.05
+            p_threshold: 0.01
             n_duration_maps: 2
             n_latency_maps: 3
     """
@@ -374,7 +374,7 @@ def _parse_viz_erp_topomaps(viz_d: dict[str, Any], *, base_out_dir: Path) -> Viz
         info_source_fif=_resolve_viz_default_path(section, "info_source_fif", base_out_dir=base_out_dir, default="erp/duration/difference_ave.fif"),
         duration_cluster_hdf5=_resolve_viz_default_path(section, "duration_cluster_hdf5", base_out_dir=base_out_dir, default="stats/erp/duration/cluster_results.hdf5"),
         latency_cluster_hdf5=_resolve_viz_default_path(section, "latency_cluster_hdf5", base_out_dir=base_out_dir, default="stats/erp/latency/cluster_results.hdf5"),
-        p_threshold=float(section.get("p_threshold", 0.05)),
+        p_threshold=float(section.get("p_threshold", 0.01)),
         n_duration_maps=int(section.get("n_duration_maps", 2)),
         n_latency_maps=int(section.get("n_latency_maps", 3)),
     )
