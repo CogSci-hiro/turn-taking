@@ -8,10 +8,10 @@ dataset:
   subjects:
     mode: "from_epochs"
     exclude:
-    - "sub-001"
-    - "sub-002"
-    - "sub-003"
-    - "sub-032"
+    - "sub-001"  # only 32-electrodes
+    - "sub-002"  # only 32-electrodes
+    - "sub-003"  # bad electrode placement
+    - "sub-032"  # bad signal
     include: []
   tasks:
   - "conversation"
