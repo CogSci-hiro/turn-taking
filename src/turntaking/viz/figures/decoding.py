@@ -85,6 +85,12 @@ def plot_decoding(
         gridspec_kw={"height_ratios": [1, 4], "wspace": 0.1, "hspace": 0.1},
     )
 
+    # Hide x tick labels on the top row to prevent overlap with TG panels
+    for ax in axes[0, :]:
+        ax.tick_params(axis="x", which="both", labelbottom=False)
+        ax.set_xlabel("")  # just in case _plot_diagonal sets one
+        ax.set_xticks([])
+
     duration_clusters_ = _as_generalization_clusters(duration_clusters)
     latency_clusters_ = _as_generalization_clusters(latency_clusters)
 
@@ -133,9 +139,15 @@ def plot_decoding(
     )
 
     # Colorbar
-    cbar = fig.add_axes([0.93, 0.1, 0.02, 0.8])  # noqa
+    bbox = axes[1, 1].get_position()
+    cbar = fig.add_axes([
+        0.93,  # x position
+        bbox.y0,  # bottom aligned with TG
+        0.02,  # width
+        bbox.height  # match TG height
+    ])
     fig.colorbar(im, cax=cbar)
-    cbar.set_label("AUC")
+    cbar.set_title("ROC\nAUC", pad=6, fontsize=10)
 
     fig.tight_layout()
     return fig
