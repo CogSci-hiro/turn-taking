@@ -2,9 +2,7 @@
 
 
 from dataclasses import dataclass
-from math import floor
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -155,9 +153,29 @@ def plot_behavior(df: pd.DataFrame, n_bins: int = DEFAULT_N_BINS) -> plt.Figure:
     lat_edges = _make_edges(LATENCY_XLIM_S, BIN_WIDTH_S)
     dur_edges = _make_edges(DURATION_XLIM_S, BIN_WIDTH_S)
 
+    # Duration
+    duration_median = float(df_included[cols.self_duration].median())
+    axes[0].hist(df_included[cols.self_duration], bins=dur_edges, facecolor="gray")
+    axes[0].set_ylabel("Count", fontsize=FONT_SIZE)
+
+    ymax = axes[0].get_ylim()[1]
+    axes[0].vlines(x=duration_median, ymin=0, ymax=ymax, colors="salmon", linestyles=":")
+    axes[0].text(
+        x=duration_median + 0.05,
+        y=1300,
+        s=f"{int(duration_median * 1e3)} ms",
+        fontsize=FONT_SIZE,
+    )
+
+    axes[0].set_title("Response duration", fontsize=TITLE_FONT_SIZE)
+    axes[0].set_xlabel("Response duration (s)", fontsize=FONT_SIZE)
+    axes[0].tick_params(axis="both", which="major", labelsize=FONT_SIZE)
+    axes[0].yaxis.set_ticks_position("left")
+    axes[0].yaxis.set_label_position("left")
+
     # Latency
     latency_median = float(df_included[cols.latency].median())
-    _, _, patches = axes[0].hist(df_plot_latency[cols.latency], bins=lat_edges)
+    _, _, patches = axes[1].hist(df_plot_latency[cols.latency], bins=lat_edges)
 
     # Set colors (keeps your original styling behavior)
     bin_centers = 0.5 * (lat_edges[:-1] + lat_edges[1:])
@@ -167,38 +185,23 @@ def plot_behavior(df: pd.DataFrame, n_bins: int = DEFAULT_N_BINS) -> plt.Figure:
         else:
             patch.set_facecolor("lightgray")
 
-    axes[0].vlines(x=latency_median, ymin=0, ymax=1600, colors="salmon", linestyles=":")
-    axes[0].text(
+    ymax = axes[1].get_ylim()[1]
+    axes[1].vlines(x=latency_median, ymin=0, ymax=ymax, colors="salmon", linestyles=":")
+    axes[1].text(
         x=latency_median + 0.05,
         y=1500,
         s=f"{int(latency_median * 1e3)} ms",
         fontsize=FONT_SIZE,
     )
 
-    axes[0].set_title("Response latency", fontsize=TITLE_FONT_SIZE)
-    axes[0].set_xlabel("Response latency (s)", fontsize=FONT_SIZE)
-    axes[0].set_xlim(-MAX_LATENCY_S, MAX_LATENCY_S)
-    axes[0].set_xticks(np.arange(-MAX_LATENCY_S, MAX_LATENCY_S + 0.01, 1.0))
-    axes[0].set_ylabel("Count", fontsize=FONT_SIZE)
-    axes[0].tick_params(axis="both", which="major", labelsize=FONT_SIZE)
-
-    # Duration
-    duration_median = float(df_included[cols.self_duration].median())
-    axes[1].hist(df_included[cols.self_duration], bins=dur_edges, facecolor="gray")
-
-    axes[1].vlines(x=duration_median, ymin=0, ymax=1400, colors="salmon", linestyles=":")
-    axes[1].text(
-        x=duration_median + 0.05,
-        y=1300,
-        s=f"{int(duration_median * 1e3)} ms",
-        fontsize=FONT_SIZE,
-    )
-
-    axes[1].set_title("Response duration", fontsize=TITLE_FONT_SIZE)
-    axes[1].set_xlabel("Response duration (s)", fontsize=FONT_SIZE)
+    axes[1].set_title("Response latency", fontsize=TITLE_FONT_SIZE)
+    axes[1].set_xlabel("Response latency (s)", fontsize=FONT_SIZE)
+    axes[1].set_xlim(-MAX_LATENCY_S, MAX_LATENCY_S)
+    axes[1].set_xticks(np.arange(-MAX_LATENCY_S, MAX_LATENCY_S + 0.01, 1.0))
     axes[1].set_ylabel("")
-    axes[1].yaxis.tick_right()
     axes[1].tick_params(axis="both", which="major", labelsize=FONT_SIZE)
+    axes[1].yaxis.set_ticks_position("right")
+    axes[1].yaxis.set_label_position("right")
 
     plt.subplots_adjust(wspace=0, hspace=0)
     fig.tight_layout()
@@ -239,8 +242,9 @@ def plot_response_duration_hist(duration_df: pd.DataFrame, latency_df: pd.DataFr
     sns.histplot(duration_df, x=cols.self_duration, hue=cols.condition, ax=axes[0], bins=n_bins, palette=duration_palette)
     sns.histplot(latency_df, x=cols.self_duration, hue=cols.condition, ax=axes[1], bins=n_bins, palette=latency_palette)
 
-    axes[0].set_title("Response duration: duration contrast")
-    axes[1].set_title("Response duration: latency contrast")
+    fig.suptitle("Response duration")
+    axes[0].set_title("Duration contrast")
+    axes[1].set_title("Latency contrast")
 
     axes[0].set_xlabel("Duration (s)")
     axes[1].set_xlabel("Duration (s)")
@@ -276,16 +280,17 @@ def plot_other_duration(duration_df: pd.DataFrame, latency_df: pd.DataFrame) -> 
     latency_palette = [LATENCY_COLOR_1, LATENCY_COLOR_2]
 
     fig, axes = plt.subplots(1, 2, figsize=(10, 5))
+    fig.suptitle("Previous speech")
 
     sns.histplot(duration_df, x=cols.other_duration, hue=cols.condition, ax=axes[0], palette=duration_palette)
     axes[0].set_xlim(0, 8)
     axes[0].set_xlabel("Duration (s)")
-    axes[0].set_title("Previous speech duration: duration contrast")
+    axes[0].set_title("Duration contrast")
 
     sns.histplot(latency_df, x=cols.other_duration, hue=cols.condition, ax=axes[1], palette=latency_palette)
     axes[1].set_xlim(0, 8)
     axes[1].set_xlabel("Duration (s)")
-    axes[1].set_title("Previous speech duration: latency contrast")
+    axes[1].set_title("Latency contrast")
 
     return fig
 
