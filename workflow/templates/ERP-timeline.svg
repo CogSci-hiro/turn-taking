@@ -4,17 +4,17 @@
     <g transform="matrix(2,0,0,2,0,0)">
         <rect x="263.934" y="695.982" width="3180.13" height="1293.79" style="fill:white;"/>
     </g>
-    <g transform="matrix(1.37276,0,0,1,4161.89,1153.89)">
+    <g transform="matrix(1.37276,0,0,1.34937,4161.89,376.668)">
         <g id="slot_lat_cluster_ptext">
             <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
         </g>
     </g>
-    <g transform="matrix(1.37276,0,0,1,4161.89,108.163)">
+    <g transform="matrix(1.37276,0,0,1.34937,4132.52,-720.842)">
         <g id="slot_dur_cluster_ptext_2">
             <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
         </g>
     </g>
-    <g transform="matrix(1.37276,0,0,1,-766.613,108.163)">
+    <g transform="matrix(1.37276,0,0,1.34937,-771.557,-720.842)">
         <g id="slot_dur_cluster_ptext_1">
             <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
         </g>

@@ -4,12 +4,12 @@
     <g transform="matrix(2,0,0,2,0,0)">
         <rect x="263.934" y="695.982" width="3180.13" height="1293.79" style="fill:white;"/>
     </g>
-    <g transform="matrix(1.37276,0,0,1,4132.52,1105.01)">
+    <g transform="matrix(1.37276,0,0,1.34937,4132.52,327.787)">
         <g id="slot_beta_cluster_ptext">
             <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
         </g>
     </g>
-    <g transform="matrix(1.37276,0,0,1,4132.52,108.163)">
+    <g transform="matrix(1.37276,0,0,1.34937,4132.52,-720.842)">
         <g id="slot_alpha_cluster_ptext">
             <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
         </g>
