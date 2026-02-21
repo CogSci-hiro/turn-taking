@@ -10,6 +10,7 @@ import numpy as np
 from lxml import etree
 
 import matplotlib.pyplot as plt
+from matplotlib import transforms as mtransforms
 import mne
 
 
@@ -491,6 +492,7 @@ def export_ptext_svg(
     fontweight: str = "normal",
     ha: str = "center",
     va: str = "center",
+    glyph_y_scale: float = 1.08,
 ) -> None:
     """
     Export a small, deterministic SVG snippet containing centered p-value text.
@@ -545,6 +547,14 @@ def export_ptext_svg(
     ax.set_xlim(0.0, 1.0)
     ax.set_ylim(0.0, 1.0)
 
+    text_transform = (
+        mtransforms.Affine2D()
+        .translate(-0.5, -0.5)
+        .scale(1.0, float(glyph_y_scale))
+        .translate(0.5, 0.5)
+        + ax.transAxes
+    )
+
     text_artist = ax.text(
         0.5,
         0.5,
@@ -553,6 +563,7 @@ def export_ptext_svg(
         va=va,
         fontsize=fontsize_pt,
         fontweight=fontweight,
+        transform=text_transform,
     )
 
     # Fit text to slot to avoid clipping when large fonts are requested.
