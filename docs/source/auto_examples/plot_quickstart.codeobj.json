@@ -1,0 +1,38 @@
+{
+ "compute_contrast": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "turntaking.analysis.erp.core",
+   "module_short": "turntaking.analysis.erp.core",
+   "name": "compute_contrast"
+  }
+ ],
+ "np.linspace": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "numpy",
+   "module_short": "numpy",
+   "name": "linspace"
+  }
+ ],
+ "np.random.default_rng": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "numpy.random",
+   "module_short": "numpy.random",
+   "name": "default_rng"
+  }
+ ],
+ "plt.subplots": [
+  {
+   "is_class": false,
+   "is_explicit": false,
+   "module": "matplotlib.pyplot",
+   "module_short": "matplotlib.pyplot",
+   "name": "subplots"
+  }
+ ]
+}

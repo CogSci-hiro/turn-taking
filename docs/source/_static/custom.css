@@ -1,0 +1,10 @@
+/* Small, readable tweaks in the spirit of MNE's docs without copying styling. */
+
+.navbar-brand {
+  font-weight: 600;
+}
+
+code.literal {
+  font-size: 0.95em;
+}
+

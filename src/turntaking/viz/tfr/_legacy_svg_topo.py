@@ -358,6 +358,7 @@ def run(args: argparse.Namespace, cfg: Any) -> None:
             show_sensors=False,
             title=title_by_slot.get(slot_id, None),
             fig_size_in=_fig_size_from_slot(slot_bboxes, slot_id),
+            title_fontsize=25,
         )
 
     # -------------------------------------------------------------------------
@@ -386,7 +387,7 @@ def run(args: argparse.Namespace, cfg: Any) -> None:
             text=text,
             out_svg=parts_directory / f"{slot_id}.svg",
             fig_size_in=_fig_size_from_slot(slot_bboxes, slot_id),
-            fontsize_pt=10.0,
+            fontsize_pt=70,
             fontweight="normal",
         )
 

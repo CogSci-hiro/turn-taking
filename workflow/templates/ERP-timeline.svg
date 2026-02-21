@@ -4,14 +4,20 @@
     <g transform="matrix(2,0,0,2,0,0)">
         <rect x="263.934" y="695.982" width="3180.13" height="1293.79" style="fill:white;"/>
     </g>
-    <g id="slot_lat_cluster_ptext" transform="matrix(1,0,0,1,4732.83,1153.89)">
-        <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(1.37276,0,0,1,4161.89,1153.89)">
+        <g id="slot_lat_cluster_ptext">
+            <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
-    <g id="slot_dur_cluster_ptext_2" transform="matrix(1,0,0,1,4731.83,108.165)">
-        <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(1.37276,0,0,1,4161.89,108.163)">
+        <g id="slot_dur_cluster_ptext_2">
+            <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
-    <g id="slot_dur_cluster_ptext_1" transform="matrix(1,0,0,1,205.609,108.165)">
-        <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(1.37276,0,0,1,-766.613,108.163)">
+        <g id="slot_dur_cluster_ptext_1">
+            <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
     <g transform="matrix(1,0,0,1,77.132,-23.5693)">
         <g id="slot_colorbar">

@@ -4,11 +4,15 @@
     <g transform="matrix(2,0,0,2,0,0)">
         <rect x="263.934" y="695.982" width="3180.13" height="1293.79" style="fill:white;"/>
     </g>
-    <g id="slot_beta_cluster_ptext" transform="matrix(1,0,0,1,4732.83,1153.89)">
-        <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(1.37276,0,0,1,4132.52,1105.01)">
+        <g id="slot_beta_cluster_ptext">
+            <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
-    <g id="slot_alpha_cluster_ptext" transform="matrix(1,0,0,1,4731.83,108.165)">
-        <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+    <g transform="matrix(1.37276,0,0,1,4132.52,108.163)">
+        <g id="slot_alpha_cluster_ptext">
+            <rect x="1141" y="2224.62" width="400.653" height="148.217" style="fill:rgb(0,1,0);"/>
+        </g>
     </g>
     <g transform="matrix(1,0,0,1,77.132,-23.5693)">
         <g id="slot_colorbar">
@@ -20,7 +24,7 @@
             <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
         </g>
     </g>
-    <g transform="matrix(3.69667,0,0,3.69667,-2949.13,230.958)">
+    <g transform="matrix(3.69667,0,0,3.69667,-2949.13,228.851)">
         <g id="slot_alpha_tw2">
             <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
         </g>
@@ -35,21 +39,26 @@
             <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
         </g>
     </g>
-    <g transform="matrix(3.69667,0,0,3.69667,-4297.54,230.958)">
+    <g transform="matrix(3.69667,0,0,3.68505,-4297.54,235.605)">
         <g id="slot_alpha_tw1">
             <circle cx="1746.74" cy="490.394" r="90.622" style="fill:rgb(0,1,0);"/>
         </g>
     </g>
     <g transform="matrix(2,0,0,2,0,-176.38)">
         <g id="Lines" transform="matrix(1,0,0,1,0,173.447)">
-            <g transform="matrix(0.779143,0,0,0.615442,1098.27,534.301)">
+            <g transform="matrix(1.45068,0,0,0.615442,-648.057,534.301)">
                 <rect x="841.608" y="1145.91" width="1758.88" height="94.248" style="fill:rgb(58,143,225);"/>
             </g>
-            <g transform="matrix(1.32628,0,0,0.615442,-324.568,476.296)">
+            <g transform="matrix(1.26857,0,0,0.615442,-175.143,476.296)">
                 <rect x="841.608" y="1145.91" width="1758.88" height="94.248" style="fill:rgb(255,209,75);"/>
             </g>
         </g>
         <g id="Arrows" transform="matrix(1,0,0,1,0,88.19)">
+            <g transform="matrix(0.5,0,0,0.5,0,0)">
+                <path d="M2366.51,2653.59L2251.8,2364.61" style="fill:none;"/>
+                <path d="M2242.23,2475.89L2251.8,2364.61L2335.08,2439.04L2242.23,2475.89Z" style="fill:rgb(203,203,203);"/>
+                <path d="M2366.51,2653.59C2366.51,2653.59 2315.27,2524.52 2281.29,2438.89" style="fill:none;stroke:rgb(203,203,203);stroke-width:33.3px;"/>
+            </g>
             <g transform="matrix(0.999999,4.043e-08,3.27008e-07,0.999996,-0.000235278,0.00015725)">
                 <g>
                     <path d="M2634.34,1133.28L2609.57,1083.16L2664.53,1093.42L2634.34,1133.28Z" style="fill:rgb(203,203,203);"/>
@@ -60,27 +69,21 @@
                 <g>
                     <path d="M2616.01,1498.91L2600.48,1552.61L2566.83,1507.97L2616.01,1498.91Z" style="fill:rgb(203,203,203);"/>
                     <path d="M2558.49,1324.8C2558.49,1324.8 2581.22,1448.09 2593.23,1513.27" style="fill:none;stroke:rgb(203,203,203);stroke-width:16.67px;"/>
-                    <g transform="matrix(0.497105,-0.0035567,-0.00355819,0.495628,14.7196,18.0787)">
-                        <path d="M2369.38,2657.52L2159.59,2378.78" style="fill:none;"/>
-                        <g transform="matrix(1.00587,0.00722026,0.00722026,1.00887,-29.8621,-36.7026)">
-                            <path d="M2177.7,2477.76L2159.59,2378.78L2249.64,2423.68L2177.7,2477.76Z" style="fill:rgb(203,203,203);"/>
-                            <path d="M2366.18,2653.59C2366.18,2653.59 2263.43,2516.91 2202.85,2436.34" style="fill:none;stroke:rgb(203,203,203);stroke-width:30px;"/>
-                        </g>
-                    </g>
                 </g>
             </g>
-            <g transform="matrix(0.999999,1.12196e-06,-1.11905e-06,-0.594389,0.0015432,2112.25)">
+            <g transform="matrix(0.999999,-1.12196e-06,1.88268e-06,-0.999999,0.058925,2740.95)">
                 <g>
-                    <path d="M1778.94,1502.61C1783.11,1510.94 1753.94,1552.61 1753.94,1552.61L1728.94,1502.61C1728.94,1502.61 1774.77,1494.28 1778.94,1502.61Z" style="fill:rgb(203,203,203);"/>
-                    <path d="M1753.94,1324.8L1753.94,1512.61" style="fill:none;stroke:rgb(203,203,203);stroke-width:16.67px;"/>
-                    <path d="M1753.94,1324.8L1753.94,1512.61" style="fill:none;stroke:rgb(203,203,203);stroke-width:16.67px;"/>
+                    <path d="M1778.94,1502.61L1753.94,1552.61L1728.94,1502.61L1778.94,1502.61Z" style="fill:rgb(203,203,203);"/>
+                    <g transform="matrix(1,-1.60432e-06,-1.7033e-16,0.466051,-6.38574e-14,807.659)">
+                        <path d="M1753.94,1324.8L1753.94,1512.61" style="fill:none;stroke:rgb(203,203,203);stroke-width:21.34px;"/>
+                    </g>
                 </g>
             </g>
             <g transform="matrix(1,-5.04149e-07,9.3624e-07,0.999998,-0.00278768,0.00580154)">
                 <g transform="matrix(0.5,2.52075e-07,-4.68121e-07,0.500001,0.00278769,-0.00580155)">
-                    <path d="M3932.78,2649.6L2160.65,3438.48" style="fill:none;"/>
-                    <path d="M2261.17,3442.99L2160.65,3438.48L2224.57,3360.77L2261.17,3442.99Z" style="fill:rgb(203,203,203);"/>
-                    <path d="M3932.78,2649.6C3932.78,2649.6 2547.28,3266.37 2226.43,3409.2" style="fill:none;stroke:rgb(203,203,203);stroke-width:30px;"/>
+                    <path d="M3932.78,2653.59L2160.65,3381.91" style="fill:none;"/>
+                    <path d="M2272.04,3390.13L2160.65,3381.91L2234.06,3297.73L2272.04,3390.13Z" style="fill:rgb(203,203,203);"/>
+                    <path d="M3932.78,2653.59C3932.78,2653.59 2570.01,3213.67 2234.57,3351.53" style="fill:none;stroke:rgb(203,203,203);stroke-width:33.3px;"/>
                 </g>
             </g>
         </g>
@@ -106,7 +109,7 @@
             <g transform="matrix(0.999997,0,0,0.999997,0.0017706,-86.6401)">
                 <g>
                     <path d="M1574.82,1317.47C1570.22,1317.47 1566.49,1321.2 1566.49,1325.8C1566.49,1330.4 1570.22,1334.13 1574.82,1334.13C1579.42,1334.13 1583.15,1330.4 1583.15,1325.8C1583.15,1321.2 1579.42,1317.47 1574.82,1317.47ZM1574.82,1321.63C1572.52,1321.63 1570.65,1323.5 1570.65,1325.8C1570.65,1328.1 1572.52,1329.97 1574.82,1329.97C1577.12,1329.97 1578.99,1328.1 1578.99,1325.8C1578.99,1323.5 1577.12,1321.63 1574.82,1321.63Z" style="fill:none;stroke:black;stroke-width:16.67px;stroke-linejoin:miter;stroke-miterlimit:10;"/>
-                    <path d="M1583.15,1325.8C978.038,1325.8 1151.18,1325.8 1949.72,1325.8" style="fill:none;stroke:black;stroke-width:16.67px;"/>
+                    <path d="M1583.15,1325.8L1949.72,1325.8" style="fill:none;stroke:black;stroke-width:16.67px;"/>
                 </g>
             </g>
             <g transform="matrix(0.999997,0,0,0.999997,0.0090944,-86.6403)">
@@ -137,13 +140,13 @@
             <text x="0px" y="0px" style="font-family:'ArialMT', 'Arial', sans-serif;font-size:75px;">t values</text>
         </g>
     </g>
-    <g id="Duration-Label1" serif:id="Duration Label" transform="matrix(2,0,0,2,755.356,1916.68)">
+    <g id="Alpha-Label" serif:id="Alpha Label" transform="matrix(2,0,0,2,755.356,1916.68)">
         <g transform="matrix(75,0,0,75,191.821,0)">
         </g>
         <text x="0px" y="0px" style="font-family:'ArialMT', 'Arial', sans-serif;font-size:75px;">Alpha</text>
     </g>
     <g transform="matrix(2,0,0,2,755.942,3609.11)">
-        <g id="Latency-label" serif:id="Latency label">
+        <g id="Beta-label" serif:id="Beta label">
             <g transform="matrix(75,0,0,75,154.285,0)">
             </g>
             <text x="0px" y="0px" style="font-family:'ArialMT', 'Arial', sans-serif;font-size:75px;">Beta</text>

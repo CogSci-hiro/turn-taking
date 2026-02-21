@@ -545,7 +545,7 @@ def export_ptext_svg(
     ax.set_xlim(0.0, 1.0)
     ax.set_ylim(0.0, 1.0)
 
-    ax.text(
+    text_artist = ax.text(
         0.5,
         0.5,
         text,
@@ -554,6 +554,18 @@ def export_ptext_svg(
         fontsize=fontsize_pt,
         fontweight=fontweight,
     )
+
+    # Fit text to slot to avoid clipping when large fonts are requested.
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    text_bbox = text_artist.get_window_extent(renderer=renderer)
+    axes_bbox = ax.get_window_extent(renderer=renderer)
+    if text_bbox.width > 0 and text_bbox.height > 0:
+        width_scale = (axes_bbox.width * 0.94) / text_bbox.width
+        height_scale = (axes_bbox.height * 0.80) / text_bbox.height
+        fit_scale = min(1.0, float(width_scale), float(height_scale))
+        if fit_scale < 1.0:
+            text_artist.set_fontsize(float(fontsize_pt) * fit_scale)
 
     fig.subplots_adjust(left=0.0, right=1.0, bottom=0.0, top=1.0)
 
@@ -800,4 +812,3 @@ def _find_slot_anchor_bbox(
 
     x, y, w, h, _transform = rect
     return (x, y, w, h)
-
