@@ -13,10 +13,13 @@ from turntaking.stats.cluster_test import ClusterTestResult
 def _sample_cluster_result() -> ClusterTestResult:
     return ClusterTestResult(
         t_values=np.array([[1.0, 2.0], [3.0, 4.0]]),
-        clusters=[(np.array([0, 1]), np.array([1, 0]))],
-        p_values=np.array([0.04]),
+        clusters=[
+            (np.array([0, 1]), np.array([1, 0])),
+            (np.array([1, 1]), np.array([0, 1])),
+        ],
+        p_values=np.array([0.2, 0.04]),
         h0=np.array([0.1, 0.2, 0.3]),
-        metadata={"kind": "erp", "seed": 0},
+        metadata={"kind": "erp", "seed": 0, "sfreq_hz": 100.0, "data_tmin": -0.5},
     )
 
 
@@ -31,13 +34,17 @@ def test_write_and_read_cluster_outputs_round_trip(tmp_path):
     np.testing.assert_array_equal(loaded.p_values, result.p_values)
     np.testing.assert_array_equal(loaded.h0, result.h0)
     assert loaded.metadata == result.metadata
-    assert len(loaded.clusters) == 1
+    assert len(loaded.clusters) == 2
     np.testing.assert_array_equal(loaded.clusters[0][0], np.array([0, 1]))
     np.testing.assert_array_equal(loaded.clusters[0][1], np.array([1, 0]))
 
     summary = pd.read_csv(out_dir / "cluster_summary.csv")
-    assert set(["n_clusters", "min_p", "n_p_lt_0_05"]).issubset(summary.columns)
-    assert int(summary.loc[0, "n_clusters"]) == 1
+    assert set(["cluster_rank", "cluster_id", "p_value", "n_points", "time_s_min", "time_s_max"]).issubset(
+        summary.columns
+    )
+    assert summary["p_value"].tolist() == [0.04, 0.2]
+    assert summary["cluster_id"].tolist() == [1, 0]
+    assert summary["cluster_rank"].tolist() == [1, 2]
 
 
 def test_read_cluster_outputs_requires_existing_file(tmp_path):

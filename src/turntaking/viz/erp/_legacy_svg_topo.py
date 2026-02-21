@@ -425,7 +425,7 @@ def run(args: argparse.Namespace, cfg) -> None:
             text=text,
             out_svg=parts_directory / f"{slot_id}.svg",
             fig_size_in=fig_size_in,
-            fontsize_pt=60.0,
+            fontsize_pt=10.0,
             fontweight="normal",
         )
 

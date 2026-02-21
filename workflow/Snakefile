@@ -48,6 +48,9 @@ rule all:
         ERP_OUT
         + TFR_OUT
         + DECODING_OUT
+        + ERP_CLUSTER_OUT
+        + TFR_CLUSTER_OUT
+        + DECODING_CLUSTER_OUT
         + [T1_LMM]
         + MINIMAL_MODEL_TEST_OUT
         + FIG_MAIN

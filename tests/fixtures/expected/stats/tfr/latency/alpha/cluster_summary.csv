@@ -1,2 +1,1 @@
-kind,n_subjects,n_times,n_channels,n_permutations,threshold,tail,alpha,seed,n_jobs,ch_type,data_tmin,sfreq_hz,crop_left_margin,crop_right_margin,crop_sfreq_used,crop_start_idx,crop_end_idx,band,n_clusters,min_p,n_p_lt_0_05
-tfr,1,96,10,10,,0,0.01,0,1,eeg,-0.5,64.0,0.0,0.0,64.0,0,96,alpha,0,,0
+kind,n_subjects,n_times,n_channels,n_permutations,threshold,tail,alpha,seed,n_jobs,ch_type,data_tmin,sfreq_hz,crop_left_margin,crop_right_margin,crop_sfreq_used,crop_start_idx,crop_end_idx,band,cluster_rank,cluster_id,p_value,n_points,time_idx_min,time_idx_max,channel_idx_min,channel_idx_max,time_s_min,time_s_max

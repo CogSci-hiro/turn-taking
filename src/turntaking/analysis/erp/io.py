@@ -471,16 +471,63 @@ def _cluster_payload(result: ClusterTestResult) -> dict[str, Any]:
 
 def _cluster_summary(result: ClusterTestResult) -> pd.DataFrame:
     p_values = np.asarray(result.p_values, dtype=float)
-    return pd.DataFrame(
-        [
+    metadata = dict(result.metadata)
+    meta_cols = list(metadata.keys())
+    cluster_cols = [
+        "cluster_rank",
+        "cluster_id",
+        "p_value",
+        "n_points",
+        "time_idx_min",
+        "time_idx_max",
+        "channel_idx_min",
+        "channel_idx_max",
+        "time_s_min",
+        "time_s_max",
+    ]
+    if p_values.size == 0:
+        return pd.DataFrame(columns=meta_cols + cluster_cols)
+
+    sfreq_hz = float(metadata["sfreq_hz"]) if "sfreq_hz" in metadata else None
+    data_tmin = float(metadata["data_tmin"]) if "data_tmin" in metadata else None
+    rows: list[dict[str, Any]] = []
+    for cluster_id, (cluster, p_value) in enumerate(zip(result.clusters, p_values)):
+        time_idx = np.asarray(cluster[0], dtype=int) if len(cluster) >= 1 else np.array([], dtype=int)
+        channel_idx = np.asarray(cluster[1], dtype=int) if len(cluster) >= 2 else np.array([], dtype=int)
+        time_idx_min = int(np.min(time_idx)) if time_idx.size else pd.NA
+        time_idx_max = int(np.max(time_idx)) if time_idx.size else pd.NA
+        channel_idx_min = int(np.min(channel_idx)) if channel_idx.size else pd.NA
+        channel_idx_max = int(np.max(channel_idx)) if channel_idx.size else pd.NA
+        time_s_min = (
+            float(data_tmin + (time_idx_min / sfreq_hz))
+            if (time_idx.size and sfreq_hz is not None and data_tmin is not None)
+            else pd.NA
+        )
+        time_s_max = (
+            float(data_tmin + (time_idx_max / sfreq_hz))
+            if (time_idx.size and sfreq_hz is not None and data_tmin is not None)
+            else pd.NA
+        )
+        rows.append(
             {
-                **result.metadata,
-                "n_clusters": int(p_values.size),
-                "min_p": float(np.min(p_values)) if p_values.size else float("nan"),
-                "n_p_lt_0_05": int(np.sum(p_values < 0.05)) if p_values.size else 0,
+                **metadata,
+                "cluster_id": int(cluster_id),
+                "p_value": float(p_value),
+                "n_points": int(time_idx.size) if time_idx.size else 0,
+                "time_idx_min": time_idx_min,
+                "time_idx_max": time_idx_max,
+                "channel_idx_min": channel_idx_min,
+                "channel_idx_max": channel_idx_max,
+                "time_s_min": time_s_min,
+                "time_s_max": time_s_max,
             }
-        ]
+        )
+    summary = pd.DataFrame(rows)
+    summary = summary.sort_values(["p_value", "cluster_id"], ascending=[True, True], kind="mergesort").reset_index(
+        drop=True
     )
+    summary.insert(0, "cluster_rank", np.arange(1, len(summary) + 1, dtype=int))
+    return summary
 
 
 def read_cluster_outputs(path: Path) -> ClusterTestResult:
