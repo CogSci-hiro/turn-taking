@@ -75,6 +75,9 @@ tests/fixtures/_tmp_config.yaml
 # Local snapshots / misc
 # -----------------------------------------------------------------------------
 project_snapshot.md
+dev/
+project_info.py
+.mplconfig
 
 # -----------------------------------------------------------------------------
 # Sphinx documentation builds
