@@ -172,6 +172,16 @@ def plot_behavior(df: pd.DataFrame, n_bins: int = DEFAULT_N_BINS) -> plt.Figure:
     axes[0].tick_params(axis="both", which="major", labelsize=FONT_SIZE)
     axes[0].yaxis.set_ticks_position("left")
     axes[0].yaxis.set_label_position("left")
+    axes[0].text(
+        0.0,
+        1.02,
+        "(A)",
+        transform=axes[0].transAxes,
+        fontsize=TITLE_FONT_SIZE,
+        fontweight="bold",
+        ha="left",
+        va="bottom",
+    )
 
     # Latency
     latency_median = float(df_included[cols.latency].median())
@@ -202,6 +212,16 @@ def plot_behavior(df: pd.DataFrame, n_bins: int = DEFAULT_N_BINS) -> plt.Figure:
     axes[1].tick_params(axis="both", which="major", labelsize=FONT_SIZE)
     axes[1].yaxis.set_ticks_position("right")
     axes[1].yaxis.set_label_position("right")
+    axes[1].text(
+        0.0,
+        1.02,
+        "(B)",
+        transform=axes[1].transAxes,
+        fontsize=TITLE_FONT_SIZE,
+        fontweight="bold",
+        ha="left",
+        va="bottom",
+    )
 
     plt.subplots_adjust(wspace=0, hspace=0)
     fig.tight_layout()

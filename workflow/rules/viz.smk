@@ -122,10 +122,7 @@ FIG_MAIN = [
     str((FIG_ROOT / "main" / "F_decoding").with_suffix(f".{ext}"))
     for ext in FIG_FORMATS
 ] + [
-    str((FIG_ROOT / "main" / "F_lrt_comparisons_duration").with_suffix(f".{ext}"))
-    for ext in FIG_FORMATS
-] + [
-    str((FIG_ROOT / "main" / "F_lrt_comparisons_latency").with_suffix(f".{ext}"))
+    str((FIG_ROOT / "main" / "F_lrt_comparisons").with_suffix(f".{ext}"))
     for ext in FIG_FORMATS
 ]
 
@@ -319,17 +316,14 @@ rule fig_decoding:
 
 rule fig_lrt_comparisons:
     """
-    LRT comparisons table figure (duration + latency).
+    LRT comparisons table figure (duration + latency in one table).
     """
     input:
         lrt_csv=str(out_dir() / "mixed_effect" / "lmm" / "tables" / "lrt_comparisons.csv"),
     output:
-        duration_tif=str(FIG_ROOT / "main" / "F_lrt_comparisons_duration.tif"),
-        duration_eps=str(FIG_ROOT / "main" / "F_lrt_comparisons_duration.eps"),
-        duration_png=str(FIG_ROOT / "main" / "F_lrt_comparisons_duration.png"),
-        latency_tif=str(FIG_ROOT / "main" / "F_lrt_comparisons_latency.tif"),
-        latency_eps=str(FIG_ROOT / "main" / "F_lrt_comparisons_latency.eps"),
-        latency_png=str(FIG_ROOT / "main" / "F_lrt_comparisons_latency.png"),
+        tif=str(FIG_ROOT / "main" / "F_lrt_comparisons.tif"),
+        eps=str(FIG_ROOT / "main" / "F_lrt_comparisons.eps"),
+        png=str(FIG_ROOT / "main" / "F_lrt_comparisons.png"),
     threads: 1
     resources:
         mem_mb=heavy_mem_mb()

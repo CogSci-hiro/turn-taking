@@ -220,57 +220,82 @@ class TableFigure:
 
 
 def _build_table_figure(
-    df_outcome: pd.DataFrame,
+    df_all: pd.DataFrame,
     *,
     title: str,
     font_size: int,
     group_border_lw: float,
     cell_lw: float,
 ) -> TableFigure:
-    df_plot = df_outcome.copy()
-
+    df_plot = df_all.copy()
     family_order = {"erp": 0, "alpha": 1, "beta": 2}
     window_order = {"tw1": 0, "tw2": 1}
     roi_order = {"anterior": 0, "posterior": 1}
+    outcome_order = {"self_duration": 0, "duration": 0, "latency": 1}
 
     df_plot["family_rank"] = df_plot["family"].map(family_order).fillna(999).astype(int)
     df_plot["window_rank"] = df_plot["window"].map(window_order).fillna(999).astype(int)
     df_plot["roi_rank"] = df_plot["roi"].map(roi_order).fillna(999).astype(int)
-
+    df_plot["outcome_rank"] = df_plot["outcome"].map(outcome_order).fillna(999).astype(int)
     df_plot["predictor_group"] = [_family_label(family) for family in df_plot["family"]]
 
-    df_plot = df_plot.sort_values(
-        by=["family_rank", "window_rank", "roi_rank"],
-        kind="mergesort",
-    ).reset_index(drop=True)
-
-    df_plot["fdr_p"] = _fdr_bh(df_plot["lrt_p"].to_numpy(dtype=float))
-    df_plot["sig"] = [_stars(v) for v in df_plot["fdr_p"].to_numpy(dtype=float)]
-
-    # Show predictor label once per group (keeps the table compact)
-    predictor_display: list[str] = []
-    last_group: str | None = None
-    for group in df_plot["predictor_group"]:
-        if last_group == group:
-            predictor_display.append("")
-        else:
-            predictor_display.append(str(group))
-        last_group = str(group)
+    def _outcome_label(value: str) -> str:
+        if value in ("self_duration", "duration"):
+            return "Duration"
+        if value == "latency":
+            return "Latency"
+        return str(value)
 
     col_labels = ["Predictor", "TW", "ROI", "β", "SE", "χ²", "FDR p", "Sig."]
-    cell_text = [
-        [
-            predictor_display[i],
-            _window_label(df_plot.loc[i, "window"]),
-            _roi_label(df_plot.loc[i, "roi"]),
-            _format_beta_se(float(df_plot.loc[i, "beta"])),
-            _format_beta_se(float(df_plot.loc[i, "se"])),
-            _format_chisq(float(df_plot.loc[i, "lrt_chisq"])),
-            _format_p(float(df_plot.loc[i, "fdr_p"])),
-            str(df_plot.loc[i, "sig"]),
-        ]
-        for i in range(len(df_plot))
-    ]
+    cell_text: list[list[str]] = []
+    row_types: list[str] = []  # "section" | "data"
+    row_group_keys: list[str | None] = []
+
+    outcomes = (
+        df_plot[["outcome", "outcome_rank"]]
+        .drop_duplicates()
+        .sort_values(by=["outcome_rank", "outcome"], kind="mergesort")
+    )
+    for outcome in outcomes["outcome"].tolist():
+        block = df_plot[df_plot["outcome"] == outcome].copy()
+        if block.empty:
+            continue
+
+        block = block.sort_values(by=["family_rank", "window_rank", "roi_rank"], kind="mergesort").reset_index(
+            drop=True
+        )
+        block["fdr_p"] = _fdr_bh(block["lrt_p"].to_numpy(dtype=float))
+        block["sig"] = [_stars(v) for v in block["fdr_p"].to_numpy(dtype=float)]
+
+        cell_text.append([_outcome_label(str(outcome)), "", "", "", "", "", "", ""])
+        row_types.append("section")
+        row_group_keys.append(None)
+
+        predictor_display: list[str] = []
+        last_group: str | None = None
+        for group in block["predictor_group"]:
+            if last_group == group:
+                predictor_display.append("")
+            else:
+                predictor_display.append(str(group))
+            last_group = str(group)
+
+        for i in range(len(block)):
+            group_value = str(block.loc[i, "predictor_group"])
+            cell_text.append(
+                [
+                    predictor_display[i],
+                    _window_label(block.loc[i, "window"]),
+                    _roi_label(block.loc[i, "roi"]),
+                    _format_beta_se(float(block.loc[i, "beta"])),
+                    _format_beta_se(float(block.loc[i, "se"])),
+                    _format_chisq(float(block.loc[i, "lrt_chisq"])),
+                    _format_p(float(block.loc[i, "fdr_p"])),
+                    str(block.loc[i, "sig"]),
+                ]
+            )
+            row_types.append("data")
+            row_group_keys.append(f"{outcome}::{group_value}")
 
     n_rows = len(cell_text)
     fig_height_in = max(2.0, 0.17 * (n_rows + 1) + 0.25)
@@ -327,15 +352,35 @@ def _build_table_figure(
         if col == 0:  # predictor column left-aligned
             cell.get_text().set_ha("left")
 
-    # Compute group row bounds (0-based in df_plot; +1 in matplotlib table because header is row 0)
+        if row > 0:
+            row_type = row_types[row - 1]
+            if row_type == "section":
+                cell.set_facecolor("#e6ecf5")
+                if col == 0:
+                    cell.get_text().set_weight("bold")
+                else:
+                    cell.get_text().set_text("")
+                cell.set_linewidth(max(cell_lw, 1.2))
+                cell.set_edgecolor("#5f5f5f")
+
+    # Compute predictor-group row bounds from data rows (+1 in matplotlib table for header row)
     group_bounds: list[tuple[int, int]] = []
-    group_start = 0
-    for idx in range(1, len(df_plot) + 1):
-        is_last = idx == len(df_plot)
-        if is_last or (df_plot.loc[idx, "predictor_group"] != df_plot.loc[group_start, "predictor_group"]):
-            group_end = idx - 1
-            group_bounds.append((group_start, group_end))
+    group_start: int | None = None
+    for idx, key in enumerate(row_group_keys):
+        if key is None:
+            if group_start is not None:
+                group_bounds.append((group_start, idx - 1))
+                group_start = None
+            continue
+        if group_start is None:
             group_start = idx
+            continue
+        prev_key = row_group_keys[idx - 1]
+        if prev_key != key:
+            group_bounds.append((group_start, idx - 1))
+            group_start = idx
+    if group_start is not None:
+        group_bounds.append((group_start, len(row_group_keys) - 1))
 
     # Draw bold rectangles per predictor group after layout is computed.
     fig.canvas.draw()
@@ -425,7 +470,7 @@ def _parse_args() -> argparse.Namespace:
         "--out-stem",
         type=str,
         default="lrt_comparisons",
-        help="Base filename stem (without _duration/_latency or extension).",
+        help="Base filename stem (without extension).",
     )
     parser.add_argument(
         "--profile",
@@ -455,38 +500,25 @@ def main() -> None:
     df = _ensure_beta_se_columns(df, lrt_csv_path=lrt_csv)
 
     apply_style(args.profile)
+    if df.empty:
+        raise ValueError("No rows available in LRT comparisons CSV.")
 
-    outcomes = [
-        ("self_duration", "duration"),
-        ("latency", "latency"),
-    ]
+    fig_out = _build_table_figure(
+        df,
+        title="LRT comparisons",
+        font_size=int(args.font_size),
+        group_border_lw=float(args.group_border_lw),
+        cell_lw=float(args.cell_lw),
+    )
 
-    written_all: list[Path] = []
-    for outcome_key, outcome_label in outcomes:
-        df_outcome = df[df["outcome"] == outcome_key].copy()
-        if df_outcome.empty:
-            print(f"[SKIP] outcome={outcome_key!r} (no rows)")
-            continue
-
-        title = f"LRT comparisons ({outcome_label})"
-        fig_out = _build_table_figure(
-            df_outcome,
-            title=title,
-            font_size=int(args.font_size),
-            group_border_lw=float(args.group_border_lw),
-            cell_lw=float(args.cell_lw),
-        )
-
-        basepath = out_dir / f"{args.out_stem}_{outcome_label}"
-        written = _save_figure_tight(
-            fig_out.fig,
-            basepath,
-            profile_name=args.profile,
-            formats=("tif", "eps", "png"),
-            pad_inches=float(args.pad_inches),
-        )
-        written_all.extend(written)
-        plt.close(fig_out.fig)
+    written_all = _save_figure_tight(
+        fig_out.fig,
+        out_dir / args.out_stem,
+        profile_name=args.profile,
+        formats=("tif", "eps", "png"),
+        pad_inches=float(args.pad_inches),
+    )
+    plt.close(fig_out.fig)
 
     for path in written_all:
         print(f"Wrote: {path}")
